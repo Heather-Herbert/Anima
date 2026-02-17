@@ -59,3 +59,15 @@
 ## Exit Handling
 - [ ] Press `Ctrl+C` once. Verify warning: "Press Ctrl+C again to exit."
 - [ ] Press `Ctrl+C` twice. Verify application exits.
+
+## Parturition (Birth) Process
+- [ ] **Pre-conditions**: Ensure `Personality/Parturition.md` exists and `Soul.md`/`Identity.md` do not.
+- [ ] **Startup**: Run `node cli.js`.
+- [ ] **Prompt**: Verify the application asks "Who am I?".
+- [ ] **Input**: Provide a name or description (e.g., "I am Unit 734").
+- [ ] **Generation**:
+    - [ ] Verify "Gestating personality..." message.
+    - [ ] Verify `Personality/Soul.md` is created.
+    - [ ] Verify `Personality/Identity.md` is created.
+- [ ] **Cleanup**: Verify `Personality/Parturition.md` is removed.
+- [ ] **Identity**: Verify the CLI prompt uses the new agent name instead of "AI".
