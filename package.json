@@ -1,0 +1,12 @@
+{
+  "name": "anima",
+  "version": "1.0.0",
+  "description": "An Agentic CLI thing (a bit like OpenClaw but not tied to OpenAI)",
+  "main": "cli.js",
+  "scripts": {
+    "start": "node cli.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {}
+}
