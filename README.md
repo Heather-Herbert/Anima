@@ -1,60 +1,94 @@
 # Anima CLI
 
-An intelligent, CLI-based AI agent designed with persistent memory, system tool capabilities, and a unique personality generation process.
+Anima is a command-line AI agent interface designed to evolve with you. It features persistent memory, tool execution capabilities, and a unique "parturition" (birth) process that defines its personality and core directives based on your initial interaction.
 
 ## Features
 
-### 1. Parturition (Birth) Process
-Upon the first run, if the agent has not yet been initialized, it enters a "Parturition" sequence.
-- It checks for a `Personality/Parturition.md` file.
-- It asks the user a defining question ("Who am I?").
-- Using the genetic configuration and user input, it generates its own **Soul** (`Soul.md`) and **Identity** (`Identity.md`).
-- Once "born," the bootstrap file is removed, and the agent is ready.
+- **Persistent Memory**:
+  - **Short-term**: Session history is saved automatically to JSON files in `Memory/`.
+  - **Long-term**: Important facts and insights are consolidated into `Memory/memory.md` upon exit or manual save.
+- **Tool Execution**: The agent can interact with your system (read/write files, run shell commands, execute code) with user confirmation for safety.
+- **Parturition Service**: On the first run, the agent generates its own Identity (`Identity.md`) and Soul (`Soul.md`) based on user input.
+- **Flexible Configuration**: Supports custom endpoints (OpenAI, OpenRouter, etc.) and model selection via config or CLI arguments.
 
-### 2. Persistent Memory
-The agent possesses long-term memory capabilities.
-- **Session Logs**: Every conversation is logged as a JSON file in the `Memory/` directory.
-- **Consolidation**: At the end of a session (or via the `/save` command), the agent analyzes the conversation to extract important facts, preferences, and self-corrections. These are appended to `Memory/memory.md`, which is fed back into the context on subsequent runs.
+## Installation
 
-### 3. Tool Integration
-The agent can interact with the local system using defined tools. Dangerous actions require explicit user confirmation (y/N).
-- **File Operations**: Read, write, delete, list, and search files.
-- **Code Execution**: Execute JavaScript, Python, or Bash scripts.
-- **System Commands**: Run shell commands.
+1. **Clone the repository**:
+   ```bash
+   git clone <repository-url>
+   cd Anima
+   ```
 
-## Directory Structure
-
-- **`app/`**: Core application logic.
-  - `Config.js`: Loads settings.
-  - `Tools.js`: Defines available tools and their implementations.
-  - `ParturitionService.js`: Handles the initialization/birth logic.
-- **`Personality/`**: Stores Markdown files defining the agent's persona (`Soul.md`, `Identity.md`, etc.).
-- **`Memory/`**: Stores conversation history and long-term memory.
-- **`Settings/`**: Configuration location.
+2. **Install dependencies**:
+   ```bash
+   npm install
+   ```
 
 ## Configuration
 
-The application expects a configuration file at `../Settings/Anima.config` (relative to the app folder) containing JSON settings for the LLM endpoint:
-
-```json
-{
-  "endpoint": "https://api.openai.com/v1/chat/completions",
-  "apiKey": "sk-...",
-  "model": "gpt-4"
-}
-```
+1. Create a configuration file in the root directory. You can use `Anima.config.js` or `Anima.config.json`.
+2. Use the provided example as a template:
+   ```bash
+   cp Anima.config.example Anima.config.json
+   ```
+3. Edit the file with your API details:
+   ```json
+   {
+     "endpoint": "https://api.openai.com/v1/chat/completions",
+     "apiKey": "YOUR_API_KEY_HERE",
+     "model": "gpt-4-turbo-preview"
+   }
+   ```
 
 ## Usage
 
-Run the application via Node.js:
-
+Start the CLI:
 ```bash
 node cli.js
 ```
 
-### In-App Commands
-- **`/new`**: Resets the current conversation context (starts a fresh session).
-- **`/save`**: Forces an immediate memory consolidation update.
-- **`Ctrl+C`**:
-  - Press once to see a prompt to exit.
-  - Press twice to exit and save memory.
+### CLI Arguments
+
+- `--model <name>`: Override the model defined in the config file for this session.
+- `--help`, `-h`: Display help information.
+
+### In-Chat Commands
+
+- `/save`: Force a memory consolidation update immediately.
+- `/new`: Reset the current conversation context (starts a fresh session).
+- `Ctrl+C`: Press once to see exit options, press again to save memory and exit.
+
+## Capabilities
+
+### Tools
+The agent has access to the following tools defined in `app/Tools.js`. Dangerous operations require user confirmation (y/N).
+
+- `write_file`: Create or overwrite files.
+- `read_file`: Read file contents.
+- `run_command`: Execute shell commands.
+- `list_files`: List directory contents.
+- `search_files`: Grep search within files.
+- `execute_code`: Run Python, JavaScript, or Bash code in a temporary environment.
+- `file_info`: Get metadata about a file.
+- `delete_file`: Remove a file.
+
+### Memory System
+The system automatically manages context:
+1. **Loading**: On startup, it loads personality files from `Personality/*.md` and long-term memory from `Memory/memory.md`.
+2. **Consolidation**: When the session ends, the AI analyzes the conversation to extract important facts about the User, the Agent, and the World, appending them to `Memory/memory.md`.
+
+### Parturition (Initialization)
+If `Personality/Soul.md` or `Personality/Identity.md` are missing, the system enters "Parturition Mode":
+1. It asks "Who am I?".
+2. Based on your answer and the genetic configuration in `Personality/Parturition.md`, it generates its own name, role, and core directives.
+3. It saves these to the `Personality/` directory and deletes the bootstrap file.
+
+## Project Structure
+
+- `cli.js`: Main entry point and loop.
+- `app/Config.js`: Configuration loader with validation (Zod).
+- `app/Tools.js`: Tool definitions and implementations.
+- `app/ParturitionService.js`: Logic for agent initialization.
+- `app/Utils.js`: API communication helper.
+- `Memory/`: Stores session logs and consolidated memory.
+- `Personality/`: Stores system prompts and identity files.

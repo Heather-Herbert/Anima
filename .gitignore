@@ -1,3 +1,7 @@
 node_modules/
-Anima.config
+Anima.config.js
+Anima.config.json
+.env
+.DS_Store
 memory*.json
+Anima.config

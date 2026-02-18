@@ -1,19 +1,58 @@
-const fs = require('node:fs');
-const path = require('node:path');
+const { z } = require('zod');
 
-// Load configuration from ../Settings/Anima.config relative to this file
-const configPath = path.join(__dirname, '../Settings', 'Anima.config');
-let config;
+// Define the schema for the configuration
+const configSchema = z.object({
+  endpoint: z.string().url({ message: "Invalid URL for endpoint" }),
+  apiKey: z.string().min(1, { message: "API Key is required" }),
+  model: z.string().min(1, { message: "Model name is required" }),
+});
 
-try {
-  if (!fs.existsSync(configPath)) {
-    throw new Error(`Anima.config file not found at ${configPath}`);
+let loadedConfig = null;
+
+function loadConfig() {
+  if (loadedConfig) return loadedConfig;
+
+  let configData;
+  try {
+    // Try to require the configuration file from the project root
+    // This supports Anima.config.js or Anima.config.json
+    configData = require('../Anima.config');
+  } catch (error) {
+    console.error('\x1b[31mError: Configuration file not found.\x1b[0m');
+    console.error('Please ensure \x1b[33mAnima.config.js\x1b[0m or \x1b[33mAnima.config.json\x1b[0m exists in the project root.');
+    process.exit(1);
   }
-  const configFile = fs.readFileSync(configPath, 'utf8');
-  config = JSON.parse(configFile);
-} catch (error) {
-  console.error('Error loading configuration:', error.message);
-  process.exit(1);
+
+  // Validate the configuration
+  const result = configSchema.safeParse(configData);
+
+  if (!result.success) {
+    console.error('\x1b[31mConfiguration validation failed:\x1b[0m');
+    result.error.issues.forEach((issue) => {
+      console.error(` - ${issue.path.join('.')}: ${issue.message}`);
+    });
+    process.exit(1);
+  }
+
+  loadedConfig = result.data;
+  return loadedConfig;
 }
 
-module.exports = config;
+module.exports = new Proxy({}, {
+  get(target, prop) {
+    return loadConfig()[prop];
+  },
+  set(target, prop, value) {
+    loadConfig()[prop] = value;
+    return true;
+  },
+  has(target, prop) {
+    return prop in loadConfig();
+  },
+  ownKeys(target) {
+    return Reflect.ownKeys(loadConfig());
+  },
+  getOwnPropertyDescriptor(target, prop) {
+    return Reflect.getOwnPropertyDescriptor(loadConfig(), prop);
+  }
+});

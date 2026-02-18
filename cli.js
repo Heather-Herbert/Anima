@@ -5,6 +5,29 @@ const path = require('node:path');
 const config = require('./app/Config');
 const { tools, availableTools } = require('./app/Tools');
 const ParturitionService = require('./app/ParturitionService');
+const { callAI } = require('./app/Utils');
+
+// Check for model override via command line argument
+const args = process.argv.slice(2);
+
+if (args.includes('--help') || args.includes('-h')) {
+    console.log(`
+Anima CLI - AI Agent Interface
+
+Usage: node cli.js [options]
+
+Options:
+  --model <name>   Override the model defined in config (e.g., gpt-4, gpt-3.5-turbo)
+  --help, -h       Display this help message
+`);
+    process.exit(0);
+}
+
+const modelArgIndex = args.indexOf('--model');
+if (modelArgIndex !== -1 && args[modelArgIndex + 1]) {
+    config.model = args[modelArgIndex + 1];
+    console.log(`\x1b[33mModel overridden via CLI: ${config.model}\x1b[0m`);
+}
 
 const startSpinner = (text) => {
   const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
@@ -57,19 +80,7 @@ const updateMemory = async () => {
   ];
 
   try {
-      const response = await fetch(config.endpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${config.apiKey}`
-          },
-          body: JSON.stringify({
-            model: config.model || "gpt-3.5-turbo",
-            messages: messagesForConsolidation
-          })
-      });
-
-      const data = await response.json();
+      const data = await callAI(messagesForConsolidation);
       const content = data.choices?.[0]?.message?.content;
 
       if (content && content.trim() !== 'NO_UPDATE') {
@@ -137,19 +148,13 @@ async function main() {
     if (await parturition.isParturitionRequired()) {
         await parturition.performParturition(async (prompt) => {
             process.stdout.write('\x1b[33mGestating...\x1b[0m\n');
-            const response = await fetch(config.endpoint, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${config.apiKey}`
-                },
-                body: JSON.stringify({
-                    model: config.model || "gpt-3.5-turbo",
-                    messages: [{ role: "user", content: prompt }]
-                })
-            });
-            const data = await response.json();
-            return data.choices?.[0]?.message?.content || "";
+            try {
+                const data = await callAI([{ role: "user", content: prompt }]);
+                return data.choices?.[0]?.message?.content || "";
+            } catch (error) {
+                console.error(`\n\x1b[31mError: ${error.message}\x1b[0m`);
+                process.exit(1);
+            }
         });
     }
 
@@ -209,22 +214,7 @@ async function main() {
         try {
         let processing = true;
         while (processing) {
-            const response = await fetch(config.endpoint, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${config.apiKey}`,
-                'HTTP-Referer': 'https://github.com/HeatherHerbert/Anima', // Optional: For OpenRouter rankings
-                'X-Title': 'Anima CLI' // Optional: For OpenRouter rankings
-            },
-            body: JSON.stringify({
-                model: config.model || "gpt-3.5-turbo",
-                messages: conversationHistory,
-                tools: tools
-            })
-            });
-
-            const data = await response.json();
+            const data = await callAI(conversationHistory, tools);
             const message = data.choices?.[0]?.message;
 
             if (message.tool_calls) {
