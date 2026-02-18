@@ -107,6 +107,20 @@ const tools = [
   {
     type: "function",
     function: {
+      name: "file_info",
+      description: "Get metadata about a file (size, creation time, etc.)",
+      parameters: {
+        type: "object",
+        properties: {
+          path: { type: "string", description: "Relative path to the file" }
+        },
+        required: ["path"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
       name: "delete_file",
       description: "Delete a file",
       parameters: {

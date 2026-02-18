@@ -1,8 +1,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-// Load configuration from ../../Settings/Anima.config relative to this file
-const configPath = path.join(__dirname, '../../Settings', 'Anima.config');
+// Load configuration from ../Settings/Anima.config relative to this file
+const configPath = path.join(__dirname, '../Settings', 'Anima.config');
 let config;
 
 try {
