@@ -73,7 +73,7 @@ const updateMemory = async () => {
       const content = data.choices?.[0]?.message?.content;
 
       if (content && content.trim() !== 'NO_UPDATE') {
-          const memoryFile = path.join(__dirname, '../Memory', 'memory.md');
+          const memoryFile = path.join(__dirname, 'Memory', 'memory.md');
           const timestamp = new Date().toISOString().split('T')[0];
           const entry = `\n\n## Session ${timestamp}\n${content}`;
           
@@ -99,13 +99,17 @@ const updateStatus = (text) => {
 
 const conversationHistory = [];
 const generateHistoryPath = () => {
-  return path.join(__dirname, '../Memory', `memory-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
+  const memoryDir = path.join(__dirname, 'Memory');
+  if (!fs.existsSync(memoryDir)) {
+    fs.mkdirSync(memoryDir, { recursive: true });
+  }
+  return path.join(memoryDir, `memory-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
 };
 let historyPath = generateHistoryPath();
 
 // Load system prompt from markdown files in 'Personality' directory and 'Memory/memory.md'
 const loadPersona = () => {
-  const personaDir = path.join(__dirname, '../Personality');
+  const personaDir = path.join(__dirname, 'Personality');
   let systemPrompt = '';
 
   if (fs.existsSync(personaDir)) {
@@ -115,7 +119,7 @@ const loadPersona = () => {
     console.log(`Loaded personality from ${files.length} file(s).`);
   }
 
-  const memoryFile = path.join(__dirname, '../Memory', 'memory.md');
+  const memoryFile = path.join(__dirname, 'Memory', 'memory.md');
   if (fs.existsSync(memoryFile)) {
     const memoryContent = fs.readFileSync(memoryFile, 'utf8');
     systemPrompt += '\n\n' + memoryContent;
@@ -128,7 +132,7 @@ const loadPersona = () => {
 };
 
 async function main() {
-    const parturition = new ParturitionService(path.join(__dirname, '../'));
+    const parturition = new ParturitionService(__dirname);
 
     if (await parturition.isParturitionRequired()) {
         await parturition.performParturition(async (prompt) => {
