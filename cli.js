@@ -214,7 +214,32 @@ async function main() {
         try {
         let processing = true;
         while (processing) {
-            const data = await callAI(conversationHistory, tools);
+            let data;
+            let attempts = 0;
+            const maxAttempts = 3;
+
+            while (true) {
+                try {
+                    attempts++;
+                    data = await callAI(conversationHistory, tools);
+                    
+                    // Basic validation of response structure
+                    if (!data || !data.choices || !data.choices[0] || !data.choices[0].message) {
+                        throw new Error("Malformed response from AI provider");
+                    }
+                    break;
+                } catch (error) {
+                    if (attempts >= maxAttempts || error.message.includes('401') || error.message.includes('403')) {
+                        throw error;
+                    }
+                    
+                    stopSpinner(spinner);
+                    console.log(`\n\x1b[33m[Attempt ${attempts}/${maxAttempts}] Request failed: ${error.message}. Retrying...\x1b[0m`);
+                    spinner = startSpinner(`${agentName} is thinking...`);
+                    await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
+                }
+            }
+
             const message = data.choices?.[0]?.message;
 
             if (message.tool_calls) {
@@ -270,7 +295,8 @@ async function main() {
         }
         } catch (error) {
           stopSpinner(spinner);
-          console.error('Error:', error.message);
+          console.error(`\n\x1b[31mError: ${error.message}\x1b[0m`);
+          console.log(`\x1b[90mThe session is still active. Please try again.\x1b[0m`);
         }
 
         process.stdout.write('\n');
