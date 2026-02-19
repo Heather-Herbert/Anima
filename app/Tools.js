@@ -278,10 +278,14 @@ const availableTools = {
       fs.writeFileSync(fullPath, code);
       
       return new Promise((resolve) => {
-          exec(command, (error, stdout, stderr) => {
+          exec(command, { timeout: 10000 }, (error, stdout, stderr) => {
               try { fs.unlinkSync(fullPath); } catch(e) {}
               if (error) {
-                  resolve(`Error: ${error.message}\nStderr: ${stderr}`);
+                  if (error.killed) {
+                      resolve(`Error: Execution timed out after 10 seconds.`);
+                  } else {
+                      resolve(`Error: ${error.message}\nStderr: ${stderr}`);
+                  }
               } else {
                   resolve(stdout || stderr || "Code executed successfully.");
               }

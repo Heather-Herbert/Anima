@@ -254,17 +254,32 @@ async function main() {
                     const functionName = toolCall.function.name;
                     const functionArgs = JSON.parse(toolCall.function.arguments);
 
-                    let confirmed = true;
-                    if (['write_file', 'run_command', 'execute_code', 'delete_file'].includes(functionName)) {
-                        const answer = await new Promise(resolve => {
-                            rl.question(`\x1b[33mAllow ${functionName} with args ${JSON.stringify(functionArgs)}? (y/N): \x1b[0m`, resolve);
-                        });
-                        confirmed = answer.trim().toLowerCase() === 'y';
-                    }
+                    let toolResult;
+                    const dangerousTools = ['write_file', 'run_command', 'execute_code', 'delete_file', 'replace_in_file'];
 
-                    const toolResult = confirmed 
-                    ? await availableTools[functionName](functionArgs)
-                    : "User denied tool execution.";
+                    if (dangerousTools.includes(functionName)) {
+                        let warning = '';
+                        if (functionName === 'run_command') warning = `\x1b[31mCOMMAND: ${functionArgs.command}\x1b[0m`;
+                        else if (functionName === 'delete_file') warning = `\x1b[31mDELETE: ${functionArgs.path}\x1b[0m`;
+                        else if (functionName === 'write_file') warning = `\x1b[31mWRITE: ${functionArgs.path}\x1b[0m`;
+                        else if (functionName === 'replace_in_file') warning = `\x1b[31mREPLACE IN: ${functionArgs.path}\nSEARCH: ${functionArgs.search}\nREPLACE: ${functionArgs.replace}\x1b[0m`;
+                        else if (functionName === 'execute_code') warning = `\x1b[31mEXECUTE (${functionArgs.language}):\n${functionArgs.code}\x1b[0m`;
+                        else warning = `\x1b[31mARGS: ${JSON.stringify(functionArgs)}\x1b[0m`;
+
+                        console.log(`\n\x1b[33m⚠️  DANGEROUS OPERATION DETECTED:\x1b[0m`);
+                        console.log(warning);
+
+                        const answer = await new Promise(resolve => {
+                            rl.question(`\x1b[33mAllow ${functionName}? (y/N/d[ry-run]): \x1b[0m`, resolve);
+                        });
+                        
+                        const input = answer.trim().toLowerCase();
+                        if (input === 'y') toolResult = await availableToolsfunctionName;
+                        else if (input === 'd') toolResult = "Dry run: Tool execution simulated successfully. No changes made.";
+                        else toolResult = "User denied tool execution.";
+                    } else {
+                        toolResult = await availableToolsfunctionName;
+                    }
 
                     conversationHistory.push({
                         role: "tool",
