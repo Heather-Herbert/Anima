@@ -6,6 +6,7 @@ const callAI = async (messages, tools = null) => {
   // Map of supported providers to their implementation files
   const providers = {
     'openrouter': './plugins/OpenRouter',
+    'ollama': './plugins/Ollama',
     // Add other providers here, e.g., 'openai': './providers/OpenAI'
   };
 

@@ -3,9 +3,9 @@ const path = require('path');
 const mainConfig = require('../Config');
 
 const loadProviderConfig = () => {
-  const configPath = path.join(__dirname, '../../config/openrouter.json');
+  const configPath = path.join(__dirname, '../../settings/openrouter.json');
   if (!fs.existsSync(configPath)) {
-    throw new Error(`OpenRouter configuration file not found at ${configPath}. Please create it with endpoint, apiKey, and model.`);
+    throw new Error(`OpenRouter configuration file not found at ${configPath}. Please create it in the settings folder with endpoint, apiKey, and model.`);
   }
   return JSON.parse(fs.readFileSync(configPath, 'utf8'));
 };
@@ -37,7 +37,7 @@ const completion = async (messages, tools = null) => {
   });
 
   if (response.status === 401 || response.status === 403) {
-    throw new Error(`Invalid or expired API Key (HTTP ${response.status}). Please check config/openrouter.json.`);
+    throw new Error(`Invalid or expired API Key (HTTP ${response.status}). Please check settings/openrouter.json.`);
   }
 
   if (!response.ok) {
