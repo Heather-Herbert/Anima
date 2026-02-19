@@ -5,17 +5,11 @@ const path = require('path');
 const callAI = async (messages, tools = null) => {
   const providerName = config.LLMProvider || 'openrouter';
   
-  // Map of supported providers to their implementation files
-  const providers = {
-    'openrouter': './plugins/OpenRouter',
-    'ollama': './plugins/Ollama',
-    // Add other providers here, e.g., 'openai': './providers/OpenAI'
-  };
-
-  const providerPath = providers[providerName.toLowerCase()];
+  // Dynamic provider loading from plugins directory
+  const providerPath = path.join(__dirname, 'plugins', `${providerName}.js`);
   
-  if (!providerPath) {
-    throw new Error(`Unknown provider: ${providerName}. Supported providers: ${Object.keys(providers).join(', ')}`);
+  if (!fs.existsSync(providerPath)) {
+    throw new Error(`Unknown provider: ${providerName}. Plugin file not found at ${providerPath}`);
   }
 
   const provider = require(providerPath);

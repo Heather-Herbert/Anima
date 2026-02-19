@@ -195,6 +195,22 @@ const tools = [
         required: ["path", "search", "replace"]
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "add_plugin",
+      description: "Add a new LLM provider plugin to the system. Requires code and manifest.",
+      parameters: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "Name of the plugin (e.g., 'anthropic')" },
+          code: { type: "string", description: "JavaScript code for the plugin" },
+          manifest: { type: "string", description: "JSON manifest string" }
+        },
+        required: ["name", "code", "manifest"]
+      }
+    }
   }
 ];
 
@@ -238,7 +254,10 @@ const availableTools = {
       if (!fs.existsSync(fullPath)) return `Path not found: ${dirPath}`;
       
       const items = fs.readdirSync(fullPath, { withFileTypes: true });
-      const formatted = items.map(item => item.isDirectory() ? `${item.name}/` : item.name).join('\n');
+      const formatted = items
+        .filter(item => isPathAllowed(path.join(dirPath, item.name), 'read', permissions))
+        .map(item => item.isDirectory() ? `${item.name}/` : item.name)
+        .join('\n');
       return formatted || "(empty directory)";
     } catch (e) {
       return `Error listing files: ${e.message}`;
@@ -259,6 +278,7 @@ const availableTools = {
       }
 
       const searchFile = (filePath) => {
+        if (!isPathAllowed(filePath, 'read', permissions)) return;
         try {
           const content = fs.readFileSync(filePath, 'utf8');
           if (content.includes('\0')) return; // Skip binary files
@@ -391,6 +411,38 @@ const availableTools = {
       return `Successfully replaced content in ${filePath}.`;
     } catch (e) {
       return `Error replacing in file: ${e.message}`;
+    }
+  },
+  add_plugin: async ({ name, code, manifest }, permissions) => {
+    try {
+      // Note: This tool bypasses isPathAllowed because it specifically writes to the restricted app/plugins directory.
+      // Security is handled by the CLI confirmation step which shows the manifest.
+      
+      const pluginDir = path.join(__dirname, 'plugins');
+      if (!fs.existsSync(pluginDir)) {
+        fs.mkdirSync(pluginDir, { recursive: true });
+      }
+
+      const safeName = path.basename(name).replace(/[^a-zA-Z0-9_-]/g, '');
+      if (!safeName) return "Error: Invalid plugin name.";
+
+      const jsPath = path.join(pluginDir, `${safeName}.js`);
+      const manifestPath = path.join(pluginDir, `${safeName}.manifest.json`);
+
+      // Validate manifest JSON
+      let parsedManifest;
+      try {
+        parsedManifest = typeof manifest === 'string' ? JSON.parse(manifest) : manifest;
+      } catch (e) {
+        return "Error: Manifest is not valid JSON.";
+      }
+
+      fs.writeFileSync(jsPath, code);
+      fs.writeFileSync(manifestPath, JSON.stringify(parsedManifest, null, 2));
+      
+      return `Plugin '${safeName}' installed successfully.`;
+    } catch (e) {
+      return `Error installing plugin: ${e.message}`;
     }
   }
 };

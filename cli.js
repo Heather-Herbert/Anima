@@ -18,6 +18,7 @@ Usage: node cli.js [options]
 
 Options:
   --model <name>   Override the model defined in config (e.g., gpt-4, gpt-3.5-turbo)
+  --add-plugin <source>  Install a plugin from a local JS file or a URL to a .zip file
   --help, -h       Display this help message
 `);
     process.exit(0);
@@ -27,6 +28,84 @@ const modelArgIndex = args.indexOf('--model');
 if (modelArgIndex !== -1 && args[modelArgIndex + 1]) {
     config.model = args[modelArgIndex + 1];
     console.log(`\x1b[33mModel overridden via CLI: ${config.model}\x1b[0m`);
+}
+
+// Handle --add-plugin argument
+const addPluginIndex = args.indexOf('--add-plugin');
+if (addPluginIndex !== -1 && args[addPluginIndex + 1]) {
+    const pluginSource = args[addPluginIndex + 1];
+    let code, manifest, name;
+
+    if (pluginSource.startsWith('http://') || pluginSource.startsWith('https://')) {
+        console.log(`\x1b[36mDownloading plugin from ${pluginSource}...\x1b[0m`);
+        try {
+            const response = await fetch(pluginSource);
+            if (!response.ok) throw new Error(`Failed to download: ${response.status} ${response.statusText}`);
+            const arrayBuffer = await response.arrayBuffer();
+            const buffer = Buffer.from(arrayBuffer);
+
+            let AdmZip;
+            try {
+                AdmZip = require('adm-zip');
+            } catch (e) {
+                console.error('\x1b[31mError: adm-zip is required for URL plugins. Please run "npm install"\x1b[0m');
+                process.exit(1);
+            }
+
+            const zip = new AdmZip(buffer);
+            const zipEntries = zip.getEntries();
+
+            const manifestEntry = zipEntries.find(entry => entry.entryName.endsWith('.manifest.json') && !entry.isDirectory);
+            if (!manifestEntry) throw new Error("No .manifest.json found in the zip archive.");
+
+            manifest = manifestEntry.getData().toString('utf8');
+            
+            // Expect the JS file to be named similarly to the manifest (e.g., Plugin.manifest.json -> Plugin.js)
+            // and located in the same directory structure within the zip
+            const jsEntryName = manifestEntry.entryName.replace(/\.manifest\.json$/, '.js');
+            const jsEntry = zipEntries.find(entry => entry.entryName === jsEntryName);
+            
+            if (!jsEntry) throw new Error(`No corresponding .js file found (expected ${jsEntryName})`);
+
+            code = jsEntry.getData().toString('utf8');
+            name = path.basename(jsEntryName, '.js');
+
+        } catch (error) {
+            console.error(`\x1b[31mError processing plugin: ${error.message}\x1b[0m`);
+            process.exit(1);
+        }
+    } else {
+        const absolutePath = path.resolve(pluginSource);
+        if (!fs.existsSync(absolutePath)) {
+            console.error(`\x1b[31mError: Plugin file not found at ${absolutePath}\x1b[0m`);
+            process.exit(1);
+        }
+        const pathObj = path.parse(absolutePath);
+        const manifestPath = path.join(pathObj.dir, `${pathObj.name}.manifest.json`);
+        if (!fs.existsSync(manifestPath)) {
+            console.error(`\x1b[31mError: Manifest file not found at ${manifestPath}\x1b[0m`);
+            process.exit(1);
+        }
+        code = fs.readFileSync(absolutePath, 'utf8');
+        manifest = fs.readFileSync(manifestPath, 'utf8');
+        name = pathObj.name;
+    }
+
+    console.log(`\n\x1b[36mInstalling Plugin: ${name}\x1b[0m`);
+    console.log(`\x1b[33mMANIFEST:\n${manifest}\x1b[0m`);
+
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    rl.question(`\nAllow installation of plugin '${name}'? (y/N): `, async (answer) => {
+        if (answer.trim().toLowerCase() === 'y') {
+            const result = await availableTools.add_plugin({ name, code, manifest });
+            console.log(`\n${result}`);
+        } else {
+            console.log("\nInstallation cancelled.");
+        }
+        rl.close();
+        process.exit(0);
+    });
+    return; // Stop execution of main CLI
 }
 
 const startSpinner = (text) => {
@@ -269,7 +348,7 @@ async function main() {
                     }
 
                     let toolResult;
-                    const dangerousTools = ['write_file', 'run_command', 'execute_code', 'delete_file', 'replace_in_file'];
+                    const dangerousTools = ['write_file', 'run_command', 'execute_code', 'delete_file', 'replace_in_file', 'add_plugin'];
 
                     if (dangerousTools.includes(functionName)) {
                         let warning = '';
@@ -278,6 +357,7 @@ async function main() {
                         else if (functionName === 'write_file') warning = `\x1b[31mWRITE: ${functionArgs.path}\x1b[0m`;
                         else if (functionName === 'replace_in_file') warning = `\x1b[31mREPLACE IN: ${functionArgs.path}\nSEARCH: ${functionArgs.search}\nREPLACE: ${functionArgs.replace}\x1b[0m`;
                         else if (functionName === 'execute_code') warning = `\x1b[31mEXECUTE (${functionArgs.language}):\n${functionArgs.code}\x1b[0m`;
+                        else if (functionName === 'add_plugin') warning = `\x1b[31mADD PLUGIN: ${functionArgs.name}\x1b[0m\n\x1b[33mMANIFEST:\n${functionArgs.manifest}\x1b[0m`;
                         else warning = `\x1b[31mARGS: ${JSON.stringify(functionArgs)}\x1b[0m`;
 
                         console.log(`\n\x1b[33m⚠️  DANGEROUS OPERATION DETECTED:\x1b[0m`);
@@ -288,11 +368,11 @@ async function main() {
                         });
                         
                         const input = answer.trim().toLowerCase();
-                        if (input === 'y') toolResult = await availableToolsfunctionName;
+                        if (input === 'y') toolResult = await availableTools[functionName](functionArgs, manifest.permissions);
                         else if (input === 'd') toolResult = "Dry run: Tool execution simulated successfully. No changes made.";
                         else toolResult = "User denied tool execution.";
                     } else {
-                        toolResult = await availableToolsfunctionName;
+                        toolResult = await availableTools[functionName](functionArgs, manifest.permissions);
                     }
 
                     conversationHistory.push({

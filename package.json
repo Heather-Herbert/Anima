@@ -21,7 +21,8 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "zod": "^3.22.4"
+    "zod": "^3.22.4",
+    "adm-zip": "^0.5.10"
   },
   "devDependencies": {
     "eslint": "^8.57.0",
