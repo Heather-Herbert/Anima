@@ -67,6 +67,7 @@ const updateMemory = async () => {
       1. Important facts about the **User** (preferences, current projects, specific instructions).
       2. Important facts about the **Agent** (self-corrections, new behaviors learned).
       3. Important facts about the **World** (external tools, libraries, context).
+      4. **Code Snippets**: Summarize any significant code snippets, patterns, or algorithms generated during the session.
 
       Output ONLY the new facts as bullet points. 
       If there is nothing significant to save, output strictly "NO_UPDATE".

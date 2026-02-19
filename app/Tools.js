@@ -131,6 +131,22 @@ const tools = [
         required: ["path"]
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "replace_in_file",
+      description: "Replace text in a file using a regex pattern",
+      parameters: {
+        type: "object",
+        properties: {
+          path: { type: "string", description: "Relative path to the file" },
+          search: { type: "string", description: "Regex pattern to search for" },
+          replace: { type: "string", description: "Replacement text" }
+        },
+        required: ["path", "search", "replace"]
+      }
+    }
   }
 ];
 
@@ -178,17 +194,59 @@ const availableTools = {
     }
   },
   search_files: async ({ path: dirPath = '.', term }) => {
-    return new Promise((resolve) => {
-      execFile('grep', ['-rnI', '-e', term, dirPath], (error, stdout, stderr) => {
-        if (error && error.code === 1) {
-          resolve("No matches found.");
-        } else if (error) {
-          resolve(`Error searching files: ${error.message}`);
-        } else {
-          resolve(stdout);
+    try {
+      const rootPath = path.resolve(process.cwd(), dirPath);
+      if (!fs.existsSync(rootPath)) return `Path not found: ${dirPath}`;
+
+      const results = [];
+      let regex;
+      try {
+        regex = new RegExp(term);
+      } catch (e) {
+        return `Invalid regex pattern: ${e.message}`;
+      }
+
+      const searchFile = (filePath) => {
+        try {
+          const content = fs.readFileSync(filePath, 'utf8');
+          if (content.includes('\0')) return; // Skip binary files
+
+          const lines = content.split(/\r?\n/);
+          lines.forEach((line, index) => {
+            if (regex.test(line)) {
+              const relativePath = path.relative(process.cwd(), filePath);
+              results.push(`${relativePath}:${index + 1}:${line}`);
+            }
+          });
+        } catch (err) {
+          // Ignore read errors
         }
-      });
-    });
+      };
+
+      const walkDir = (currentPath) => {
+        const entries = fs.readdirSync(currentPath, { withFileTypes: true });
+        for (const entry of entries) {
+          const entryPath = path.join(currentPath, entry.name);
+          if (entry.isDirectory()) {
+            if (entry.name === 'node_modules' || entry.name === '.git') continue;
+            walkDir(entryPath);
+          } else if (entry.isFile()) {
+            searchFile(entryPath);
+          }
+        }
+      };
+
+      const stats = fs.statSync(rootPath);
+      if (stats.isFile()) {
+        searchFile(rootPath);
+      } else if (stats.isDirectory()) {
+        walkDir(rootPath);
+      }
+
+      return results.length > 0 ? results.join('\n') : "No matches found.";
+    } catch (e) {
+      return `Error searching files: ${e.message}`;
+    }
   },
   execute_code: async ({ language, code }) => {
     try {
@@ -256,6 +314,23 @@ const availableTools = {
       return `File ${filePath} deleted successfully.`;
     } catch (e) {
       return `Error deleting file: ${e.message}`;
+    }
+  },
+  replace_in_file: async ({ path: filePath, search, replace }) => {
+    try {
+      const fullPath = path.resolve(process.cwd(), filePath);
+      if (!fs.existsSync(fullPath)) return `File not found: ${filePath}`;
+
+      const content = fs.readFileSync(fullPath, 'utf8');
+      const regex = new RegExp(search, 'g');
+      const newContent = content.replace(regex, replace);
+
+      if (content === newContent) return "No matches found.";
+
+      fs.writeFileSync(fullPath, newContent);
+      return `Successfully replaced content in ${filePath}.`;
+    } catch (e) {
+      return `Error replacing in file: ${e.message}`;
     }
   }
 };
