@@ -1,5 +1,8 @@
 # Anima CLI
 
+[![Lint](https://github.com/HeatherHerbert/Anima/actions/workflows/lint.yml/badge.svg)](https://github.com/HeatherHerbert/Anima/actions/workflows/lint.yml)
+[![Test](https://github.com/HeatherHerbert/Anima/actions/workflows/test.yml/badge.svg)](https://github.com/HeatherHerbert/Anima/actions/workflows/test.yml)
+
 Anima is a command-line AI agent interface designed to evolve with you. It features persistent memory, tool execution capabilities, and a unique "parturition" (birth) process that defines its personality and core directives based on your initial interaction.
 
 ## Features

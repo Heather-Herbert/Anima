@@ -1,14 +1,30 @@
 {
   "name": "anima",
   "version": "1.0.0",
-  "description": "An Agentic CLI thing (a bit like OpenClaw but not tied to OpenAI)",
+  "description": "Anima CLI - AI Agent Interface",
   "main": "cli.js",
   "scripts": {
-    "start": "node cli.js"
+    "start": "node cli.js",
+    "test": "jest",
+    "lint": "eslint ."
   },
-  "author": "",
-  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HeatherHerbert/Anima.git"
+  },
+  "author": "Heather Herbert",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/HeatherHerbert/Anima/issues"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "dependencies": {
-    "zod": "^4.3.6"
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "jest": "^29.7.0"
   }
 }
