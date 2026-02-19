@@ -2,9 +2,7 @@ const { z } = require('zod');
 
 // Define the schema for the configuration
 const configSchema = z.object({
-  endpoint: z.string().url({ message: "Invalid URL for endpoint" }),
-  apiKey: z.string().min(1, { message: "API Key is required" }),
-  model: z.string().min(1, { message: "Model name is required" }),
+  LLMProvider: z.string().default('openrouter'),
 });
 
 let loadedConfig = null;

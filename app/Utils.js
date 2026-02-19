@@ -1,38 +1,22 @@
 const config = require('./Config');
 
 const callAI = async (messages, tools = null) => {
-  const headers = {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${config.apiKey}`,
-    'HTTP-Referer': 'https://github.com/HeatherHerbert/Anima',
-    'X-Title': 'Anima CLI'
+  const providerName = config.LLMProvider || 'openrouter';
+  
+  // Map of supported providers to their implementation files
+  const providers = {
+    'openrouter': './plugins/OpenRouter',
+    // Add other providers here, e.g., 'openai': './providers/OpenAI'
   };
 
-  const body = {
-    model: config.model || "gpt-3.5-turbo",
-    messages: messages
-  };
-
-  if (tools) {
-    body.tools = tools;
+  const providerPath = providers[providerName.toLowerCase()];
+  
+  if (!providerPath) {
+    throw new Error(`Unknown provider: ${providerName}. Supported providers: ${Object.keys(providers).join(', ')}`);
   }
 
-  const response = await fetch(config.endpoint, {
-    method: 'POST',
-    headers: headers,
-    body: JSON.stringify(body)
-  });
-
-  if (response.status === 401 || response.status === 403) {
-    throw new Error(`Invalid or expired API Key (HTTP ${response.status}). Please check Anima.config.js/json.`);
-  }
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`API Request failed: ${response.status} ${response.statusText} - ${errorText}`);
-  }
-
-  return await response.json();
+  const provider = require(providerPath);
+  return await provider.completion(messages, tools);
 };
 
 module.exports = { callAI };
