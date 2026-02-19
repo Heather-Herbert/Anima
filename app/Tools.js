@@ -2,6 +2,54 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { exec, execFile } = require('node:child_process');
 
+const isPathAllowed = (filePath, mode = 'read', permissions = null) => {
+  try {
+    const cwd = process.cwd();
+    const absolutePath = path.resolve(cwd, filePath);
+    
+    // Prevent path traversal outside of project root
+    if (!absolutePath.startsWith(cwd)) {
+      return false;
+    }
+
+    const relativePath = path.relative(cwd, absolutePath);
+    const restrictedPrefixes = [
+      'app',
+      'settings',
+      'node_modules',
+      '.git',
+      '.github',
+      'cli.js',
+      'package.json',
+      'package-lock.json',
+      'Anima.config.js',
+      'Anima.config.json'
+    ];
+
+    // Check if path matches or is inside a restricted directory
+    if (restrictedPrefixes.some(prefix => 
+      relativePath === prefix || relativePath.startsWith(prefix + path.sep)
+    )) {
+      return false;
+    }
+
+    // Check Manifest Permissions
+    if (permissions && permissions.filesystem) {
+      const allowedPaths = permissions.filesystem[mode];
+      if (!allowedPaths) return false; // If mode is restricted but not defined, deny
+      if (allowedPaths.includes('*')) return true;
+
+      return allowedPaths.some(allowed => {
+        const allowedAbs = path.resolve(cwd, allowed);
+        return absolutePath === allowedAbs || absolutePath.startsWith(allowedAbs + path.sep);
+      });
+    }
+    return true;
+  } catch (e) {
+    return false;
+  }
+};
+
 const tools = [
   {
     type: "function",
@@ -151,8 +199,9 @@ const tools = [
 ];
 
 const availableTools = {
-  write_file: async ({ path: filePath, content }) => {
+  write_file: async ({ path: filePath, content }, permissions) => {
     try {
+      if (!isPathAllowed(filePath, 'write', permissions)) return `Error: Access to ${filePath} is restricted by system policy or manifest.`;
       const fullPath = path.resolve(process.cwd(), filePath);
       fs.mkdirSync(path.dirname(fullPath), { recursive: true });
       fs.writeFileSync(fullPath, content);
@@ -161,8 +210,9 @@ const availableTools = {
       return `Error writing file: ${e.message}`;
     }
   },
-  read_file: async ({ path: filePath }) => {
+  read_file: async ({ path: filePath }, permissions) => {
      try {
+      if (!isPathAllowed(filePath, 'read', permissions)) return `Error: Access to ${filePath} is restricted by system policy or manifest.`;
       const fullPath = path.resolve(process.cwd(), filePath);
       if (!fs.existsSync(fullPath)) return `File not found: ${filePath}`;
       return fs.readFileSync(fullPath, 'utf8');
@@ -181,8 +231,9 @@ const availableTools = {
         });
     });
   },
-  list_files: async ({ path: dirPath = '.' }) => {
+  list_files: async ({ path: dirPath = '.' }, permissions) => {
     try {
+      if (!isPathAllowed(dirPath, 'read', permissions)) return `Error: Access to ${dirPath} is restricted by system policy or manifest.`;
       const fullPath = path.resolve(process.cwd(), dirPath);
       if (!fs.existsSync(fullPath)) return `Path not found: ${dirPath}`;
       
@@ -193,8 +244,9 @@ const availableTools = {
       return `Error listing files: ${e.message}`;
     }
   },
-  search_files: async ({ path: dirPath = '.', term }) => {
+  search_files: async ({ path: dirPath = '.', term }, permissions) => {
     try {
+      if (!isPathAllowed(dirPath, 'read', permissions)) return `Error: Access to ${dirPath} is restricted by system policy or manifest.`;
       const rootPath = path.resolve(process.cwd(), dirPath);
       if (!fs.existsSync(rootPath)) return `Path not found: ${dirPath}`;
 
@@ -248,7 +300,7 @@ const availableTools = {
       return `Error searching files: ${e.message}`;
     }
   },
-  execute_code: async ({ language, code }) => {
+  execute_code: async ({ language, code }, permissions) => {
     try {
       const timestamp = Date.now();
       let filename, command;
@@ -274,6 +326,7 @@ const availableTools = {
               return "Unsupported language. Supported: javascript, python, bash.";
       }
       
+      if (!isPathAllowed(filename, 'write', permissions)) return `Error: Permission denied to write temporary execution file.`;
       const fullPath = path.resolve(process.cwd(), filename);
       fs.writeFileSync(fullPath, code);
       
@@ -295,8 +348,9 @@ const availableTools = {
       return `Error executing code: ${e.message}`;
     }
   },
-  file_info: async ({ path: filePath }) => {
+  file_info: async ({ path: filePath }, permissions) => {
     try {
+      if (!isPathAllowed(filePath, 'read', permissions)) return `Error: Access to ${filePath} is restricted by system policy or manifest.`;
       const fullPath = path.resolve(process.cwd(), filePath);
       if (!fs.existsSync(fullPath)) return `File not found: ${filePath}`;
       const stats = fs.statSync(fullPath);
@@ -310,8 +364,9 @@ const availableTools = {
       return `Error getting file info: ${e.message}`;
     }
   },
-  delete_file: async ({ path: filePath }) => {
+  delete_file: async ({ path: filePath }, permissions) => {
     try {
+      if (!isPathAllowed(filePath, 'write', permissions)) return `Error: Access to ${filePath} is restricted by system policy or manifest.`;
       const fullPath = path.resolve(process.cwd(), filePath);
       if (!fs.existsSync(fullPath)) return `File not found: ${filePath}`;
       fs.unlinkSync(fullPath);
@@ -320,8 +375,9 @@ const availableTools = {
       return `Error deleting file: ${e.message}`;
     }
   },
-  replace_in_file: async ({ path: filePath, search, replace }) => {
+  replace_in_file: async ({ path: filePath, search, replace }, permissions) => {
     try {
+      if (!isPathAllowed(filePath, 'write', permissions)) return `Error: Access to ${filePath} is restricted by system policy or manifest.`;
       const fullPath = path.resolve(process.cwd(), filePath);
       if (!fs.existsSync(fullPath)) return `File not found: ${filePath}`;
 

@@ -5,7 +5,7 @@ const path = require('node:path');
 const config = require('./app/Config');
 const { tools, availableTools } = require('./app/Tools');
 const ParturitionService = require('./app/ParturitionService');
-const { callAI } = require('./app/Utils');
+const { callAI, getProviderManifest } = require('./app/Utils');
 
 // Check for model override via command line argument
 const args = process.argv.slice(2);
@@ -181,6 +181,15 @@ async function main() {
 
     loadPersona();
 
+    // Load Manifest and filter tools
+    const manifest = getProviderManifest();
+    const allowedTools = manifest.capabilities?.tools || [];
+    
+    const activeTools = tools.filter(t => {
+        if (allowedTools.includes('*')) return true;
+        return allowedTools.includes(t.function.name);
+    });
+
     const agentName = await parturition.getAgentName();
 
     console.log(`${agentName} CLI - Press Ctrl+C twice to quit.`);
@@ -222,7 +231,7 @@ async function main() {
             while (true) {
                 try {
                     attempts++;
-                    data = await callAI(conversationHistory, tools);
+                    data = await callAI(conversationHistory, activeTools);
                     
                     // Basic validation of response structure
                     if (!data || !data.choices || !data.choices[0] || !data.choices[0].message) {
@@ -253,6 +262,11 @@ async function main() {
                 try {
                     const functionName = toolCall.function.name;
                     const functionArgs = JSON.parse(toolCall.function.arguments);
+
+                    // Enforce manifest permissions on execution
+                    if (!allowedTools.includes('*') && !allowedTools.includes(functionName)) {
+                        throw new Error(`Tool '${functionName}' is not permitted by the active plugin manifest.`);
+                    }
 
                     let toolResult;
                     const dangerousTools = ['write_file', 'run_command', 'execute_code', 'delete_file', 'replace_in_file'];

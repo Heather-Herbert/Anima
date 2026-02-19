@@ -1,0 +1,14 @@
+{
+  "name": "Ollama",
+  "version": "1.0.0",
+  "description": "Local Ollama Provider",
+  "capabilities": {
+    "tools": ["*"]
+  },
+  "permissions": {
+    "filesystem": {
+      "read": ["*"],
+      "write": ["*"]
+    }
+  }
+}
