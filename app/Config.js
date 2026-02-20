@@ -14,7 +14,7 @@ function loadConfig() {
   try {
     // Try to require the configuration file from the project root
     // This supports Anima.config.js or Anima.config.json
-    configData = require('../settings/Anima.config');
+    configData = require('../Settings/Anima.config');
   } catch (error) {
     console.error('\x1b[31mError: Configuration file not found.\x1b[0m');
     console.error('Please ensure \x1b[33mAnima.config.js\x1b[0m or \x1b[33mAnima.config.json\x1b[0m exists in the settings folder.');

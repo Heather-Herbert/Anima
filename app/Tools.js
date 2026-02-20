@@ -211,6 +211,20 @@ const tools = [
         required: ["name", "code", "manifest"]
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "web_search",
+      description: "Search the web for information",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "The search query" }
+        },
+        required: ["query"]
+      }
+    }
   }
 ];
 
@@ -443,6 +457,29 @@ const availableTools = {
       return `Plugin '${safeName}' installed successfully.`;
     } catch (e) {
       return `Error installing plugin: ${e.message}`;
+    }
+  },
+  web_search: async ({ query }) => {
+    try {
+      if (typeof fetch === 'undefined') return "Error: fetch is not defined. Node.js 18+ required.";
+      const response = await fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json`);
+      if (!response.ok) return `Error: HTTP ${response.status}`;
+      const data = await response.json();
+      
+      if (!data.AbstractText && (!data.RelatedTopics || data.RelatedTopics.length === 0)) return "No direct answer found.";
+
+      let output = "";
+      if (data.AbstractText) output += `Summary: ${data.AbstractText}\nSource: ${data.AbstractURL}\n`;
+      if (data.RelatedTopics) {
+        output += `\nRelated:\n` + data.RelatedTopics
+          .filter(t => t.Text && t.FirstURL)
+          .slice(0, 5)
+          .map(t => `- ${t.Text}`)
+          .join('\n');
+      }
+      return output;
+    } catch (e) {
+      return `Error searching web: ${e.message}`;
     }
   }
 };
