@@ -10,7 +10,7 @@ Anima is a command-line AI agent interface designed to evolve with you. It featu
 - **Persistent Memory**:
   - **Short-term**: Session history is saved automatically to JSON files in `Memory/`.
   - **Long-term**: Important facts and insights are consolidated into `Memory/memory.md` upon exit or manual save.
-- **Plugin-based LLM Providers**: Supports multiple AI providers (**OpenAI, Anthropic, Gemini, DeepSeek, OpenRouter, Ollama**) through a modular plugin system.
+- **Plugin-based LLM Providers**: Supports multiple AI providers (**OpenAI, Anthropic, Gemini, DeepSeek, OpenRouter, Ollama**) through a modular plugin system. **Providers run in isolated separate processes** with restricted environment access for maximum security.
 - **Manifest-level Security**: Tools and filesystem access are governed by provider-specific manifests, ensuring safe execution environments.
 - **Tool Execution**: The agent can interact with your system (read/write/replace files, run shell commands, execute code, search the web) with user confirmation and dry-run support.
 - **Parturition Service**: On the first run, the agent generates its own Identity (`Identity.md`) and Soul (`Soul.md`) based on user input.

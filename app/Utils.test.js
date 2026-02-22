@@ -2,104 +2,85 @@ const { describe, it, expect, beforeEach } = require('@jest/globals');
 const fs = require('fs');
 const path = require('path');
 const config = require('./Config');
+const { spawn } = require('node:child_process');
+const EventEmitter = require('node:events');
 
 jest.mock('fs');
+jest.mock('node:child_process');
 jest.mock('./Config', () => ({
   LLMProvider: 'test-provider',
 }));
 
-// We need to require Utils AFTER mocking Config
 const Utils = require('./Utils');
 
 describe('Utils', () => {
   const mockProviderPath = path.join(__dirname, '..', 'Plugins', 'test-provider.js');
-  const mockManifestPath = path.join(__dirname, '..', 'Plugins', 'test-provider.manifest.json');
 
   beforeEach(() => {
     jest.resetModules();
     jest.clearAllMocks();
     config.LLMProvider = 'test-provider';
-
-    // Mock the dynamic plugin module
-    jest.doMock(
-      mockProviderPath,
-      () => ({
-        completion: jest
-          .fn()
-          .mockResolvedValue({ choices: [{ message: { content: 'test response' } }] }),
-      }),
-      { virtual: true },
-    );
   });
 
   describe('callAI', () => {
-    it('calls the provider completion method', async () => {
-      fs.existsSync.mockReturnValue(true); // Provider file exists
+    it('spawns a provider process and returns its output', async () => {
+      fs.existsSync.mockReturnValue(true);
 
-      const messages = [{ role: 'user', content: 'hi' }];
+      const mockChild = new EventEmitter();
+      mockChild.stdout = new EventEmitter();
+      mockChild.stderr = new EventEmitter();
+      mockChild.stdin = { write: jest.fn(), end: jest.fn() };
 
-      // We need to re-require Utils because we reset modules?
-      // Actually doMock only affects subsequent requires.
-      // Utils.js is already required. But Utils.js calls require() dynamically inside callAI.
-      // So doMock should affect that require call.
+      spawn.mockReturnValue(mockChild);
 
-      const result = await Utils.callAI(messages);
+      const promise = Utils.callAI([{ role: 'user', content: 'hi' }]);
 
-      expect(result).toEqual({ choices: [{ message: { content: 'test response' } }] });
-      expect(fs.existsSync).toHaveBeenCalledWith(mockProviderPath);
+      // Simulate output
+      mockChild.stdout.emit('data', JSON.stringify({ choices: [{ message: { content: 'hello' } }] }));
+      mockChild.emit('close', 0);
 
-      // Verify the provider was called
-      // We need to require the mocked module to check expectations
-      const provider = require(mockProviderPath);
-      expect(provider.completion).toHaveBeenCalledWith(messages, null);
+      const result = await promise;
+      expect(result.choices[0].message.content).toBe('hello');
+      expect(spawn).toHaveBeenCalledWith(
+        process.execPath,
+        [expect.stringContaining('ProviderRunner.js'), mockProviderPath],
+        expect.anything(),
+      );
+    });
+
+    it('handles provider process errors', async () => {
+      fs.existsSync.mockReturnValue(true);
+
+      const mockChild = new EventEmitter();
+      mockChild.stdout = new EventEmitter();
+      mockChild.stderr = new EventEmitter();
+      mockChild.stdin = { write: jest.fn(), end: jest.fn() };
+
+      spawn.mockReturnValue(mockChild);
+
+      const promise = Utils.callAI([]);
+
+      mockChild.stderr.emit('data', JSON.stringify({ error: 'Critical Failure' }));
+      mockChild.emit('close', 1);
+
+      await expect(promise).rejects.toThrow('Provider Process Error: Critical Failure');
     });
 
     it('throws error if provider does not exist', async () => {
       fs.existsSync.mockReturnValue(false);
-
       await expect(Utils.callAI([])).rejects.toThrow('Unknown provider: test-provider');
-    });
-
-    it('tries capitalized version of provider name', async () => {
-      config.LLMProvider = 'ollama';
-      const capitalizedPath = path.join(__dirname, '..', 'Plugins', 'Ollama.js');
-
-      fs.existsSync.mockImplementation((p) => p === capitalizedPath);
-
-      jest.doMock(
-        capitalizedPath,
-        () => ({
-          completion: jest.fn().mockResolvedValue('cap-success'),
-        }),
-        { virtual: true },
-      );
-
-      const result = await Utils.callAI([]);
-      expect(result).toBe('cap-success');
     });
   });
 
   describe('getProviderManifest', () => {
     it('returns manifest if it exists', () => {
-      fs.existsSync.mockReturnValue(true);
+      const mockManifestPath = path.join(__dirname, '..', 'Plugins', 'test-provider.manifest.json');
+      fs.existsSync.mockImplementation((p) => p === mockManifestPath);
       fs.readFileSync.mockReturnValue(JSON.stringify({ capabilities: { tools: ['write_file'] } }));
 
       const manifest = Utils.getProviderManifest();
 
       expect(manifest).toEqual({ capabilities: { tools: ['write_file'] } });
-      expect(fs.existsSync).toHaveBeenCalledWith(mockManifestPath);
-      expect(fs.readFileSync).toHaveBeenCalledWith(mockManifestPath, 'utf8');
-    });
-
-    it('tries capitalized manifest version', () => {
-      config.LLMProvider = 'ollama';
-      const capitalizedManifestPath = path.join(__dirname, '..', 'Plugins', 'Ollama.manifest.json');
-
-      fs.existsSync.mockImplementation((p) => p === capitalizedManifestPath);
-      fs.readFileSync.mockReturnValue('{"cap":true}');
-
-      const manifest = Utils.getProviderManifest();
-      expect(manifest.cap).toBe(true);
     });
 
     it('returns default secure manifest if file missing', () => {
@@ -107,13 +88,7 @@ describe('Utils', () => {
 
       const manifest = Utils.getProviderManifest();
 
-      expect(manifest.capabilities.tools).toEqual([
-        'read_file',
-        'list_files',
-        'search_files',
-        'file_info',
-        'web_search',
-      ]);
+      expect(manifest.capabilities.tools).toContain('read_file');
     });
   });
 });

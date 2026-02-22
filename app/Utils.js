@@ -2,6 +2,8 @@ const config = require('./Config');
 const fs = require('fs');
 const path = require('path');
 
+const { spawn } = require('node:child_process');
+
 const callAI = async (messages, tools = null) => {
   const providerName = config.LLMProvider || 'openrouter';
 
@@ -22,8 +24,49 @@ const callAI = async (messages, tools = null) => {
     }
   }
 
-  const provider = require(providerPath);
-  return await provider.completion(messages, tools);
+  // Run provider out-of-process for isolation
+  return new Promise((resolve, reject) => {
+    const runnerPath = path.join(__dirname, 'ProviderRunner.js');
+    
+    // Whitelist environment variables if needed (e.g. PATH for node/python)
+    const env = {
+        PATH: process.env.PATH,
+        NODE_PATH: process.env.NODE_PATH
+    };
+
+    const child = spawn(process.execPath, [runnerPath, providerPath], {
+      env: env,
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout.on('data', (data) => { stdout += data; });
+    child.stderr.on('data', (data) => { stderr += data; });
+
+    child.on('close', (code) => {
+      if (code !== 0) {
+        try {
+            const errObj = JSON.parse(stderr);
+            reject(new Error(`Provider Process Error: ${errObj.error}`));
+        } catch (e) {
+            reject(new Error(`Provider Process exited with code ${code}. Stderr: ${stderr}`));
+        }
+        return;
+      }
+
+      try {
+        const result = JSON.parse(stdout);
+        resolve(result);
+      } catch (e) {
+        reject(new Error(`Failed to parse provider output: ${e.message}. Raw: ${stdout}`));
+      }
+    });
+
+    child.stdin.write(JSON.stringify({ messages, tools }));
+    child.stdin.end();
+  });
 };
 
 const getProviderManifest = () => {
