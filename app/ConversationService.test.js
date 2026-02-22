@@ -180,4 +180,67 @@ describe('ConversationService', () => {
     await service.processInput('bad tool', history, jest.fn());
     expect(history[2].content).toContain('Error: Tool Crash');
   });
+
+  it('redacts secrets before saving history', async () => {
+    const auditMock = { secrets: ['my-secret-key'], log: jest.fn() };
+    service.auditService = auditMock;
+
+    callAI.mockResolvedValue({
+      choices: [{ message: { role: 'assistant', content: 'key is my-secret-key' } }],
+    });
+
+    const history = [];
+    await service.processInput('show secret', history, jest.fn());
+
+    expect(fs.writeFileSync).toHaveBeenCalled();
+    const saveCall = fs.writeFileSync.mock.calls[fs.writeFileSync.mock.calls.length - 1][1];
+    expect(saveCall).not.toContain('my-secret-key');
+    expect(saveCall).toContain('[REDACTED]');
+  });
+
+  it('respects memoryMode="off"', async () => {
+    const config = require('./Config');
+    config.memoryMode = 'off';
+
+    callAI.mockResolvedValue({
+      choices: [{ message: { role: 'assistant', content: 'Hi' } }],
+    });
+
+    const history = [];
+    await service.processInput('Hi', history, jest.fn());
+
+    expect(fs.writeFileSync).not.toHaveBeenCalled();
+    config.memoryMode = 'longterm'; // reset
+  });
+
+  it('sets isTainted when web_search is used', async () => {
+    callAI.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            role: 'assistant',
+            tool_calls: [
+              { id: 't1', function: { name: 'web_search', arguments: '{"query":"?"}' } },
+              {
+                id: 't2',
+                function: {
+                  name: 'write_file',
+                  arguments: '{"path":"x","content":"y","justification":"j"}',
+                },
+              },
+            ],
+          },
+        },
+      ],
+    });
+    callAI.mockResolvedValueOnce({
+      choices: [{ message: { role: 'assistant', content: 'Done' } }],
+    });
+
+    const confirmMock = jest.fn().mockResolvedValue('y');
+    await service.processInput('taint me', [], confirmMock);
+
+    // Verify confirm was called with isTainted = true
+    expect(confirmMock).toHaveBeenCalledWith('write_file', expect.anything(), 'j', true);
+  });
 });

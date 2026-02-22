@@ -1,9 +1,13 @@
 const { z } = require('zod');
 
+const path = require('node:path');
+
 // Define the schema for the configuration
 const configSchema = z.object({
   LLMProvider: z.string().default('openrouter'),
   heartbeatInterval: z.number().default(300), // Default to 300 seconds (5 minutes)
+  workspaceDir: z.string().default(path.join(__dirname, '..')),
+  memoryMode: z.enum(['off', 'session', 'longterm']).default('session'),
 });
 
 let loadedConfig = null;

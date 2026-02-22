@@ -1,6 +1,7 @@
 const fs = require('node:fs');
-const { callAI } = require('./Utils');
+const { callAI, redact } = require('./Utils');
 const { availableTools } = require('./Tools');
+const config = require('./Config');
 
 class ConversationService {
   constructor(agentName, activeTools, manifest, historyPath, auditService = null) {
@@ -30,6 +31,7 @@ class ConversationService {
 
     let processing = true;
     let lastReply = '';
+    let isTainted = false; // Reset taint per user input turn
 
     while (processing) {
       let data;
@@ -66,6 +68,11 @@ class ConversationService {
             const functionName = toolCall.function.name;
             const functionArgs = JSON.parse(toolCall.function.arguments);
 
+            // Taint tracking: web_search taints the current turn
+            if (functionName === 'web_search') {
+              isTainted = true;
+            }
+
             let toolResult;
             let auditResult = 'allowed';
             const isWritingToProtected =
@@ -74,11 +81,15 @@ class ConversationService {
 
             if (this.dangerousTools.includes(functionName) || isWritingToProtected) {
               const justification = functionArgs.justification || 'No justification provided.';
-              const confirmed = await confirmCallback(functionName, functionArgs, justification);
+              
+              // Pass taint info to confirmation callback if needed
+              const confirmed = await confirmCallback(functionName, functionArgs, justification, isTainted);
+              
               if (confirmed === 'y') {
                 const callPermissions = {
                   ...this.manifest.permissions,
                   _overrideProtected: isWritingToProtected,
+                  _isTainted: isTainted, // Pass taint flag to the tool itself
                 };
                 toolResult = await availableTools[functionName](functionArgs, callPermissions);
                 auditResult = 'confirmed';
@@ -90,9 +101,13 @@ class ConversationService {
                 auditResult = 'denied';
               }
             } else {
+              const callPermissions = {
+                ...this.manifest.permissions,
+                _isTainted: isTainted,
+              };
               toolResult = await availableTools[functionName](
                 functionArgs,
-                this.manifest.permissions,
+                callPermissions,
               );
             }
 
@@ -142,8 +157,25 @@ class ConversationService {
   }
 
   saveHistory(history) {
+    if (config.memoryMode === 'off') return;
+
     try {
-      fs.writeFileSync(this.historyPath, JSON.stringify(history, null, 2));
+      const secrets = this.auditService ? this.auditService.secrets : [];
+      const redactedHistory = history.map((m) => ({
+        ...m,
+        content: m.content ? redact(m.content, secrets) : m.content,
+      }));
+
+      const fullPath = path.isAbsolute(this.historyPath)
+        ? this.historyPath
+        : path.resolve(config.workspaceDir, this.historyPath);
+
+      fs.writeFileSync(fullPath, JSON.stringify(redactedHistory, null, 2));
+
+      // On Linux, set 0600 permissions
+      if (process.platform !== 'win32' && fs.existsSync(fullPath)) {
+        fs.chmodSync(fullPath, 0o600);
+      }
     } catch (e) {
       /* ignore save errors in background */
     }

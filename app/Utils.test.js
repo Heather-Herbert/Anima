@@ -88,7 +88,15 @@ describe('Utils', () => {
 
       const manifest = Utils.getProviderManifest();
 
-      expect(manifest.capabilities.tools).toContain('read_file');
+      expect(manifest.capabilities.tools).toEqual([
+        'read_file',
+        'list_files',
+        'search_files',
+        'file_info',
+        'web_search',
+      ]);
+      expect(manifest.permissions.filesystem.read).toEqual(['*']);
+      expect(manifest.permissions.filesystem.write).toEqual([]);
     });
   });
 });

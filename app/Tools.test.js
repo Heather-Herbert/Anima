@@ -363,6 +363,30 @@ describe('Tools', () => {
       );
     });
 
+    it('refuses to overwrite existing plugin without isOverwrite flag', async () => {
+      fs.existsSync.mockReturnValue(true); // Already exists
+      const result = await availableTools.add_plugin({
+        name: 'exists',
+        code: '...',
+        manifest: '{}',
+      });
+      expect(result).toContain('is already installed');
+      expect(fs.writeFileSync).not.toHaveBeenCalled();
+    });
+
+    it('allows overwrite if isOverwrite flag is set', async () => {
+      fs.existsSync.mockReturnValue(true);
+      fs.writeFileSync.mockImplementation(() => {});
+      const result = await availableTools.add_plugin({
+        name: 'exists',
+        code: '...',
+        manifest: '{}',
+        isOverwrite: true,
+      });
+      expect(result).toContain('installed successfully');
+      expect(fs.writeFileSync).toHaveBeenCalled();
+    });
+
     it('fails with invalid manifest', async () => {
       const result = await availableTools.add_plugin({
         name: 'test-plugin',

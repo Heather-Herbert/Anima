@@ -15,6 +15,11 @@ describe('Security: isPathAllowed', () => {
     expect(isPathAllowed('/etc/passwd')).toBe(false);
   });
 
+  it('denies all access by default when no permissions are provided', () => {
+    expect(isPathAllowed('README.md', 'read', null)).toBe(false);
+    expect(isPathAllowed('test.txt', 'write', undefined)).toBe(false);
+  });
+
   it('denies access to restricted system directories (case-insensitive)', () => {
     expect(isPathAllowed('app/Config.js')).toBe(false);
     expect(isPathAllowed('APP/Config.js')).toBe(false);

@@ -24,6 +24,9 @@ Anima is designed with a **Deny-by-Default** security posture to prevent common 
 
 Key protections include:
 - **Process Isolation**: LLM Providers run in separate, isolated processes.
+- **Workspace Root**: All filesystem operations are locked to a configurable `workspaceDir` (defaulting to the project root), preventing access to the host system even if the CLI is launched from a sensitive directory.
+- **Taint Mode**: If the agent performs a `web_search`, the current turn is marked as "tainted." In this state, command execution and code execution are strictly limited to explicit manifest allowlists to prevent remote prompt injection attacks.
+- **Hardened Code Execution**: `execute_code` runs in a dedicated `.temp` directory within the workspace and features a 10s timeout and automatic cleanup.
 - **No Shell**: Commands run directly (spawn), avoiding shell injection attacks.
 - **Spinal Cord Protection**: Core files (`Plugins/`, `Memory/`, `Personality/`) are read-only by default.
 - **Human-in-the-loop**: Structured memory and tool justifications require explicit approval.
@@ -56,7 +59,9 @@ If you prefer to configure manually:
    ```json
    {
      "LLMProvider": "openrouter",
-     "heartbeatInterval": 300
+     "heartbeatInterval": 300,
+     "workspaceDir": "./my-workspace",
+     "memoryMode": "session"
    }
    ```
 2. **Provider Settings**: Create a settings file named after your provider (e.g., `openai.json`, `anthropic.json`, `gemini.json`, `deepseek.json`, `openrouter.json`, `ollama.json`) in the `Settings/` directory.

@@ -15,13 +15,13 @@ If you discover a security vulnerability within Anima, please do not report it v
 
 ## Security Principles
 
-Anima is built on a **Deny-by-Default** architecture. The agent's capabilities are strictly limited by:
+Anima is built on a strict **Deny-by-Default** architecture. The agent's capabilities are strictly limited by:
 
 1.  **Process Isolation**: LLM Providers run in separate, low-privilege processes.
-2.  **Manifest Enforcement**: Providers can only use tools explicitly allowed in their `.manifest.json`.
+2.  **Manifest Enforcement**: Providers can only use tools and access filesystem paths explicitly allowed in their `.manifest.json`. **If no manifest is found, Anima defaults to a high-restriction mode (Read-Only).**
 3.  **Path Traversal Protection**: All filesystem tools are restricted to the project root and subject to manifest-level allowlists.
 4.  **No Shell by Default**: `run_command` executes files directly without a shell to prevent injection attacks.
-5.  **Human-in-the-loop**: All "dangerous" operations require explicit justification and human confirmation with a diff preview.
+5.  **Human-in-the-loop**: All "dangerous" operations (including writes to core system directories) require explicit justification and human confirmation with a diff preview.
 
 ## Threat Model & User Guidance
 
@@ -43,4 +43,21 @@ Plugin authors are expected to follow these standards:
 -   **Minimal Permissions**: Only request the specific tools and paths needed for the provider to function.
 -   **No Surprise Network Calls**: All external communication should be limited to the provider's primary API endpoint.
 -   **Structured Outputs**: Ensure `completion` results are normalized to match the expected OpenAI format to prevent parser-level exploits.
--   **Provenance**: Provide SHA-256 hashes for your plugin releases to allow users to verify integrity.
+- **Provenance**: Provide SHA-256 hashes for your plugin releases to allow users to verify integrity.
+
+## Supply Chain Security
+
+Anima treats plugin installation as a critical supply-chain event:
+-   **Zip-Slip Protection**: Zip extraction explicitly validates entry names to prevent directory traversal attacks.
+-   **Overwrite Policy**: Existing plugins cannot be overwritten without secondary user confirmation and an explicit override flag.
+- **Hash Pinning**: Users are encouraged to use the `--hash` argument to pin remote installs to a specific content digest.
+
+## Memory Security
+
+Anima implements multiple layers of protection for persistent memory:
+-   **Secret Redaction**: Common API key patterns (OpenAI, JWT, etc.) and known secrets are automatically redacted before session history or long-term insights are saved to disk.
+-   **Memory Modes**: Users can select between `off`, `session`, and `longterm` modes to control the scope of data retention.
+-   **Hardened Permissions**: On Linux/macOS, memory and audit files are created with `0600` permissions (read/write only by the owner).
+-   **User Review**: All long-term memory updates require explicit user review and approval to prevent persistent prompt injection attacks.
+
+

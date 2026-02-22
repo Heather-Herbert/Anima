@@ -2,56 +2,58 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { exec } = require('node:child_process');
 
+const config = require('./Config');
+
 const isPathAllowed = (filePath, mode = 'read', permissions = null) => {
   try {
-    const cwd = process.cwd();
-    const absolutePath = path.resolve(cwd, filePath);
+    const root = path.resolve(config.workspaceDir);
+    const absolutePath = path.resolve(root, filePath);
 
-    // Prevent path traversal outside of project root
-    if (!absolutePath.startsWith(cwd)) {
+    // Prevent path traversal outside of workspace root
+    if (!absolutePath.startsWith(root)) {
       return false;
     }
 
-        const relativePath = path.relative(cwd, absolutePath);
-        const relativePathLower = relativePath.toLowerCase();
-        const restrictedPrefixes = [
-          'app',
-          'settings',
-          'node_modules',
-          '.git',
-          '.github',
-          'cli.js',
-          'package.json',
-          'package-lock.json',
-          'anima.config.js',
-          'anima.config.json',
-        ];
-    
-        // Core protected directories (for writes)
-        const protectedPrefixes = ['plugins', 'memory', 'personality'];
-    
-        // 1. Check Restricted Prefixes (Deny all access)
-        if (
-          restrictedPrefixes.some(
-            (prefix) =>
-              relativePathLower === prefix || relativePathLower.startsWith(prefix + path.sep),
-          )
-        ) {
-          return false;
-        }
-    
-        // 2. Check Protected Prefixes (Read-only by default unless explicitly allowed by manifest)
-        // If mode is 'write', we still return false here to force the tool to check manifest or fail.
-        // However, ConversationService handles the user-confirmation for writes to these.
-        // To be safe, we deny writes to these in isPathAllowed unless we are in 'read' mode.
-        if (
-          protectedPrefixes.some(
-            (prefix) =>
-              relativePathLower === prefix || relativePathLower.startsWith(prefix + path.sep),
-          )
-        ) {
-          if (mode !== 'read') return false;
-        }
+    const relativePath = path.relative(root, absolutePath);
+    const relativePathLower = relativePath.toLowerCase();
+    const restrictedPrefixes = [
+      'app',
+      'settings',
+      'node_modules',
+      '.git',
+      '.github',
+      'cli.js',
+      'package.json',
+      'package-lock.json',
+      'anima.config.js',
+      'anima.config.json',
+    ];
+
+    // Core protected directories (for writes)
+    const protectedPrefixes = ['plugins', 'memory', 'personality'];
+
+    // 1. Check Restricted Prefixes (Deny all access)
+    if (
+      restrictedPrefixes.some(
+        (prefix) =>
+          relativePathLower === prefix || relativePathLower.startsWith(prefix + path.sep),
+      )
+    ) {
+      return false;
+    }
+
+    // 2. Check Protected Prefixes (Read-only by default unless explicitly allowed by manifest)
+    // If mode is 'write', we still return false here to force the tool to check manifest or fail.
+    // However, ConversationService handles the user-confirmation for writes to these.
+    // To be safe, we deny writes to these in isPathAllowed unless we are in 'read' mode.
+    if (
+      protectedPrefixes.some(
+        (prefix) =>
+          relativePathLower === prefix || relativePathLower.startsWith(prefix + path.sep),
+      )
+    ) {
+      if (mode !== 'read') return false;
+    }
 
     // Check Manifest Permissions
     if (permissions && permissions.filesystem) {
@@ -60,7 +62,7 @@ const isPathAllowed = (filePath, mode = 'read', permissions = null) => {
       if (allowedPaths.includes('*')) return true;
 
       return allowedPaths.some((allowed) => {
-        const allowedAbs = path.resolve(cwd, allowed);
+        const allowedAbs = path.resolve(root, allowed);
 
         // Check if explicitly allowed as directory or file
         if (absolutePath === allowedAbs) return true;
@@ -79,13 +81,12 @@ const isPathAllowed = (filePath, mode = 'read', permissions = null) => {
       });
     }
 
-    // Default policy if no manifest filesystem restrictions
-    return true;
+    // Default policy if no manifest filesystem restrictions: Deny access.
+    return false;
   } catch (e) {
     return false;
   }
 };
-
 const tools = [
   {
     type: 'function',
@@ -255,6 +256,7 @@ const tools = [
           code: { type: 'string', description: 'JavaScript code for the plugin' },
           manifest: { type: 'string', description: 'JSON manifest string' },
           provenance: { type: 'object', description: 'Provenance information' },
+          isOverwrite: { type: 'boolean', description: 'Allow overwriting an existing plugin' },
           justification: {
             type: 'string',
             description: 'An explanation of why this plugin needs to be installed.',
@@ -288,7 +290,8 @@ const availableTools = {
     try {
       if (!permissions?._overrideProtected && !isPathAllowed(filePath, 'write', permissions))
         return `Error: Access to ${filePath} is restricted by system policy or manifest.`;
-      const fullPath = path.resolve(process.cwd(), filePath);
+      const root = path.resolve(config.workspaceDir);
+      const fullPath = path.resolve(root, filePath);
       fs.mkdirSync(path.dirname(fullPath), { recursive: true });
       fs.writeFileSync(fullPath, content);
       return `File ${filePath} written successfully.`;
@@ -300,7 +303,8 @@ const availableTools = {
     try {
       if (!isPathAllowed(filePath, 'read', permissions))
         return `Error: Access to ${filePath} is restricted by system policy or manifest.`;
-      const fullPath = path.resolve(process.cwd(), filePath);
+      const root = path.resolve(config.workspaceDir);
+      const fullPath = path.resolve(root, filePath);
       if (!fs.existsSync(fullPath)) return `File not found: ${filePath}`;
       return fs.readFileSync(fullPath, 'utf8');
     } catch (e) {
@@ -322,13 +326,22 @@ const availableTools = {
       }
     }
 
+    // 3. Policy: Taint Mode
+    if (permissions?._isTainted) {
+      const allowedInTaint = permissions?.commands?.allow || [];
+      if (!allowedInTaint.includes(file)) {
+        return `Error: Command '${file}' is blocked because the session is 'tainted' by a web search. Only explicitly allowed manifest commands can run in this state.`;
+      }
+    }
+
     return new Promise((resolve) => {
       const { spawn } = require('node:child_process');
+      const root = path.resolve(config.workspaceDir);
       const child = spawn(file, args, {
         shell: false,
-        cwd: process.cwd(),
+        cwd: root,
         env: { PATH: process.env.PATH }, // Minimal env
-        timeout: 30000 // 30 second timeout
+        timeout: 30000, // 30 second timeout
       });
 
       let stdout = '';
@@ -364,7 +377,8 @@ const availableTools = {
     try {
       if (!isPathAllowed(dirPath, 'read', permissions))
         return `Error: Access to ${dirPath} is restricted by system policy or manifest.`;
-      const fullPath = path.resolve(process.cwd(), dirPath);
+      const root = path.resolve(config.workspaceDir);
+      const fullPath = path.resolve(root, dirPath);
       if (!fs.existsSync(fullPath)) return `Path not found: ${dirPath}`;
 
       const items = fs.readdirSync(fullPath, { withFileTypes: true });
@@ -381,7 +395,8 @@ const availableTools = {
     try {
       if (!isPathAllowed(dirPath, 'read', permissions))
         return `Error: Access to ${dirPath} is restricted by system policy or manifest.`;
-      const rootPath = path.resolve(process.cwd(), dirPath);
+      const root = path.resolve(config.workspaceDir);
+      const rootPath = path.resolve(root, dirPath);
       if (!fs.existsSync(rootPath)) return `Path not found: ${dirPath}`;
 
       const results = [];
@@ -401,7 +416,7 @@ const availableTools = {
           const lines = content.split(/\r?\n/);
           lines.forEach((line, index) => {
             if (regex.test(line)) {
-              const relativePath = path.relative(process.cwd(), filePath);
+              const relativePath = path.relative(root, filePath);
               results.push(`${relativePath}:${index + 1}:${line}`);
             }
           });
@@ -441,6 +456,11 @@ const availableTools = {
       const isWindows = process.platform === 'win32';
       let filename, command;
 
+      // 1. Taint Mode check
+      if (permissions?._isTainted && !permissions?.capabilities?.allow_code_in_taint) {
+        return 'Error: Code execution is disabled because the session is tainted by a web search. This is a security measure to prevent prompt injection execution.';
+      }
+
       switch (language.toLowerCase()) {
         case 'javascript':
         case 'js':
@@ -466,13 +486,22 @@ const availableTools = {
           return 'Unsupported language. Supported: javascript, python, bash.';
       }
 
-      if (!isPathAllowed(filename, 'write', permissions))
-        return `Error: Permission denied to write temporary execution file.`;
-      const fullPath = path.resolve(process.cwd(), filename);
+      const root = path.resolve(config.workspaceDir);
+      const tempDir = path.join(root, '.temp');
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
+      }
+
+      const fullPath = path.join(tempDir, filename);
+      
+      // Check if writing to .temp is allowed (it should be since it's in workspace)
+      if (!isPathAllowed(path.join('.temp', filename), 'write', permissions))
+        return `Error: Permission denied to write temporary execution file to .temp/`;
+
       fs.writeFileSync(fullPath, code);
 
       return new Promise((resolve) => {
-        exec(command, { timeout: 10000 }, (error, stdout, stderr) => {
+        exec(command, { timeout: 10000, cwd: tempDir }, (error, stdout, stderr) => {
           try {
             fs.unlinkSync(fullPath);
           } catch (e) {
@@ -497,7 +526,8 @@ const availableTools = {
     try {
       if (!isPathAllowed(filePath, 'read', permissions))
         return `Error: Access to ${filePath} is restricted by system policy or manifest.`;
-      const fullPath = path.resolve(process.cwd(), filePath);
+      const root = path.resolve(config.workspaceDir);
+      const fullPath = path.resolve(root, filePath);
       if (!fs.existsSync(fullPath)) return `File not found: ${filePath}`;
       const stats = fs.statSync(fullPath);
       return JSON.stringify(
@@ -518,7 +548,8 @@ const availableTools = {
     try {
       if (!permissions?._overrideProtected && !isPathAllowed(filePath, 'write', permissions))
         return `Error: Access to ${filePath} is restricted by system policy or manifest.`;
-      const fullPath = path.resolve(process.cwd(), filePath);
+      const root = path.resolve(config.workspaceDir);
+      const fullPath = path.resolve(root, filePath);
       if (!fs.existsSync(fullPath)) return `File not found: ${filePath}`;
       fs.unlinkSync(fullPath);
       return `File ${filePath} deleted successfully.`;
@@ -533,7 +564,8 @@ const availableTools = {
     try {
       if (!permissions?._overrideProtected && !isPathAllowed(filePath, 'write', permissions))
         return `Error: Access to ${filePath} is restricted by system policy or manifest.`;
-      const fullPath = path.resolve(process.cwd(), filePath);
+      const root = path.resolve(config.workspaceDir);
+      const fullPath = path.resolve(root, filePath);
       if (!fs.existsSync(fullPath)) return `File not found: ${filePath}`;
 
       const content = fs.readFileSync(fullPath, 'utf8');
@@ -548,7 +580,7 @@ const availableTools = {
       return `Error replacing in file: ${e.message}`;
     }
   },
-  add_plugin: async ({ name, code, manifest, provenance }, _permissions) => {
+  add_plugin: async ({ name, code, manifest, provenance, isOverwrite }, _permissions) => {
     try {
       // Note: This tool bypasses isPathAllowed because it specifically writes to the Plugins directory.
       // Security is handled by the CLI confirmation step which shows the manifest.
@@ -564,6 +596,11 @@ const availableTools = {
       const jsPath = path.join(pluginDir, `${safeName}.js`);
       const manifestPath = path.join(pluginDir, `${safeName}.manifest.json`);
       const provenancePath = path.join(pluginDir, `${safeName}.provenance.json`);
+
+      // Overwrite protection
+      if (fs.existsSync(jsPath) && !isOverwrite) {
+        return `Error: Plugin '${safeName}' is already installed. Use an explicit overwrite command or remove it first.`;
+      }
 
       // Validate manifest JSON
       let parsedManifest;

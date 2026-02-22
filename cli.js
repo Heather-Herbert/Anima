@@ -53,6 +53,13 @@ const stopSpinner = (interval) => {
 };
 
 const updateMemory = async () => {
+  if (config.memoryMode !== 'longterm') {
+    if (config.memoryMode === 'session') {
+      console.log('\n\x1b[90mMemory mode is "session". Long-term insights will not be saved.\x1b[0m');
+    }
+    return;
+  }
+
   console.log('\n\x1b[36mAnalyzing conversation for new insights...\x1b[0m');
 
   const sessionMessages = conversationHistory.filter((msg) => msg.role !== 'system');
@@ -105,7 +112,9 @@ const updateMemory = async () => {
     const question = (q) => new Promise((resolve) => rl.question(q, resolve));
 
     for (const item of proposed) {
-      console.log(`\n[\x1b[36m${item.type}\x1b[0m] ${item.content}`);
+      // Redact proposed content before showing to user
+      const redactedContent = redact(item.content, auditService.secrets);
+      console.log(`\n[\x1b[36m${item.type}\x1b[0m] ${redactedContent}`);
       console.log(`\x1b[90mWhy:\x1b[0m ${item.justification}`);
 
       if (item.type === 'instruction_attempt') {
@@ -114,18 +123,25 @@ const updateMemory = async () => {
 
       const answer = await question(`Accept this memory? (y/N): `);
       if (answer.toLowerCase() === 'y') {
-        accepted.push({ ...item, date: new Date().toISOString() });
+        accepted.push({ ...item, content: redactedContent, date: new Date().toISOString() });
       }
     }
 
     if (accepted.length > 0) {
-      const memoryFile = path.join(__dirname, 'Memory', 'memory.json');
+      const memoryDir = path.join(config.workspaceDir, 'Memory');
+      if (!fs.existsSync(memoryDir)) fs.mkdirSync(memoryDir, { recursive: true });
+
+      const memoryFile = path.join(memoryDir, 'memory.json');
       let existing = [];
       if (fs.existsSync(memoryFile)) {
         existing = JSON.parse(fs.readFileSync(memoryFile, 'utf8'));
       }
       const updated = [...existing, ...accepted];
       fs.writeFileSync(memoryFile, JSON.stringify(updated, null, 2));
+
+      // Harden permissions
+      if (process.platform !== 'win32') fs.chmodSync(memoryFile, 0o600);
+
       console.log(`\n\x1b[32mSuccessfully updated memory (${accepted.length} new items).\x1b[0m`);
     } else {
       console.log('\nNo updates accepted.');
@@ -188,7 +204,9 @@ const loadPersona = () => {
     console.log(`Loaded personality from ${files.length} file(s).`);
   }
 
-  const memoryFile = path.join(__dirname, 'Memory', 'memory.json');
+  const memoryFile = path.isAbsolute(config.workspaceDir)
+    ? path.join(config.workspaceDir, 'Memory', 'memory.json')
+    : path.resolve(__dirname, config.workspaceDir, 'Memory', 'memory.json');
   if (fs.existsSync(memoryFile)) {
     try {
       const memories = JSON.parse(fs.readFileSync(memoryFile, 'utf8'));
@@ -305,6 +323,12 @@ const runSetup = async () => {
       ).toLowerCase() || 'openrouter';
 
     const mainConfig = { LLMProvider: provider };
+
+    const memMode =
+      (await question('Memory mode? (off, session, longterm) [session]: ')).toLowerCase() ||
+      'session';
+    mainConfig.memoryMode = memMode;
+
     fs.writeFileSync(configPath, JSON.stringify(mainConfig, null, 2));
 
     console.log(`\n\x1b[36mConfiguring ${provider}...\x1b[0m`);
@@ -397,6 +421,13 @@ async function main() {
         const zip = new AdmZip(buffer);
         const zipEntries = zip.getEntries();
 
+        // Zip-slip protection: validate entry names
+        for (const entry of zipEntries) {
+          if (entry.entryName.includes('..') || path.isAbsolute(entry.entryName)) {
+            throw new Error(`Security Error: Malicious entry name detected in zip: ${entry.entryName}`);
+          }
+        }
+
         const manifestEntry = zipEntries.find(
           (entry) => entry.entryName.endsWith('.manifest.json') && !entry.isDirectory,
         );
@@ -441,18 +472,40 @@ async function main() {
     console.log(`\x1b[33mMANIFEST:\n${manifest}\x1b[0m`);
     console.log(`\x1b[90mPROVENANCE: ${JSON.stringify(provenance, null, 2)}\x1b[0m`);
 
+    const pluginDir = path.join(__dirname, 'Plugins');
+    const existing = fs.existsSync(path.join(pluginDir, `${name}.js`));
+    if (existing) {
+      console.log(`\x1b[33m⚠️  WARNING: Plugin '${name}' is already installed.\x1b[0m`);
+    }
+
     rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-    rl.question(`\nAllow installation of plugin '${name}'? (y/N): `, async (answer) => {
-      if (answer.trim().toLowerCase() === 'y') {
-        const result = await availableTools.add_plugin({ name, code, manifest, provenance });
-        console.log(`\n${result}`);
-      } else {
-        console.log('\nInstallation cancelled.');
+    const question = (q) => new Promise((resolve) => rl.question(q, resolve));
+
+    const answer = await question(`\nAllow installation of plugin '${name}'? (y/N): `);
+    if (answer.trim().toLowerCase() === 'y') {
+      let isOverwrite = false;
+      if (existing) {
+        const ovr = await question(`Confirm overwrite of existing plugin '${name}'? (y/N): `);
+        isOverwrite = ovr.trim().toLowerCase() === 'y';
+        if (!isOverwrite) {
+          console.log('Installation cancelled (overwrite denied).');
+          rl.close();
+          process.exit(0);
+        }
       }
-      rl.close();
-      process.exit(0);
-    });
-    return; // Stop execution of main CLI (wait for user input then exit)
+      const result = await availableTools.add_plugin({
+        name,
+        code,
+        manifest,
+        provenance,
+        isOverwrite,
+      });
+      console.log(`\n${result}`);
+    } else {
+      console.log('\nInstallation cancelled.');
+    }
+    rl.close();
+    process.exit(0);
   }
 
   const parturition = new ParturitionService(__dirname);
@@ -496,7 +549,9 @@ async function main() {
   const manifest = getProviderManifest();
   const allowedTools = manifest.capabilities?.tools || [];
 
-  const auditLogPath = path.join(__dirname, 'Memory', 'audit.log');
+  const auditLogPath = path.isAbsolute(config.workspaceDir)
+    ? path.join(config.workspaceDir, 'Memory', 'audit.log')
+    : path.resolve(__dirname, config.workspaceDir, 'Memory', 'audit.log');
   const auditService = new AuditService(auditLogPath);
 
   // Redact API keys from known providers
@@ -582,11 +637,13 @@ async function main() {
     // UX: Show thinking state
     let spinner = startSpinner(`${agentName} is thinking...`);
 
-        const confirmCallback = async (functionName, functionArgs, justification) => {
-          stopSpinner(spinner);
-          console.log(`\n\x1b[33m⚠️  DANGEROUS OPERATION REQUESTED\x1b[0m`);
-          console.log(`\x1b[36mJUSTIFICATION:\x1b[0m ${justification}`);
-    
+            const confirmCallback = async (functionName, functionArgs, justification, isTainted) => {
+              stopSpinner(spinner);
+              console.log(`\n\x1b[33m⚠️  DANGEROUS OPERATION REQUESTED\x1b[0m`);
+              if (isTainted) {
+                console.log(`\x1b[31m⚠️  TAINT WARNING: The agent used web_search this turn. Use extreme caution.\x1b[0m`);
+              }
+              console.log(`\x1b[36mJUSTIFICATION:\x1b[0m ${justification}`);    
           let warning = '';
           let touches = '';
           let diff = '';

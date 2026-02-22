@@ -88,12 +88,41 @@ const getProviderManifest = () => {
   } catch (e) {
     /* ignore missing manifest */
   }
-  // Secure by default: If no manifest is found, only allow read-only tools.
+  // Secure by default: If no manifest is found, only allow read-only tools and read-only filesystem access.
   return {
     capabilities: {
       tools: ['read_file', 'list_files', 'search_files', 'file_info', 'web_search'],
     },
+    permissions: {
+      filesystem: {
+        read: ['*'],
+        write: [],
+      },
+    },
   };
 };
 
-module.exports = { callAI, getProviderManifest };
+const redact = (text, secrets = []) => {
+  if (!text) return text;
+  let redacted = typeof text === 'string' ? text : JSON.stringify(text);
+
+  // Redact known secrets
+  secrets.forEach((secret) => {
+    if (!secret) return;
+    const escaped = secret.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp(escaped, 'g');
+    redacted = redacted.replace(re, '[REDACTED]');
+  });
+
+  // Pattern-based redaction (generic API keys, tokens, high-entropy strings)
+  redacted = redacted.replace(
+    /(api[_-]?key|token|auth|password|secret)["']?\s*[:=]\s*["']?([a-zA-Z0-9_\-]{8,})["']?/gi,
+    '$1: [REDACTED]',
+  );
+  redacted = redacted.replace(/Bearer\s+([a-zA-Z0-9_\-\.]{10,})/gi, 'Bearer [REDACTED]');
+  redacted = redacted.replace(/sk-[a-zA-Z0-9]{20,}/g, '[REDACTED]'); // OpenAI style keys
+
+  return redacted;
+};
+
+module.exports = { callAI, getProviderManifest, redact };
