@@ -81,4 +81,52 @@ describe('Config', () => {
       expect.stringContaining('Configuration validation failed'),
     );
   });
+
+  it('proxy handlers work correctly', () => {
+    jest.mock(
+      '../Settings/Anima.config',
+      () => ({
+        LLMProvider: 'proxy-test',
+        heartbeatInterval: 100,
+      }),
+      { virtual: true },
+    );
+
+    const config = require('./Config');
+
+    // Test 'has'
+    expect('LLMProvider' in config).toBe(true);
+    expect('nonExistent' in config).toBe(false);
+
+    // Test 'ownKeys'
+    expect(Object.keys(config)).toContain('LLMProvider');
+
+    // Test 'getOwnPropertyDescriptor'
+    const desc = Object.getOwnPropertyDescriptor(config, 'LLMProvider');
+    expect(desc).toBeDefined();
+    expect(desc.value).toBe('proxy-test');
+
+    // Test 'set'
+    config.heartbeatInterval = 500;
+    expect(config.heartbeatInterval).toBe(500);
+  });
+
+  it('proxy handles missing config gracefully', () => {
+    jest.mock(
+      '../Settings/Anima.config',
+      () => {
+        throw new Error('Missing');
+      },
+      { virtual: true },
+    );
+
+    const config = require('./Config');
+    expect('any' in config).toBe(false);
+    expect(Object.keys(config)).toEqual([]);
+    expect(Object.getOwnPropertyDescriptor(config, 'any')).toBeUndefined();
+
+    // Test setting on missing config
+    config.newProp = 'value';
+    expect(config.newProp).toBe('value');
+  });
 });

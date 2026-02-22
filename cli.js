@@ -5,6 +5,7 @@ const path = require('node:path');
 const config = require('./app/Config');
 const { tools, availableTools } = require('./app/Tools');
 const ParturitionService = require('./app/ParturitionService');
+const ConversationService = require('./app/ConversationService');
 const { callAI, getProviderManifest } = require('./app/Utils');
 
 // Check for model override via command line argument
@@ -179,53 +180,30 @@ const startHeartbeat = (agentName, activeTools, manifest) => {
 
     isProcessing = true;
     try {
-      const heartbeatPrompt = {
-        role: 'system',
-        content:
-          "Heartbeat tick. You are running in the background. Review your current goals and environment. If there's something you should do, do it. If not, just reply 'IDLE'.",
+      const heartbeatPrompt =
+        "Heartbeat tick. You are running in the background. Review your current goals and environment. If there's something you should do, do it. If not, just reply 'IDLE'.";
+
+      const agentName = await parturition.getAgentName();
+      const heartbeatService = new ConversationService(
+        agentName,
+        activeTools,
+        manifest,
+        historyPath,
+      );
+
+      const confirmBackground = async (functionName) => {
+        console.log(`\x1b[33m\n[Heartbeat] ${agentName} wants to run a dangerous tool: ${functionName}. Denied in background.\x1b[0m`);
+        return 'n'; // Auto-deny in background
       };
 
-      const data = await callAI([...conversationHistory, heartbeatPrompt], activeTools);
-      const message = data.choices?.[0]?.message;
+      const reply = await heartbeatService.processInput(
+        heartbeatPrompt,
+        conversationHistory,
+        confirmBackground,
+      );
 
-      if (message.tool_calls) {
-        console.log(`\n\x1b[90m[Heartbeat] ${agentName} is performing background tasks...\x1b[0m`);
-        // Use a simplified version of the tool execution loop for heartbeat
-        // For simplicity and safety, background tool calls should follow the same confirmation logic if dangerous
-        // But in background mode, it might be better if it only runs non-dangerous tools or we notify user.
-
-        // For now, let's reuse the logic but make sure it doesn't break the CLI prompt
-        for (const toolCall of message.tool_calls) {
-          const functionName = toolCall.function.name;
-          const functionArgs = JSON.parse(toolCall.function.arguments);
-
-          const dangerousTools = [
-            'write_file',
-            'run_command',
-            'execute_code',
-            'delete_file',
-            'replace_in_file',
-            'add_plugin',
-          ];
-          if (dangerousTools.includes(functionName)) {
-            console.log(
-              `\x1b[33m\n[Heartbeat] ${agentName} wants to run a dangerous tool: ${functionName}\x1b[0m`,
-            );
-            // We could skip it or ask, but background usually means autonomous.
-            // For safety, we skip or notify. Let's notify and skip for now unless user is active.
-            continue;
-          }
-
-          const result = await availableTools[functionName](functionArgs, manifest.permissions);
-          conversationHistory.push({
-            role: 'tool',
-            tool_call_id: toolCall.id,
-            name: functionName,
-            content: result,
-          });
-        }
-      } else if (message.content && message.content.trim() !== 'IDLE') {
-        console.log(`\n\x1b[90m[Heartbeat] ${agentName}: ${message.content}\x1b[0m`);
+      if (reply && reply.trim() !== 'IDLE') {
+        console.log(`\n\x1b[90m[Heartbeat] ${agentName}: ${reply}\x1b[0m`);
       }
     } catch (error) {
       // Silently ignore heartbeat errors to not disrupt user
@@ -437,6 +415,12 @@ async function main() {
   });
 
   const agentName = await parturition.getAgentName();
+  const conversationService = new ConversationService(
+    agentName,
+    activeTools,
+    manifest,
+    historyPath,
+  );
 
   console.log(`${agentName} CLI - Press Ctrl+C twice to quit.`);
   process.stdout.write('\n');
@@ -457,153 +441,56 @@ async function main() {
       conversationHistory.length = 0;
       loadPersona();
       historyPath = generateHistoryPath();
+      conversationService.historyPath = historyPath;
       fs.writeFileSync(historyPath, JSON.stringify(conversationHistory, null, 2));
       console.log('Session reset.');
+      isProcessing = false;
       rl.prompt();
       return;
     }
 
     if (input.trim() === '/save') {
       await updateMemory();
+      isProcessing = false;
       rl.prompt();
       return;
     }
 
-    conversationHistory.push({ role: 'user', content: input });
-    fs.writeFileSync(historyPath, JSON.stringify(conversationHistory, null, 2));
-
     // UX: Show thinking state
     let spinner = startSpinner(`${agentName} is thinking...`);
 
+    const confirmCallback = async (functionName, functionArgs) => {
+      stopSpinner(spinner);
+      let warning = '';
+      if (functionName === 'run_command') warning = `\x1b[31mCOMMAND: ${functionArgs.command}\x1b[0m`;
+      else if (functionName === 'delete_file') warning = `\x1b[31mDELETE: ${functionArgs.path}\x1b[0m`;
+      else if (functionName === 'write_file') warning = `\x1b[31mWRITE: ${functionArgs.path}\x1b[0m`;
+      else if (functionName === 'replace_in_file')
+        warning = `\x1b[31mREPLACE IN: ${functionArgs.path}\nSEARCH: ${functionArgs.search}\nREPLACE: ${functionArgs.replace}\x1b[0m`;
+      else if (functionName === 'execute_code')
+        warning = `\x1b[31mEXECUTE (${functionArgs.language}):\n${functionArgs.code}\x1b[0m`;
+      else if (functionName === 'add_plugin')
+        warning = `\x1b[31mADD PLUGIN: ${functionArgs.name}\x1b[0m\n\x1b[33mMANIFEST:\n${functionArgs.manifest}\x1b[0m`;
+      else warning = `\x1b[31mARGS: ${JSON.stringify(functionArgs)}\x1b[0m`;
+
+      console.log(`\n\x1b[33m⚠️  DANGEROUS OPERATION DETECTED:\x1b[0m`);
+      console.log(warning);
+
+      const answer = await new Promise((resolve) => {
+        rl.question(`\x1b[33mAllow ${functionName}? (y/N/d[ry-run]): \x1b[0m`, resolve);
+      });
+      spinner = startSpinner(`${agentName} is thinking...`);
+      return answer.trim().toLowerCase();
+    };
+
     try {
-      let processing = true;
-      while (processing) {
-        let data;
-        let attempts = 0;
-        const maxAttempts = 3;
-
-        while (attempts < maxAttempts) {
-          try {
-            attempts++;
-            data = await callAI(conversationHistory, activeTools);
-
-            // Basic validation of response structure
-            if (!data || !data.choices || !data.choices[0] || !data.choices[0].message) {
-              throw new Error('Malformed response from AI provider');
-            }
-            break;
-          } catch (error) {
-            if (
-              attempts >= maxAttempts ||
-              error.message.includes('401') ||
-              error.message.includes('403')
-            ) {
-              throw error;
-            }
-
-            stopSpinner(spinner);
-            console.log(
-              `\n\x1b[33m[Attempt ${attempts}/${maxAttempts}] Request failed: ${error.message}. Retrying...\x1b[0m`,
-            );
-            spinner = startSpinner(`${agentName} is thinking...`);
-            await new Promise((resolve) => setTimeout(resolve, 1000 * attempts));
-          }
-        }
-
-        const message = data.choices?.[0]?.message;
-
-        if (message.tool_calls) {
-          conversationHistory.push(message);
-
-          stopSpinner(spinner);
-          console.log(`\x1b[33mExecuting ${message.tool_calls.length} tool(s)...\x1b[0m`);
-
-          for (const toolCall of message.tool_calls) {
-            try {
-              const functionName = toolCall.function.name;
-              const functionArgs = JSON.parse(toolCall.function.arguments);
-
-              // Enforce manifest permissions on execution
-              if (!allowedTools.includes('*') && !allowedTools.includes(functionName)) {
-                throw new Error(
-                  `Tool '${functionName}' is not permitted by the active plugin manifest.`,
-                );
-              }
-
-              let toolResult;
-              const dangerousTools = [
-                'write_file',
-                'run_command',
-                'execute_code',
-                'delete_file',
-                'replace_in_file',
-                'add_plugin',
-              ];
-
-              if (dangerousTools.includes(functionName)) {
-                let warning = '';
-                if (functionName === 'run_command')
-                  warning = `\x1b[31mCOMMAND: ${functionArgs.command}\x1b[0m`;
-                else if (functionName === 'delete_file')
-                  warning = `\x1b[31mDELETE: ${functionArgs.path}\x1b[0m`;
-                else if (functionName === 'write_file')
-                  warning = `\x1b[31mWRITE: ${functionArgs.path}\x1b[0m`;
-                else if (functionName === 'replace_in_file')
-                  warning = `\x1b[31mREPLACE IN: ${functionArgs.path}\nSEARCH: ${functionArgs.search}\nREPLACE: ${functionArgs.replace}\x1b[0m`;
-                else if (functionName === 'execute_code')
-                  warning = `\x1b[31mEXECUTE (${functionArgs.language}):\n${functionArgs.code}\x1b[0m`;
-                else if (functionName === 'add_plugin')
-                  warning = `\x1b[31mADD PLUGIN: ${functionArgs.name}\x1b[0m\n\x1b[33mMANIFEST:\n${functionArgs.manifest}\x1b[0m`;
-                else warning = `\x1b[31mARGS: ${JSON.stringify(functionArgs)}\x1b[0m`;
-
-                console.log(`\n\x1b[33m⚠️  DANGEROUS OPERATION DETECTED:\x1b[0m`);
-                console.log(warning);
-
-                const answer = await new Promise((resolve) => {
-                  rl.question(`\x1b[33mAllow ${functionName}? (y/N/d[ry-run]): \x1b[0m`, resolve);
-                });
-
-                const input = answer.trim().toLowerCase();
-                if (input === 'y')
-                  toolResult = await availableTools[functionName](
-                    functionArgs,
-                    manifest.permissions,
-                  );
-                else if (input === 'd')
-                  toolResult = 'Dry run: Tool execution simulated successfully. No changes made.';
-                else toolResult = 'User denied tool execution.';
-              } else {
-                toolResult = await availableTools[functionName](functionArgs, manifest.permissions);
-              }
-
-              conversationHistory.push({
-                role: 'tool',
-                tool_call_id: toolCall.id,
-                name: functionName,
-                content: toolResult,
-              });
-            } catch (error) {
-              console.error(`Error executing tool ${toolCall.function.name}:`, error.message);
-              conversationHistory.push({
-                role: 'tool',
-                tool_call_id: toolCall.id,
-                name: toolCall.function.name,
-                content: `Error: ${error.message}`,
-              });
-            }
-          }
-          spinner = startSpinner(`${agentName} is thinking...`);
-        } else {
-          stopSpinner(spinner);
-
-          const reply = message.content || JSON.stringify(data, null, 2);
-          conversationHistory.push({ role: 'assistant', content: reply });
-          fs.writeFileSync(historyPath, JSON.stringify(conversationHistory, null, 2));
-
-          console.log(`\x1b[36m${agentName}: ${reply}\x1b[0m`);
-          processing = false;
-        }
-      }
+      const reply = await conversationService.processInput(
+        input,
+        conversationHistory,
+        confirmCallback,
+      );
+      stopSpinner(spinner);
+      console.log(`\x1b[36m${agentName}: ${reply}\x1b[0m`);
     } catch (error) {
       stopSpinner(spinner);
       console.error(`\n\x1b[31mError: ${error.message}\x1b[0m`);

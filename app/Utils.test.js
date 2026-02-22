@@ -59,6 +59,24 @@ describe('Utils', () => {
 
       await expect(Utils.callAI([])).rejects.toThrow('Unknown provider: test-provider');
     });
+
+    it('tries capitalized version of provider name', async () => {
+      config.LLMProvider = 'ollama';
+      const capitalizedPath = path.join(__dirname, '..', 'Plugins', 'Ollama.js');
+
+      fs.existsSync.mockImplementation((p) => p === capitalizedPath);
+
+      jest.doMock(
+        capitalizedPath,
+        () => ({
+          completion: jest.fn().mockResolvedValue('cap-success'),
+        }),
+        { virtual: true },
+      );
+
+      const result = await Utils.callAI([]);
+      expect(result).toBe('cap-success');
+    });
   });
 
   describe('getProviderManifest', () => {
@@ -71,6 +89,17 @@ describe('Utils', () => {
       expect(manifest).toEqual({ capabilities: { tools: ['write_file'] } });
       expect(fs.existsSync).toHaveBeenCalledWith(mockManifestPath);
       expect(fs.readFileSync).toHaveBeenCalledWith(mockManifestPath, 'utf8');
+    });
+
+    it('tries capitalized manifest version', () => {
+      config.LLMProvider = 'ollama';
+      const capitalizedManifestPath = path.join(__dirname, '..', 'Plugins', 'Ollama.manifest.json');
+
+      fs.existsSync.mockImplementation((p) => p === capitalizedManifestPath);
+      fs.readFileSync.mockReturnValue('{"cap":true}');
+
+      const manifest = Utils.getProviderManifest();
+      expect(manifest.cap).toBe(true);
     });
 
     it('returns default manifest if file missing', () => {

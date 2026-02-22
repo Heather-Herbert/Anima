@@ -211,6 +211,47 @@ describe('Tools', () => {
     });
   });
 
+  describe('search_files', () => {
+    it('finds matches in files', async () => {
+      fs.existsSync.mockReturnValue(true);
+      fs.statSync.mockReturnValue({ isDirectory: () => false, isFile: () => true });
+      fs.readFileSync.mockReturnValue('line1\ntarget\nline3');
+
+      const result = await availableTools.search_files({ path: 'f.txt', term: 'target' });
+      expect(result).toContain('f.txt:2:target');
+    });
+
+    it('reports no matches', async () => {
+      fs.existsSync.mockReturnValue(true);
+      fs.statSync.mockReturnValue({ isDirectory: () => false, isFile: () => true });
+      fs.readFileSync.mockReturnValue('no match here');
+
+      const result = await availableTools.search_files({ path: 'f.txt', term: 'target' });
+      expect(result).toBe('No matches found.');
+    });
+
+    it('handles invalid regex', async () => {
+      fs.existsSync.mockReturnValue(true);
+      const result = await availableTools.search_files({ path: '.', term: '[' });
+      expect(result).toContain('Invalid regex pattern');
+    });
+  });
+
+  describe('execute_code', () => {
+    it('executes bash code', async () => {
+      fs.writeFileSync.mockImplementation(() => {});
+      child_process.exec.mockImplementation((cmd, options, cb) => cb(null, 'Bash Output', ''));
+
+      const result = await availableTools.execute_code({ language: 'bash', code: 'ls' });
+      expect(result).toBe('Bash Output');
+    });
+
+    it('returns error for unsupported language', async () => {
+      const result = await availableTools.execute_code({ language: 'cobol', code: '' });
+      expect(result).toContain('Unsupported language');
+    });
+  });
+
   describe('file_info', () => {
     it('returns file stats', async () => {
       fs.existsSync.mockReturnValue(true);

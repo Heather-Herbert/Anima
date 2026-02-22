@@ -360,6 +360,7 @@ const availableTools = {
   execute_code: async ({ language, code }, permissions) => {
     try {
       const timestamp = Date.now();
+      const isWindows = process.platform === 'win32';
       let filename, command;
 
       switch (language.toLowerCase()) {
@@ -372,12 +373,16 @@ const availableTools = {
         case 'python':
         case 'py':
           filename = `temp_${timestamp}.py`;
-          command = `python3 ${filename}`;
+          // On Windows, 'python' is more common than 'python3'
+          command = isWindows ? `python ${filename}` : `python3 ${filename}`;
           break;
         case 'bash':
         case 'sh':
           filename = `temp_${timestamp}.sh`;
           command = `bash ${filename}`;
+          if (isWindows) {
+            return 'Error: Bash is not natively supported on Windows. Please use javascript or python.';
+          }
           break;
         default:
           return 'Unsupported language. Supported: javascript, python, bash.';
