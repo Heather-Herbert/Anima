@@ -102,12 +102,18 @@ describe('Utils', () => {
       expect(manifest.cap).toBe(true);
     });
 
-    it('returns default manifest if file missing', () => {
+    it('returns default secure manifest if file missing', () => {
       fs.existsSync.mockReturnValue(false);
 
       const manifest = Utils.getProviderManifest();
 
-      expect(manifest).toEqual({ capabilities: { tools: ['*'] } });
+      expect(manifest.capabilities.tools).toEqual([
+        'read_file',
+        'list_files',
+        'search_files',
+        'file_info',
+        'web_search',
+      ]);
     });
   });
 });

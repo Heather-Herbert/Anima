@@ -45,7 +45,12 @@ const getProviderManifest = () => {
   } catch (e) {
     /* ignore missing manifest */
   }
-  return { capabilities: { tools: ['*'] } };
+  // Secure by default: If no manifest is found, only allow read-only tools.
+  return {
+    capabilities: {
+      tools: ['read_file', 'list_files', 'search_files', 'file_info', 'web_search'],
+    },
+  };
 };
 
 module.exports = { callAI, getProviderManifest };

@@ -92,10 +92,13 @@ The agent has access to a variety of tools. Dangerous operations require user co
 - `add_plugin`: Install new plugins (agent-initiated).
 
 ### Provider Manifests
+
 Plugins are accompanied by a `.manifest.json` file which defines:
+
 - **Capabilities**: Which tools the provider is allowed to use.
 - **Permissions**: Filesystem access restrictions (read/write paths).
-- **Security**: The CLI enforces these constraints at runtime.
+- **Security**: The CLI enforces these constraints at runtime. **If a manifest is missing, Anima defaults to a "Read-Only" mode**, allowing only safe inspection tools.
+
 
 ### Memory System
 The system automatically manages context:
