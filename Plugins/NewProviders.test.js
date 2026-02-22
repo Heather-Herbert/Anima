@@ -3,7 +3,7 @@ const fs = require('fs');
 
 jest.mock('fs');
 jest.mock('../app/Config', () => ({
-  model: 'test-model'
+  model: 'test-model',
 }));
 
 const OpenAI = require('./OpenAI');
@@ -27,7 +27,7 @@ describe('New Providers', () => {
       fs.readFileSync.mockReturnValue(JSON.stringify({ apiKey: 'key', endpoint: 'url' }));
       global.fetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ choices: [{ message: { content: 'OpenAI' } }] })
+        json: async () => ({ choices: [{ message: { content: 'OpenAI' } }] }),
       });
       const result = await OpenAI.completion([]);
       expect(result.choices[0].message.content).toBe('OpenAI');
@@ -40,7 +40,7 @@ describe('New Providers', () => {
       fs.readFileSync.mockReturnValue(JSON.stringify({ apiKey: 'key', endpoint: 'url' }));
       global.fetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ choices: [{ message: { content: 'DeepSeek' } }] })
+        json: async () => ({ choices: [{ message: { content: 'DeepSeek' } }] }),
       });
       const result = await DeepSeek.completion([]);
       expect(result.choices[0].message.content).toBe('DeepSeek');
@@ -56,9 +56,9 @@ describe('New Providers', () => {
         json: async () => ({
           content: [
             { type: 'text', text: 'Anthropic content' },
-            { type: 'tool_use', id: 'tool_1', name: 'my_tool', input: { a: 1 } }
-          ]
-        })
+            { type: 'tool_use', id: 'tool_1', name: 'my_tool', input: { a: 1 } },
+          ],
+        }),
       });
       const result = await Anthropic.completion([]);
       expect(result.choices[0].message.content).toBe('Anthropic content');
@@ -73,15 +73,17 @@ describe('New Providers', () => {
       global.fetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
-          candidates: [{
-            content: {
-              parts: [
-                { text: 'Gemini content' },
-                { functionCall: { name: 'g_tool', args: { x: 10 } } }
-              ]
-            }
-          }]
-        })
+          candidates: [
+            {
+              content: {
+                parts: [
+                  { text: 'Gemini content' },
+                  { functionCall: { name: 'g_tool', args: { x: 10 } } },
+                ],
+              },
+            },
+          ],
+        }),
       });
       const result = await Gemini.completion([]);
       expect(result.choices[0].message.content).toBe('Gemini content');

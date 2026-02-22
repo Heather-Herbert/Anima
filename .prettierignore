@@ -1,0 +1,5 @@
+node_modules
+Memory
+package-lock.json
+*.md
+EOF

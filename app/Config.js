@@ -18,7 +18,9 @@ function loadConfig() {
     configData = require('../Settings/Anima.config');
   } catch (error) {
     console.error('\x1b[31mError: Configuration file not found.\x1b[0m');
-    console.error('Please ensure \x1b[33mAnima.config.js\x1b[0m or \x1b[33mAnima.config.json\x1b[0m exists in the settings folder.');
+    console.error(
+      'Please ensure \x1b[33mAnima.config.js\x1b[0m or \x1b[33mAnima.config.json\x1b[0m exists in the settings folder.',
+    );
     process.exit(1);
   }
 
@@ -37,21 +39,24 @@ function loadConfig() {
   return loadedConfig;
 }
 
-module.exports = new Proxy({}, {
-  get(target, prop) {
-    return loadConfig()[prop];
+module.exports = new Proxy(
+  {},
+  {
+    get(target, prop) {
+      return loadConfig()[prop];
+    },
+    set(target, prop, value) {
+      loadConfig()[prop] = value;
+      return true;
+    },
+    has(target, prop) {
+      return prop in loadConfig();
+    },
+    ownKeys(target) {
+      return Reflect.ownKeys(loadConfig());
+    },
+    getOwnPropertyDescriptor(target, prop) {
+      return Reflect.getOwnPropertyDescriptor(loadConfig(), prop);
+    },
   },
-  set(target, prop, value) {
-    loadConfig()[prop] = value;
-    return true;
-  },
-  has(target, prop) {
-    return prop in loadConfig();
-  },
-  ownKeys(target) {
-    return Reflect.ownKeys(loadConfig());
-  },
-  getOwnPropertyDescriptor(target, prop) {
-    return Reflect.getOwnPropertyDescriptor(loadConfig(), prop);
-  }
-});
+);

@@ -10,14 +10,14 @@ describe('Config', () => {
     // Mocking process.exit to prevent test runner from exiting
     // but allowing us to check if it was called.
     Object.defineProperty(process, 'exit', {
-        value: jest.fn()
+      value: jest.fn(),
     });
     console.error = jest.fn();
   });
 
   afterAll(() => {
     Object.defineProperty(process, 'exit', {
-        value: originalExit
+      value: originalExit,
     });
     console.error = originalConsoleError;
   });
@@ -29,9 +29,13 @@ describe('Config', () => {
   });
 
   it('loads valid configuration correctly', () => {
-    jest.mock('../Settings/Anima.config', () => ({
-      LLMProvider: 'gpt-4'
-    }), { virtual: true });
+    jest.mock(
+      '../Settings/Anima.config',
+      () => ({
+        LLMProvider: 'gpt-4',
+      }),
+      { virtual: true },
+    );
 
     const config = require('./Config');
     // Access property to trigger load
@@ -40,35 +44,47 @@ describe('Config', () => {
 
   it('exits if configuration file is missing', () => {
     // We mock require to throw error when loading the config file
-    jest.mock('../Settings/Anima.config', () => {
-      throw new Error('Cannot find module');
-    }, { virtual: true });
+    jest.mock(
+      '../Settings/Anima.config',
+      () => {
+        throw new Error('Cannot find module');
+      },
+      { virtual: true },
+    );
 
     const config = require('./Config');
-    
+
     // Trigger load
     try {
-        const val = config.LLMProvider;
+      const val = config.LLMProvider;
     } catch (e) {
-        // Expected to throw or exit
+      // Expected to throw or exit
     }
-    
+
     expect(process.exit).toHaveBeenCalledWith(1);
-    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Configuration file not found'));
+    expect(console.error).toHaveBeenCalledWith(
+      expect.stringContaining('Configuration file not found'),
+    );
   });
 
   it('exits if configuration is invalid', () => {
-    jest.mock('../Settings/Anima.config', () => ({
-      LLMProvider: 123 // Invalid type, should be string
-    }), { virtual: true });
+    jest.mock(
+      '../Settings/Anima.config',
+      () => ({
+        LLMProvider: 123, // Invalid type, should be string
+      }),
+      { virtual: true },
+    );
 
     const config = require('./Config');
-    
+
     try {
-        const val = config.LLMProvider;
+      const val = config.LLMProvider;
     } catch (e) {}
 
     expect(process.exit).toHaveBeenCalledWith(1);
-    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Configuration validation failed'));
+    expect(console.error).toHaveBeenCalledWith(
+      expect.stringContaining('Configuration validation failed'),
+    );
   });
 });

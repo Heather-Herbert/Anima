@@ -5,7 +5,7 @@ const config = require('./Config');
 
 jest.mock('fs');
 jest.mock('./Config', () => ({
-  LLMProvider: 'test-provider'
+  LLMProvider: 'test-provider',
 }));
 
 // We need to require Utils AFTER mocking Config
@@ -19,29 +19,35 @@ describe('Utils', () => {
     jest.resetModules();
     jest.clearAllMocks();
     config.LLMProvider = 'test-provider';
-    
+
     // Mock the dynamic plugin module
-    jest.doMock(mockProviderPath, () => ({
-      completion: jest.fn().mockResolvedValue({ choices: [{ message: { content: 'test response' } }] })
-    }), { virtual: true });
+    jest.doMock(
+      mockProviderPath,
+      () => ({
+        completion: jest
+          .fn()
+          .mockResolvedValue({ choices: [{ message: { content: 'test response' } }] }),
+      }),
+      { virtual: true },
+    );
   });
 
   describe('callAI', () => {
     it('calls the provider completion method', async () => {
       fs.existsSync.mockReturnValue(true); // Provider file exists
-      
+
       const messages = [{ role: 'user', content: 'hi' }];
-      
-      // We need to re-require Utils because we reset modules? 
-      // Actually doMock only affects subsequent requires. 
+
+      // We need to re-require Utils because we reset modules?
+      // Actually doMock only affects subsequent requires.
       // Utils.js is already required. But Utils.js calls require() dynamically inside callAI.
       // So doMock should affect that require call.
-      
+
       const result = await Utils.callAI(messages);
 
       expect(result).toEqual({ choices: [{ message: { content: 'test response' } }] });
       expect(fs.existsSync).toHaveBeenCalledWith(mockProviderPath);
-      
+
       // Verify the provider was called
       // We need to require the mocked module to check expectations
       const provider = require(mockProviderPath);
@@ -61,7 +67,7 @@ describe('Utils', () => {
       fs.readFileSync.mockReturnValue(JSON.stringify({ capabilities: { tools: ['write_file'] } }));
 
       const manifest = Utils.getProviderManifest();
-      
+
       expect(manifest).toEqual({ capabilities: { tools: ['write_file'] } });
       expect(fs.existsSync).toHaveBeenCalledWith(mockManifestPath);
       expect(fs.readFileSync).toHaveBeenCalledWith(mockManifestPath, 'utf8');
@@ -71,8 +77,8 @@ describe('Utils', () => {
       fs.existsSync.mockReturnValue(false);
 
       const manifest = Utils.getProviderManifest();
-      
-      expect(manifest).toEqual({ capabilities: { tools: ["*"] } });
+
+      expect(manifest).toEqual({ capabilities: { tools: ['*'] } });
     });
   });
 });
