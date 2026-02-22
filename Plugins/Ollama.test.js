@@ -1,6 +1,5 @@
 const { describe, it, expect, beforeEach, afterEach } = require('@jest/globals');
 const fs = require('fs');
-const path = require('path');
 
 // Mock dependencies
 jest.mock('fs');

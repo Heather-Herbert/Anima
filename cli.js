@@ -158,8 +158,15 @@ const loadPersona = () => {
   }
 };
 
-let heartbeatInterval = null;
+let _heartbeatInterval = null;
 let isProcessing = false;
+
+const _stopHeartbeat = () => {
+  if (_heartbeatInterval) {
+    clearInterval(_heartbeatInterval);
+    _heartbeatInterval = null;
+  }
+};
 
 const startHeartbeat = (agentName, activeTools, manifest) => {
   const interval = (config.heartbeatInterval || 300) * 1000;
@@ -167,7 +174,7 @@ const startHeartbeat = (agentName, activeTools, manifest) => {
 
   console.log(`\x1b[90mHeartbeat system active (interval: ${interval / 1000}s)\x1b[0m`);
 
-  heartbeatInterval = setInterval(async () => {
+  _heartbeatInterval = setInterval(async () => {
     if (isProcessing) return; // Don't interrupt if user is interacting
 
     isProcessing = true;
@@ -281,7 +288,8 @@ const runSetup = async () => {
         providerConfig.endpoint = 'https://openrouter.ai/api/v1/chat/completions';
       if (provider === 'deepseek')
         providerConfig.endpoint = 'https://api.deepseek.com/chat/completions';
-      if (provider === 'anthropic') providerConfig.endpoint = 'https://api.anthropic.com/v1/messages';
+      if (provider === 'anthropic')
+        providerConfig.endpoint = 'https://api.anthropic.com/v1/messages';
     }
 
     fs.writeFileSync(
@@ -474,7 +482,7 @@ async function main() {
         let attempts = 0;
         const maxAttempts = 3;
 
-        while (true) {
+        while (attempts < maxAttempts) {
           try {
             attempts++;
             data = await callAI(conversationHistory, activeTools);

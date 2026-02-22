@@ -1,5 +1,4 @@
 const { describe, it, expect, beforeEach } = require('@jest/globals');
-const path = require('path');
 const readline = require('readline');
 
 // Mock readline
@@ -25,7 +24,6 @@ const ParturitionService = require('./ParturitionService');
 describe('ParturitionService', () => {
   let service;
   const baseDir = '/test/dir';
-  const personalityDir = path.join(baseDir, 'Personality');
 
   beforeEach(() => {
     service = new ParturitionService(baseDir);

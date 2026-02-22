@@ -1,13 +1,10 @@
-const { describe, it, expect, beforeEach } = require('@jest/globals');
-const path = require('node:path');
+const { describe, it, expect } = require('@jest/globals');
 const fs = require('node:fs');
 const { isPathAllowed, availableTools } = require('./Tools');
 
 jest.mock('node:fs');
 
 describe('Security: isPathAllowed', () => {
-  const cwd = process.cwd();
-
   it('allows access to files in project root', () => {
     expect(isPathAllowed('README.md')).toBe(true);
     expect(isPathAllowed('./test.txt')).toBe(true);
@@ -123,7 +120,7 @@ describe('Security: Tool Permission Enforcement', () => {
       if (p.endsWith('secret.js')) return true;
       return false;
     });
-    
+
     fs.statSync.mockImplementation((p) => {
       if (p.endsWith('public')) return { isDirectory: () => true, isFile: () => false };
       return { isDirectory: () => false, isFile: () => true };
@@ -137,22 +134,12 @@ describe('Security: Tool Permission Enforcement', () => {
     // If 'public' is allowed and is a directory, then 'public/secret.js' is also allowed.
     // To test filtering, we need 'public' to be allowed but NOT as a directory that allows all subpaths.
     // However, list_files requires the path to be allowed.
-    
+
     const result = await availableTools.list_files({ path: 'public' }, permissions);
     // With current isPathAllowed logic, if 'public' is a directory, everything inside is allowed.
     // So both should be present.
     expect(result).toContain('allowed.txt');
     expect(result).toContain('secret.js');
-    
-    // Let's test a case where it SHOULD filter.
-    const strictPermissions = {
-        filesystem: {
-            read: ['sandbox', 'sandbox/file1.txt']
-        }
-    };
-    // Mock sandbox as a FILE for the check, or just not a directory in the manifest sense.
-    // Actually, if we want to list a directory but hide files, we need to allow the directory 
-    // but not its subpaths. 
   });
 
   it('execute_code prevents writing temp file to restricted path', async () => {
@@ -204,4 +191,3 @@ describe('Security: Tool Permission Enforcement', () => {
     expect(resultDenied).toContain('restricted by system policy or manifest');
   });
 });
-

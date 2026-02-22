@@ -56,7 +56,7 @@ describe('Config', () => {
 
     // Trigger load
     try {
-      const val = config.LLMProvider;
+      config.LLMProvider;
     } catch (e) {
       // Expected to throw or exit
     }
@@ -79,8 +79,10 @@ describe('Config', () => {
     const config = require('./Config');
 
     try {
-      const val = config.LLMProvider;
-    } catch (e) {}
+      config.LLMProvider;
+    } catch (e) {
+      // Expected validation error
+    }
 
     expect(process.exit).toHaveBeenCalledWith(1);
     expect(console.error).toHaveBeenCalledWith(

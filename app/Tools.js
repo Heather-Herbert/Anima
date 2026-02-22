@@ -1,6 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const { exec, execFile } = require('node:child_process');
+const { exec } = require('node:child_process');
 
 const isPathAllowed = (filePath, mode = 'read', permissions = null) => {
   try {
@@ -30,9 +30,7 @@ const isPathAllowed = (filePath, mode = 'read', permissions = null) => {
     // Check if path matches or is inside a restricted directory
     if (
       restrictedPrefixes.some(
-        (prefix) =>
-          relativePathLower === prefix ||
-          relativePathLower.startsWith(prefix + path.sep),
+        (prefix) => relativePathLower === prefix || relativePathLower.startsWith(prefix + path.sep),
       )
     ) {
       return false;
@@ -44,24 +42,25 @@ const isPathAllowed = (filePath, mode = 'read', permissions = null) => {
       if (!allowedPaths) return false; // If mode is restricted but not defined, deny
       if (allowedPaths.includes('*')) return true;
 
-                  return allowedPaths.some((allowed) => {
-                    const allowedAbs = path.resolve(cwd, allowed);
-                    
-                    // Check if explicitly allowed as directory or file
-                    if (absolutePath === allowedAbs) return true;
-            
-                    // If not exact match, check if absolutePath is inside allowedAbs
-                    // We consider allowedAbs a directory if it ends with a slash OR has no extension OR exists as a directory
-                    const isDirectory = 
-                      allowed.endsWith(path.sep) || 
-                      !path.extname(allowed) ||
-                      (fs.existsSync(allowedAbs) && fs.statSync(allowedAbs).isDirectory());
-            
-                    if (isDirectory) {
-                      return absolutePath.startsWith(allowedAbs + path.sep);
-                    }
-                    return false;
-                  });    }
+      return allowedPaths.some((allowed) => {
+        const allowedAbs = path.resolve(cwd, allowed);
+
+        // Check if explicitly allowed as directory or file
+        if (absolutePath === allowedAbs) return true;
+
+        // If not exact match, check if absolutePath is inside allowedAbs
+        // We consider allowedAbs a directory if it ends with a slash OR has no extension OR exists as a directory
+        const isDirectory =
+          allowed.endsWith(path.sep) ||
+          !path.extname(allowed) ||
+          (fs.existsSync(allowedAbs) && fs.statSync(allowedAbs).isDirectory());
+
+        if (isDirectory) {
+          return absolutePath.startsWith(allowedAbs + path.sep);
+        }
+        return false;
+      });
+    }
 
     // Default policy if no manifest filesystem restrictions
     return true;
@@ -393,7 +392,9 @@ const availableTools = {
         exec(command, { timeout: 10000 }, (error, stdout, stderr) => {
           try {
             fs.unlinkSync(fullPath);
-          } catch (e) {}
+          } catch (e) {
+            /* Ignore unlink error */
+          }
           if (error) {
             if (error.killed) {
               resolve(`Error: Execution timed out after 10 seconds.`);
@@ -461,7 +462,7 @@ const availableTools = {
       return `Error replacing in file: ${e.message}`;
     }
   },
-  add_plugin: async ({ name, code, manifest }, permissions) => {
+  add_plugin: async ({ name, code, manifest }, _permissions) => {
     try {
       // Note: This tool bypasses isPathAllowed because it specifically writes to the Plugins directory.
       // Security is handled by the CLI confirmation step which shows the manifest.
@@ -493,7 +494,7 @@ const availableTools = {
       return `Error installing plugin: ${e.message}`;
     }
   },
-  web_search: async ({ query }) => {
+  web_search: async ({ query }, _permissions) => {
     try {
       if (typeof fetch === 'undefined') return 'Error: fetch is not defined. Node.js 18+ required.';
       const response = await fetch(

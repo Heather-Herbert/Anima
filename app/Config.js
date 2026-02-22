@@ -39,12 +39,12 @@ function loadConfig() {
 module.exports = new Proxy(
   {},
   {
-    get(target, prop) {
+    get(_target, prop) {
       const config = loadConfig();
       if (!config) return undefined;
       return config[prop];
     },
-    set(target, prop, value) {
+    set(_target, prop, value) {
       const config = loadConfig();
       if (!config) {
         loadedConfig = { [prop]: value };
@@ -53,17 +53,17 @@ module.exports = new Proxy(
       config[prop] = value;
       return true;
     },
-    has(target, prop) {
+    has(_target, prop) {
       const config = loadConfig();
       if (!config) return false;
       return prop in config;
     },
-    ownKeys(target) {
+    ownKeys(_target) {
       const config = loadConfig();
       if (!config) return [];
       return Reflect.ownKeys(config);
     },
-    getOwnPropertyDescriptor(target, prop) {
+    getOwnPropertyDescriptor(_target, prop) {
       const config = loadConfig();
       if (!config) return undefined;
       return Reflect.getOwnPropertyDescriptor(config, prop);

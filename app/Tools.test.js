@@ -1,6 +1,5 @@
 const { describe, it, expect, beforeEach, afterEach } = require('@jest/globals');
 const fs = require('node:fs');
-const path = require('node:path');
 const child_process = require('node:child_process');
 
 // Mock fs and child_process
