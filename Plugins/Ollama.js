@@ -1,9 +1,9 @@
 const fs = require('fs');
 const path = require('path');
-const mainConfig = require('../Config');
+const mainConfig = require('../app/Config');
 
 const loadProviderConfig = () => {
-  const configPath = path.join(__dirname, '../../settings/ollama.json');
+  const configPath = path.join(__dirname, '../Settings/ollama.json');
   if (!fs.existsSync(configPath)) {
     // Return defaults if config file doesn't exist
     return {
