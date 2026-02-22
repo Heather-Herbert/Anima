@@ -3,19 +3,25 @@ const { callAI } = require('./Utils');
 const { availableTools } = require('./Tools');
 
 class ConversationService {
-  constructor(agentName, activeTools, manifest, historyPath) {
+  constructor(agentName, activeTools, manifest, historyPath, auditService = null) {
     this.agentName = agentName;
     this.activeTools = activeTools;
     this.manifest = manifest;
     this.historyPath = historyPath;
-    this.dangerousTools = [
-      'write_file',
-      'run_command',
-      'execute_code',
-      'delete_file',
-      'replace_in_file',
-      'add_plugin',
-    ];
+    this.auditService = auditService;
+    this.dangerousTools = ['run_command', 'execute_code', 'add_plugin'];
+  }
+
+  isProtectedPath(filePath) {
+    const pathLower = filePath.toLowerCase();
+    return (
+      pathLower.startsWith('plugins/') ||
+      pathLower.startsWith('memory/') ||
+      pathLower.startsWith('personality/') ||
+      pathLower === 'plugins' ||
+      pathLower === 'memory' ||
+      pathLower === 'personality'
+    );
   }
 
   async processInput(input, conversationHistory, confirmCallback) {
@@ -61,23 +67,43 @@ class ConversationService {
             const functionArgs = JSON.parse(toolCall.function.arguments);
 
             let toolResult;
-            if (this.dangerousTools.includes(functionName)) {
-              const confirmed = await confirmCallback(functionName, functionArgs);
+            let auditResult = 'allowed';
+            const isWritingToProtected =
+              ['write_file', 'delete_file', 'replace_in_file'].includes(functionName) &&
+              this.isProtectedPath(functionArgs.path);
+
+            if (this.dangerousTools.includes(functionName) || isWritingToProtected) {
+              const justification = functionArgs.justification || 'No justification provided.';
+              const confirmed = await confirmCallback(functionName, functionArgs, justification);
               if (confirmed === 'y') {
-                toolResult = await availableTools[functionName](
-                  functionArgs,
-                  this.manifest.permissions,
-                );
+                const callPermissions = {
+                  ...this.manifest.permissions,
+                  _overrideProtected: isWritingToProtected,
+                };
+                toolResult = await availableTools[functionName](functionArgs, callPermissions);
+                auditResult = 'confirmed';
               } else if (confirmed === 'd') {
                 toolResult = 'Dry run: Tool execution simulated successfully. No changes made.';
+                auditResult = 'dry-run';
               } else {
                 toolResult = 'User denied tool execution.';
+                auditResult = 'denied';
               }
             } else {
               toolResult = await availableTools[functionName](
                 functionArgs,
                 this.manifest.permissions,
               );
+            }
+
+            if (this.auditService) {
+              this.auditService.log({
+                event: 'tool_call',
+                tool: functionName,
+                args: functionArgs,
+                result: auditResult,
+                output: toolResult,
+              });
             }
 
             conversationHistory.push({
@@ -87,11 +113,20 @@ class ConversationService {
               content: toolResult,
             });
           } catch (error) {
+            const errorMsg = `Error: ${error.message}`;
+            if (this.auditService) {
+              this.auditService.log({
+                event: 'tool_error',
+                tool: toolCall.function.name,
+                result: 'error',
+                output: errorMsg,
+              });
+            }
             conversationHistory.push({
               role: 'tool',
               tool_call_id: toolCall.id,
               name: toolCall.function.name,
-              content: `Error: ${error.message}`,
+              content: errorMsg,
             });
           }
         }

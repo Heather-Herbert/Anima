@@ -9,12 +9,26 @@ Anima is a command-line AI agent interface designed to evolve with you. It featu
 
 - **Persistent Memory**:
   - **Short-term**: Session history is saved automatically to JSON files in `Memory/`.
-  - **Long-term**: Important facts and insights are consolidated into `Memory/memory.md` upon exit or manual save.
+  - **Long-term**: Important facts and insights are consolidated into `Memory/memory.json` after a **User Review** step, where you can accept or reject individual items to prevent prompt injection persistence.
 - **Plugin-based LLM Providers**: Supports multiple AI providers (**OpenAI, Anthropic, Gemini, DeepSeek, OpenRouter, Ollama**) through a modular plugin system. **Providers run in isolated separate processes** with restricted environment access for maximum security.
 - **Manifest-level Security**: Tools and filesystem access are governed by provider-specific manifests, ensuring safe execution environments.
+- **Core Directory Protection**: The agent's "spinal cord" (`Plugins/`, `Memory/`, `Personality/`) is **Read-Only by default**. Any attempt to modify these files requires an explicit justification and user confirmation, regardless of manifest settings.
+- **Explainable Confirmations**: All dangerous operations require the agent to provide a **Justification**, show exactly what will be **Touched**, and provide a **Diff Preview** for file changes before user approval.
 - **Tool Execution**: The agent can interact with your system (read/write/replace files, run shell commands, execute code, search the web) with user confirmation and dry-run support.
 - **Parturition Service**: On the first run, the agent generates its own Identity (`Identity.md`) and Soul (`Soul.md`) based on user input.
 - **Flexible Configuration**: Select providers and models via config files in the `Settings/` directory or CLI arguments.
+
+## Security & Threat Model
+
+Anima is designed with a **Deny-by-Default** security posture to prevent common AI agent pitfalls such as unintended system destruction or persistent prompt injection.
+
+Key protections include:
+- **Process Isolation**: LLM Providers run in separate, isolated processes.
+- **No Shell**: Commands run directly (spawn), avoiding shell injection attacks.
+- **Spinal Cord Protection**: Core files (`Plugins/`, `Memory/`, `Personality/`) are read-only by default.
+- **Human-in-the-loop**: Structured memory and tool justifications require explicit approval.
+
+For full details on our security architecture, reporting instructions, and sandboxing recommendations, see **[SECURITY.md](SECURITY.md)**.
 
 ## Installation
 
@@ -67,6 +81,8 @@ node cli.js
 - `--model <name>`: Override the model defined in the provider settings for this session.
 - `--add-plugin <path|url>`: Install a plugin from a local JS file or a URL to a `.zip` archive.
 - `--hash <sha256>`: (Optional) Verify the SHA-256 hash of a remote plugin archive before installation. Highly recommended for production stability.
+- `--safe`: Disable all dangerous tools (run_command, write_file, etc.) for this session.
+- `--read-only`: Restrict the agent to only use read-only inspection tools.
 - `--help`, `-h`: Display help information.
 
 ### In-Chat Commands
@@ -83,7 +99,7 @@ The agent has access to a variety of tools. Dangerous operations require user co
 - `write_file`: Create or overwrite files.
 - `read_file`: Read file contents.
 - `replace_in_file`: Perform regex-based text replacements within a file.
-- `run_command`: Execute shell commands.
+- `run_command`: Execute a system command without a shell (e.g., `git`, `ls`). Features a 30s timeout, 100KB output limit, and strict denylist/allowlist enforcement.
 - `list_files`: List directory contents.
 - `search_files`: Grep-style search within files.
 - `execute_code`: Run Python, JavaScript, or Bash code in a temporary environment.
@@ -98,6 +114,7 @@ To ensure system integrity, Anima provides multiple layers of plugin security:
 
 - **Isolated Execution**: Providers run in separate processes with restricted environment variables.
 - **Provenance Tracking**: Every installed plugin stores its origin (source URL/path, date, and content hash) in a `.provenance.json` file.
+- **Audit Logging**: An append-only log (`Memory/audit.log`) records every tool execution, including redacted arguments, user confirmation results, and cryptographic hashes of tool outputs for forensics.
 - **Verification**: Remote plugins can be verified against a known SHA-256 hash using the `--hash` argument.
 
 ### Provider Manifests

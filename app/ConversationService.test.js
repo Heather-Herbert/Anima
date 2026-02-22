@@ -44,7 +44,10 @@ describe('ConversationService', () => {
             tool_calls: [
               {
                 id: 'call1',
-                function: { name: 'read_file', arguments: '{"path":"test.txt"}' },
+                function: {
+                  name: 'read_file',
+                  arguments: '{"path":"test.txt","justification":"test"}',
+                },
               },
             ],
           },
@@ -76,7 +79,10 @@ describe('ConversationService', () => {
             tool_calls: [
               {
                 id: 'call2',
-                function: { name: 'write_file', arguments: '{"path":"x.txt","content":"y"}' },
+                function: {
+                  name: 'write_file',
+                  arguments: '{"path":"x.txt","content":"y","justification":"need it"}',
+                },
               },
             ],
           },
@@ -93,7 +99,7 @@ describe('ConversationService', () => {
     const history = [];
     await service.processInput('Write it', history, confirmMock);
 
-    expect(confirmMock).toHaveBeenCalledWith('write_file', { path: 'x.txt', content: 'y' });
+    expect(confirmMock).toHaveBeenCalledWith('write_file', expect.anything(), 'need it');
     expect(availableTools.write_file).toHaveBeenCalled();
   });
 
@@ -106,7 +112,10 @@ describe('ConversationService', () => {
             tool_calls: [
               {
                 id: 'call3',
-                function: { name: 'run_command', arguments: '{"command":"rm -rf /"}' },
+                function: {
+                  name: 'run_command',
+                  arguments: '{"file":"ls","args":["-la"],"justification":"check files"}',
+                },
               },
             ],
           },

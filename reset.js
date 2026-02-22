@@ -11,7 +11,8 @@ const filesToRemove = [
   path.join(personalityDir, 'Soul.md'),
   path.join(personalityDir, 'Identity.md'),
   path.join(personalityDir, 'user.md'),
-  path.join(memoryDir, 'memory.md'),
+  path.join(memoryDir, 'memory.json'),
+  path.join(memoryDir, 'audit.log'),
 ];
 
 filesToRemove.forEach((file) => {

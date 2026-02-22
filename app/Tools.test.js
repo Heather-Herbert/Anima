@@ -57,21 +57,67 @@ describe('Tools', () => {
   });
 
   describe('run_command', () => {
-    it('executes command successfully', async () => {
-      child_process.exec.mockImplementation((cmd, cb) => cb(null, 'stdout output', ''));
+    const EventEmitter = require('node:events');
 
-      const result = await availableTools.run_command({ command: 'echo test' });
-      expect(result).toBe('stdout output');
+    it('executes command successfully', async () => {
+      const mockChild = new EventEmitter();
+      mockChild.stdout = new EventEmitter();
+      mockChild.stderr = new EventEmitter();
+      child_process.spawn.mockReturnValue(mockChild);
+
+      const promise = availableTools.run_command({ file: 'echo', args: ['hello'] });
+
+      mockChild.stdout.emit('data', 'hello output');
+      mockChild.emit('close', 0);
+
+      const result = await promise;
+      expect(result).toBe('hello output');
+      expect(child_process.spawn).toHaveBeenCalledWith(
+        'echo',
+        ['hello'],
+        expect.objectContaining({ shell: false }),
+      );
     });
 
     it('handles execution errors', async () => {
-      child_process.exec.mockImplementation((cmd, cb) =>
-        cb(new Error('Command failed'), '', 'stderr output'),
-      );
+      const mockChild = new EventEmitter();
+      mockChild.stdout = new EventEmitter();
+      mockChild.stderr = new EventEmitter();
+      child_process.spawn.mockReturnValue(mockChild);
 
-      const result = await availableTools.run_command({ command: 'bad_cmd' });
-      expect(result).toContain('Error: Command failed');
-      expect(result).toContain('stderr output');
+      const promise = availableTools.run_command({ file: 'false' });
+
+      mockChild.emit('close', 1);
+
+      const result = await promise;
+      expect(result).toContain('Command exited with code 1');
+    });
+
+    it('blocks commands in denylist', async () => {
+      const result = await availableTools.run_command({ file: 'rm', args: ['-rf', '/'] });
+      expect(result).toContain('blocked by system security policy');
+      expect(child_process.spawn).not.toHaveBeenCalled();
+    });
+
+    it('enforces manifest allowlist', async () => {
+      const permissions = {
+        commands: { allow: ['git'] },
+      };
+
+      // Denied
+      const resultDenied = await availableTools.run_command({ file: 'ls' }, permissions);
+      expect(resultDenied).toContain('not permitted by the active manifest');
+
+      // Allowed
+      const mockChild = new EventEmitter();
+      mockChild.stdout = new EventEmitter();
+      mockChild.stderr = new EventEmitter();
+      child_process.spawn.mockReturnValue(mockChild);
+
+      const promise = availableTools.run_command({ file: 'git', args: ['status'] }, permissions);
+      mockChild.emit('close', 0);
+      await promise;
+      expect(child_process.spawn).toHaveBeenCalledWith('git', ['status'], expect.anything());
     });
   });
 

@@ -30,6 +30,18 @@ describe('Security: isPathAllowed', () => {
     expect(isPathAllowed('Anima.config.json')).toBe(false);
   });
 
+  it('allows read-only access to core protected directories', () => {
+    expect(isPathAllowed('Plugins/OpenRouter.js', 'read')).toBe(true);
+    expect(isPathAllowed('Memory/memory.json', 'read')).toBe(true);
+    expect(isPathAllowed('Personality/main.md', 'read')).toBe(true);
+  });
+
+  it('denies write access to core protected directories by default', () => {
+    expect(isPathAllowed('Plugins/Malicious.js', 'write')).toBe(false);
+    expect(isPathAllowed('Memory/memory.json', 'write')).toBe(false);
+    expect(isPathAllowed('Personality/Soul.md', 'write')).toBe(false);
+  });
+
   describe('Manifest Enforcement', () => {
     const permissions = {
       filesystem: {
@@ -87,6 +99,18 @@ describe('Security: Tool Permission Enforcement', () => {
       permissions,
     );
     expect(resultDenied).toContain('restricted by system policy or manifest');
+  });
+
+  it('write_file allows protected paths if _overrideProtected is set', async () => {
+    fs.mkdirSync.mockImplementation(() => {});
+    fs.writeFileSync.mockImplementation(() => {});
+
+    const permissions = { _overrideProtected: true };
+    const result = await availableTools.write_file(
+      { path: 'Plugins/New.js', content: '...', justification: 'test' },
+      permissions,
+    );
+    expect(result).toContain('written successfully');
   });
 
   it('read_file respects manifest permissions', async () => {

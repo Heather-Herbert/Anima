@@ -12,29 +12,46 @@ const isPathAllowed = (filePath, mode = 'read', permissions = null) => {
       return false;
     }
 
-    const relativePath = path.relative(cwd, absolutePath);
-    const relativePathLower = relativePath.toLowerCase();
-    const restrictedPrefixes = [
-      'app',
-      'settings',
-      'node_modules',
-      '.git',
-      '.github',
-      'cli.js',
-      'package.json',
-      'package-lock.json',
-      'anima.config.js',
-      'anima.config.json',
-    ];
-
-    // Check if path matches or is inside a restricted directory
-    if (
-      restrictedPrefixes.some(
-        (prefix) => relativePathLower === prefix || relativePathLower.startsWith(prefix + path.sep),
-      )
-    ) {
-      return false;
-    }
+        const relativePath = path.relative(cwd, absolutePath);
+        const relativePathLower = relativePath.toLowerCase();
+        const restrictedPrefixes = [
+          'app',
+          'settings',
+          'node_modules',
+          '.git',
+          '.github',
+          'cli.js',
+          'package.json',
+          'package-lock.json',
+          'anima.config.js',
+          'anima.config.json',
+        ];
+    
+        // Core protected directories (for writes)
+        const protectedPrefixes = ['plugins', 'memory', 'personality'];
+    
+        // 1. Check Restricted Prefixes (Deny all access)
+        if (
+          restrictedPrefixes.some(
+            (prefix) =>
+              relativePathLower === prefix || relativePathLower.startsWith(prefix + path.sep),
+          )
+        ) {
+          return false;
+        }
+    
+        // 2. Check Protected Prefixes (Read-only by default unless explicitly allowed by manifest)
+        // If mode is 'write', we still return false here to force the tool to check manifest or fail.
+        // However, ConversationService handles the user-confirmation for writes to these.
+        // To be safe, we deny writes to these in isPathAllowed unless we are in 'read' mode.
+        if (
+          protectedPrefixes.some(
+            (prefix) =>
+              relativePathLower === prefix || relativePathLower.startsWith(prefix + path.sep),
+          )
+        ) {
+          if (mode !== 'read') return false;
+        }
 
     // Check Manifest Permissions
     if (permissions && permissions.filesystem) {
@@ -80,8 +97,12 @@ const tools = [
         properties: {
           path: { type: 'string', description: 'Relative path to the file' },
           content: { type: 'string', description: 'Content to write' },
+          justification: {
+            type: 'string',
+            description: 'A short explanation of why this file needs to be written.',
+          },
         },
-        required: ['path', 'content'],
+        required: ['path', 'content', 'justification'],
       },
     },
   },
@@ -103,13 +124,22 @@ const tools = [
     type: 'function',
     function: {
       name: 'run_command',
-      description: 'Execute a shell command',
+      description: 'Execute a system command without a shell (safer)',
       parameters: {
         type: 'object',
         properties: {
-          command: { type: 'string', description: 'Command to execute' },
+          file: { type: 'string', description: 'The executable file to run (e.g., "git", "ls")' },
+          args: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Arguments to pass to the executable',
+          },
+          justification: {
+            type: 'string',
+            description: 'A short explanation of why this command needs to be executed.',
+          },
         },
-        required: ['command'],
+        required: ['file', 'justification'],
       },
     },
   },
@@ -152,22 +182,12 @@ const tools = [
         properties: {
           language: { type: 'string', description: 'Language to use (javascript, python, bash)' },
           code: { type: 'string', description: 'The code to execute' },
+          justification: {
+            type: 'string',
+            description: 'A short explanation of why this code needs to be executed.',
+          },
         },
-        required: ['language', 'code'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'file_info',
-      description: 'Get metadata about a file (size, creation time, etc.)',
-      parameters: {
-        type: 'object',
-        properties: {
-          path: { type: 'string', description: 'Relative path to the file' },
-        },
-        required: ['path'],
+        required: ['language', 'code', 'justification'],
       },
     },
   },
@@ -194,8 +214,12 @@ const tools = [
         type: 'object',
         properties: {
           path: { type: 'string', description: 'Relative path to the file' },
+          justification: {
+            type: 'string',
+            description: 'A short explanation of why this file needs to be deleted.',
+          },
         },
-        required: ['path'],
+        required: ['path', 'justification'],
       },
     },
   },
@@ -210,8 +234,12 @@ const tools = [
           path: { type: 'string', description: 'Relative path to the file' },
           search: { type: 'string', description: 'Regex pattern to search for' },
           replace: { type: 'string', description: 'Replacement text' },
+          justification: {
+            type: 'string',
+            description: 'A short explanation of why this replacement is necessary.',
+          },
         },
-        required: ['path', 'search', 'replace'],
+        required: ['path', 'search', 'replace', 'justification'],
       },
     },
   },
@@ -227,8 +255,12 @@ const tools = [
           code: { type: 'string', description: 'JavaScript code for the plugin' },
           manifest: { type: 'string', description: 'JSON manifest string' },
           provenance: { type: 'object', description: 'Provenance information' },
+          justification: {
+            type: 'string',
+            description: 'An explanation of why this plugin needs to be installed.',
+          },
         },
-        required: ['name', 'code', 'manifest'],
+        required: ['name', 'code', 'manifest', 'justification'],
       },
     },
   },
@@ -249,9 +281,12 @@ const tools = [
 ];
 
 const availableTools = {
-  write_file: async ({ path: filePath, content }, permissions) => {
+  write_file: async (
+    { path: filePath, content, justification: _justification },
+    permissions,
+  ) => {
     try {
-      if (!isPathAllowed(filePath, 'write', permissions))
+      if (!permissions?._overrideProtected && !isPathAllowed(filePath, 'write', permissions))
         return `Error: Access to ${filePath} is restricted by system policy or manifest.`;
       const fullPath = path.resolve(process.cwd(), filePath);
       fs.mkdirSync(path.dirname(fullPath), { recursive: true });
@@ -272,13 +307,55 @@ const availableTools = {
       return `Error reading file: ${e.message}`;
     }
   },
-  run_command: async ({ command }) => {
+  run_command: async ({ file, args = [], justification: _justification }, permissions) => {
+    const denylist = ['rm', 'curl', 'wget', 'sudo', 'su', 'mv', 'chmod', 'chown', 'apt', 'npm', 'yarn', 'docker'];
+    
+    // 1. Policy: Denylist
+    if (denylist.includes(file.toLowerCase())) {
+      return `Error: Command '${file}' is blocked by system security policy.`;
+    }
+
+    // 2. Policy: Manifest Allowlist
+    if (permissions?.commands?.allow) {
+      if (!permissions.commands.allow.includes(file) && !permissions.commands.allow.includes('*')) {
+        return `Error: Command '${file}' is not permitted by the active manifest.`;
+      }
+    }
+
     return new Promise((resolve) => {
-      exec(command, (error, stdout, stderr) => {
-        if (error) {
-          resolve(`Error: ${error.message}\nStderr: ${stderr}`);
+      const { spawn } = require('node:child_process');
+      const child = spawn(file, args, {
+        shell: false,
+        cwd: process.cwd(),
+        env: { PATH: process.env.PATH }, // Minimal env
+        timeout: 30000 // 30 second timeout
+      });
+
+      let stdout = '';
+      let stderr = '';
+      const maxOutput = 1024 * 100; // 100KB limit
+
+      child.stdout.on('data', (data) => {
+        if (stdout.length < maxOutput) stdout += data;
+      });
+
+      child.stderr.on('data', (data) => {
+        if (stderr.length < maxOutput) stderr += data;
+      });
+
+      child.on('error', (err) => {
+        resolve(`Error spawning command: ${err.message}`);
+      });
+
+      child.on('close', (code) => {
+        let result = stdout || stderr;
+        if (stdout.length >= maxOutput || stderr.length >= maxOutput) {
+          result += '\n... [Output truncated due to size limit]';
+        }
+        if (code !== 0) {
+          resolve(`Command exited with code ${code}.\nOutput: ${result}`);
         } else {
-          resolve(stdout || stderr || 'Command executed successfully.');
+          resolve(result || 'Command executed successfully (no output).');
         }
       });
     });
@@ -358,7 +435,7 @@ const availableTools = {
       return `Error searching files: ${e.message}`;
     }
   },
-  execute_code: async ({ language, code }, permissions) => {
+  execute_code: async ({ language, code, justification: _justification }, permissions) => {
     try {
       const timestamp = Date.now();
       const isWindows = process.platform === 'win32';
@@ -437,9 +514,9 @@ const availableTools = {
       return `Error getting file info: ${e.message}`;
     }
   },
-  delete_file: async ({ path: filePath }, permissions) => {
+  delete_file: async ({ path: filePath, justification: _justification }, permissions) => {
     try {
-      if (!isPathAllowed(filePath, 'write', permissions))
+      if (!permissions?._overrideProtected && !isPathAllowed(filePath, 'write', permissions))
         return `Error: Access to ${filePath} is restricted by system policy or manifest.`;
       const fullPath = path.resolve(process.cwd(), filePath);
       if (!fs.existsSync(fullPath)) return `File not found: ${filePath}`;
@@ -449,9 +526,12 @@ const availableTools = {
       return `Error deleting file: ${e.message}`;
     }
   },
-  replace_in_file: async ({ path: filePath, search, replace }, permissions) => {
+  replace_in_file: async (
+    { path: filePath, search, replace, justification: _justification },
+    permissions,
+  ) => {
     try {
-      if (!isPathAllowed(filePath, 'write', permissions))
+      if (!permissions?._overrideProtected && !isPathAllowed(filePath, 'write', permissions))
         return `Error: Access to ${filePath} is restricted by system policy or manifest.`;
       const fullPath = path.resolve(process.cwd(), filePath);
       if (!fs.existsSync(fullPath)) return `File not found: ${filePath}`;

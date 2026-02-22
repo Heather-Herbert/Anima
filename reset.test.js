@@ -26,7 +26,8 @@ describe('reset.js', () => {
     expect(fs.unlinkSync).toHaveBeenCalledWith(expect.stringContaining('Soul.md'));
     expect(fs.unlinkSync).toHaveBeenCalledWith(expect.stringContaining('Identity.md'));
     expect(fs.unlinkSync).toHaveBeenCalledWith(expect.stringContaining('user.md'));
-    expect(fs.unlinkSync).toHaveBeenCalledWith(expect.stringContaining('memory.md'));
+    expect(fs.unlinkSync).toHaveBeenCalledWith(expect.stringContaining('memory.json'));
+    expect(fs.unlinkSync).toHaveBeenCalledWith(expect.stringContaining('audit.log'));
 
     // Verify JSON memory removal
     expect(fs.unlinkSync).toHaveBeenCalledWith(expect.stringContaining('memory-123.json'));

@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "adm-zip": "^0.5.10",
+    "diff": "^8.0.3",
     "zod": "^3.22.4"
   },
   "devDependencies": {
