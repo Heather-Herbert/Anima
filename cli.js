@@ -228,7 +228,78 @@ const startHeartbeat = (agentName, activeTools, manifest) => {
   }, interval);
 };
 
+const runSetup = async () => {
+  const settingsDir = path.join(__dirname, 'Settings');
+  const configPath = path.join(settingsDir, 'Anima.config.json');
+  const configPathJs = path.join(settingsDir, 'Anima.config.js');
+
+  if (fs.existsSync(configPath) || fs.existsSync(configPathJs)) return;
+
+  console.log("\n\x1b[36mWelcome to Anima! Let's set up your configuration.\x1b[0m");
+
+  if (!fs.existsSync(settingsDir)) {
+    fs.mkdirSync(settingsDir, { recursive: true });
+  }
+
+  const setupRl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  const question = (q) => new Promise((resolve) => setupRl.question(q, resolve));
+
+  try {
+    const provider =
+      (
+        await question(
+          'Which LLM Provider would you like to use? (openrouter, ollama, openai, anthropic, gemini, deepseek) [openrouter]: ',
+        )
+      ).toLowerCase() || 'openrouter';
+
+    const mainConfig = { LLMProvider: provider };
+    fs.writeFileSync(configPath, JSON.stringify(mainConfig, null, 2));
+
+    console.log(`\n\x1b[36mConfiguring ${provider}...\x1b[0m`);
+
+    let providerConfig = {};
+    if (provider === 'ollama') {
+      const endpoint =
+        (await question('Ollama endpoint [http://127.0.0.1:11434/api/chat]: ')) ||
+        'http://127.0.0.1:11434/api/chat';
+      const model = (await question('Ollama model [llama3]: ')) || 'llama3';
+      providerConfig = { endpoint, model };
+    } else {
+      const apiKey = await question(`Enter your ${provider} API Key: `);
+      const model = await question(`Enter model name (press enter for default): `);
+      providerConfig = { apiKey };
+      if (model) providerConfig.model = model;
+
+      // Set default endpoints for common providers
+      if (provider === 'openai')
+        providerConfig.endpoint = 'https://api.openai.com/v1/chat/completions';
+      if (provider === 'openrouter')
+        providerConfig.endpoint = 'https://openrouter.ai/api/v1/chat/completions';
+      if (provider === 'deepseek')
+        providerConfig.endpoint = 'https://api.deepseek.com/chat/completions';
+      if (provider === 'anthropic') providerConfig.endpoint = 'https://api.anthropic.com/v1/messages';
+    }
+
+    fs.writeFileSync(
+      path.join(settingsDir, `${provider}.json`),
+      JSON.stringify(providerConfig, null, 2),
+    );
+    console.log('\n\x1b[32mConfiguration saved successfully!\x1b[0m\n');
+  } catch (error) {
+    console.error(`\x1b[31mSetup failed: ${error.message}\x1b[0m`);
+    process.exit(1);
+  } finally {
+    setupRl.close();
+  }
+};
+
 async function main() {
+  await runSetup();
+
   // Handle --add-plugin argument
   const addPluginIndex = args.indexOf('--add-plugin');
   if (addPluginIndex !== -1 && args[addPluginIndex + 1]) {

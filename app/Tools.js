@@ -13,6 +13,7 @@ const isPathAllowed = (filePath, mode = 'read', permissions = null) => {
     }
 
     const relativePath = path.relative(cwd, absolutePath);
+    const relativePathLower = relativePath.toLowerCase();
     const restrictedPrefixes = [
       'app',
       'settings',
@@ -22,14 +23,16 @@ const isPathAllowed = (filePath, mode = 'read', permissions = null) => {
       'cli.js',
       'package.json',
       'package-lock.json',
-      'Anima.config.js',
-      'Anima.config.json',
+      'anima.config.js',
+      'anima.config.json',
     ];
 
     // Check if path matches or is inside a restricted directory
     if (
       restrictedPrefixes.some(
-        (prefix) => relativePath === prefix || relativePath.startsWith(prefix + path.sep),
+        (prefix) =>
+          relativePathLower === prefix ||
+          relativePathLower.startsWith(prefix + path.sep),
       )
     ) {
       return false;
@@ -41,11 +44,26 @@ const isPathAllowed = (filePath, mode = 'read', permissions = null) => {
       if (!allowedPaths) return false; // If mode is restricted but not defined, deny
       if (allowedPaths.includes('*')) return true;
 
-      return allowedPaths.some((allowed) => {
-        const allowedAbs = path.resolve(cwd, allowed);
-        return absolutePath === allowedAbs || absolutePath.startsWith(allowedAbs + path.sep);
-      });
-    }
+                  return allowedPaths.some((allowed) => {
+                    const allowedAbs = path.resolve(cwd, allowed);
+                    
+                    // Check if explicitly allowed as directory or file
+                    if (absolutePath === allowedAbs) return true;
+            
+                    // If not exact match, check if absolutePath is inside allowedAbs
+                    // We consider allowedAbs a directory if it ends with a slash OR has no extension OR exists as a directory
+                    const isDirectory = 
+                      allowed.endsWith(path.sep) || 
+                      !path.extname(allowed) ||
+                      (fs.existsSync(allowedAbs) && fs.statSync(allowedAbs).isDirectory());
+            
+                    if (isDirectory) {
+                      return absolutePath.startsWith(allowedAbs + path.sep);
+                    }
+                    return false;
+                  });    }
+
+    // Default policy if no manifest filesystem restrictions
     return true;
   } catch (e) {
     return false;
@@ -505,4 +523,4 @@ const availableTools = {
   },
 };
 
-module.exports = { tools, availableTools };
+module.exports = { tools, availableTools, isPathAllowed };

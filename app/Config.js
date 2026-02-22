@@ -17,11 +17,8 @@ function loadConfig() {
     // This supports Anima.config.js or Anima.config.json
     configData = require('../Settings/Anima.config');
   } catch (error) {
-    console.error('\x1b[31mError: Configuration file not found.\x1b[0m');
-    console.error(
-      'Please ensure \x1b[33mAnima.config.js\x1b[0m or \x1b[33mAnima.config.json\x1b[0m exists in the settings folder.',
-    );
-    process.exit(1);
+    // Return null instead of exiting to allow for setup wizard
+    return null;
   }
 
   // Validate the configuration
@@ -43,20 +40,33 @@ module.exports = new Proxy(
   {},
   {
     get(target, prop) {
-      return loadConfig()[prop];
+      const config = loadConfig();
+      if (!config) return undefined;
+      return config[prop];
     },
     set(target, prop, value) {
-      loadConfig()[prop] = value;
+      const config = loadConfig();
+      if (!config) {
+        loadedConfig = { [prop]: value };
+        return true;
+      }
+      config[prop] = value;
       return true;
     },
     has(target, prop) {
-      return prop in loadConfig();
+      const config = loadConfig();
+      if (!config) return false;
+      return prop in config;
     },
     ownKeys(target) {
-      return Reflect.ownKeys(loadConfig());
+      const config = loadConfig();
+      if (!config) return [];
+      return Reflect.ownKeys(config);
     },
     getOwnPropertyDescriptor(target, prop) {
-      return Reflect.getOwnPropertyDescriptor(loadConfig(), prop);
+      const config = loadConfig();
+      if (!config) return undefined;
+      return Reflect.getOwnPropertyDescriptor(config, prop);
     },
   },
 );

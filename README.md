@@ -32,13 +32,20 @@ Anima is a command-line AI agent interface designed to evolve with you. It featu
 
 ## Configuration
 
-1. **Primary Config**: Create `Settings/Anima.config.js` or `Settings/Anima.config.json`.
+On the first run, Anima will guide you through an automated **Setup Wizard** to configure your preferred LLM provider and API details.
+
+### Manual Configuration
+
+If you prefer to configure manually:
+
+1. **Primary Config**: Create `Settings/Anima.config.json`.
    ```json
    {
-     "LLMProvider": "openrouter"
+     "LLMProvider": "openrouter",
+     "heartbeatInterval": 300
    }
    ```
-2. **Provider Settings**: Individual providers may require their own settings files in `Settings/` (e.g., `openai.json`, `anthropic.json`, `gemini.json`, `deepseek.json`, `openrouter.json`, `ollama.json`).
+2. **Provider Settings**: Create a settings file named after your provider (e.g., `openai.json`, `anthropic.json`, `gemini.json`, `deepseek.json`, `openrouter.json`, `ollama.json`) in the `Settings/` directory.
    ```json
    {
      "apiKey": "YOUR_API_KEY_HERE",
@@ -46,6 +53,7 @@ Anima is a command-line AI agent interface designed to evolve with you. It featu
      "endpoint": "https://api.openai.com/v1/chat/completions"
    }
    ```
+   *Note: Standard endpoints are automatically provided for major services.*
 
 ## Usage
 
