@@ -12,8 +12,8 @@ jest.mock('./Config', () => ({
 const Utils = require('./Utils');
 
 describe('Utils', () => {
-  const mockProviderPath = path.join(__dirname, 'plugins', 'test-provider.js');
-  const mockManifestPath = path.join(__dirname, 'plugins', 'test-provider.manifest.json');
+  const mockProviderPath = path.join(__dirname, '..', 'Plugins', 'test-provider.js');
+  const mockManifestPath = path.join(__dirname, '..', 'Plugins', 'test-provider.manifest.json');
 
   beforeEach(() => {
     jest.resetModules();

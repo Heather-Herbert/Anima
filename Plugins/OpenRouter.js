@@ -1,9 +1,9 @@
 const fs = require('fs');
 const path = require('path');
-const mainConfig = require('../Config');
+const mainConfig = require('../app/Config');
 
 const loadProviderConfig = () => {
-  const configPath = path.join(__dirname, '../../settings/openrouter.json');
+  const configPath = path.join(__dirname, '../Settings/openrouter.json');
   if (!fs.existsSync(configPath)) {
     throw new Error(`OpenRouter configuration file not found at ${configPath}. Please create it in the settings folder with endpoint, apiKey, and model.`);
   }
