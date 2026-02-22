@@ -42,7 +42,7 @@ describe('Config', () => {
     expect(config.LLMProvider).toBe('gpt-4');
   });
 
-  it('exits if configuration file is missing', () => {
+  it('returns undefined if configuration file is missing', () => {
     // We mock require to throw error when loading the config file
     jest.mock(
       '../Settings/Anima.config',
@@ -54,17 +54,9 @@ describe('Config', () => {
 
     const config = require('./Config');
 
-    // Trigger load
-    try {
-      config.LLMProvider;
-    } catch (e) {
-      // Expected to throw or exit
-    }
-
-    expect(process.exit).toHaveBeenCalledWith(1);
-    expect(console.error).toHaveBeenCalledWith(
-      expect.stringContaining('Configuration file not found'),
-    );
+    // Accessing a property should return undefined and NOT exit
+    expect(config.LLMProvider).toBeUndefined();
+    expect(process.exit).not.toHaveBeenCalled();
   });
 
   it('exits if configuration is invalid', () => {
