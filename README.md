@@ -10,7 +10,7 @@ Anima is a command-line AI agent interface designed to evolve with you. It featu
 - **Persistent Memory**:
   - **Short-term**: Session history is saved automatically to JSON files in `Memory/`.
   - **Long-term**: Important facts and insights are consolidated into `Memory/memory.md` upon exit or manual save.
-- **Plugin-based LLM Providers**: Supports multiple AI providers (OpenRouter, Ollama, etc.) through a modular plugin system.
+- **Plugin-based LLM Providers**: Supports multiple AI providers (**OpenAI, Anthropic, Gemini, DeepSeek, OpenRouter, Ollama**) through a modular plugin system.
 - **Manifest-level Security**: Tools and filesystem access are governed by provider-specific manifests, ensuring safe execution environments.
 - **Tool Execution**: The agent can interact with your system (read/write/replace files, run shell commands, execute code, search the web) with user confirmation and dry-run support.
 - **Parturition Service**: On the first run, the agent generates its own Identity (`Identity.md`) and Soul (`Soul.md`) based on user input.
@@ -38,11 +38,12 @@ Anima is a command-line AI agent interface designed to evolve with you. It featu
      "LLMProvider": "openrouter"
    }
    ```
-2. **Provider Settings**: Individual providers may require their own settings files in `Settings/` (e.g., `openrouter.json`, `ollama.json`).
+2. **Provider Settings**: Individual providers may require their own settings files in `Settings/` (e.g., `openai.json`, `anthropic.json`, `gemini.json`, `deepseek.json`, `openrouter.json`, `ollama.json`).
    ```json
    {
      "apiKey": "YOUR_API_KEY_HERE",
-     "model": "google/gemini-pro-1.5"
+     "model": "gpt-4-turbo-preview",
+     "endpoint": "https://api.openai.com/v1/chat/completions"
    }
    ```
 

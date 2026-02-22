@@ -1,0 +1,13 @@
+{
+  "name": "DeepSeek",
+  "description": "DeepSeek API provider (OpenAI compatible)",
+  "capabilities": {
+    "tools": ["*"]
+  },
+  "permissions": {
+    "filesystem": {
+      "read": ["*"],
+      "write": ["*"]
+    }
+  }
+}

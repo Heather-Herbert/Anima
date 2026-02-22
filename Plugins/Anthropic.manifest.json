@@ -1,0 +1,13 @@
+{
+  "name": "Anthropic",
+  "description": "Anthropic Claude API provider",
+  "capabilities": {
+    "tools": ["*"]
+  },
+  "permissions": {
+    "filesystem": {
+      "read": ["*"],
+      "write": ["*"]
+    }
+  }
+}

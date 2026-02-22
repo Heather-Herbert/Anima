@@ -153,6 +153,66 @@ const loadPersona = () => {
   }
 };
 
+let heartbeatInterval = null;
+let isProcessing = false;
+
+const startHeartbeat = (agentName, activeTools, manifest) => {
+    const interval = (config.heartbeatInterval || 300) * 1000;
+    if (interval <= 0) return;
+
+    console.log(`\x1b[90mHeartbeat system active (interval: ${interval / 1000}s)\x1b[0m`);
+
+    heartbeatInterval = setInterval(async () => {
+        if (isProcessing) return; // Don't interrupt if user is interacting
+        
+        isProcessing = true;
+        try {
+            const heartbeatPrompt = {
+                role: "system",
+                content: "Heartbeat tick. You are running in the background. Review your current goals and environment. If there's something you should do, do it. If not, just reply 'IDLE'."
+            };
+
+            const data = await callAI([...conversationHistory, heartbeatPrompt], activeTools);
+            const message = data.choices?.[0]?.message;
+
+            if (message.tool_calls) {
+                console.log(`\n\x1b[90m[Heartbeat] ${agentName} is performing background tasks...\x1b[0m`);
+                // Use a simplified version of the tool execution loop for heartbeat
+                // For simplicity and safety, background tool calls should follow the same confirmation logic if dangerous
+                // But in background mode, it might be better if it only runs non-dangerous tools or we notify user.
+                
+                // For now, let's reuse the logic but make sure it doesn't break the CLI prompt
+                for (const toolCall of message.tool_calls) {
+                    const functionName = toolCall.function.name;
+                    const functionArgs = JSON.parse(toolCall.function.arguments);
+
+                    const dangerousTools = ['write_file', 'run_command', 'execute_code', 'delete_file', 'replace_in_file', 'add_plugin'];
+                    if (dangerousTools.includes(functionName)) {
+                         console.log(`\x1b[33m\n[Heartbeat] ${agentName} wants to run a dangerous tool: ${functionName}\x1b[0m`);
+                         // We could skip it or ask, but background usually means autonomous.
+                         // For safety, we skip or notify. Let's notify and skip for now unless user is active.
+                         continue; 
+                    }
+
+                    const result = await availableTools[functionName](functionArgs, manifest.permissions);
+                    conversationHistory.push({
+                        role: "tool",
+                        tool_call_id: toolCall.id,
+                        name: functionName,
+                        content: result
+                    });
+                }
+            } else if (message.content && message.content.trim() !== 'IDLE') {
+                console.log(`\n\x1b[90m[Heartbeat] ${agentName}: ${message.content}\x1b[0m`);
+            }
+        } catch (error) {
+            // Silently ignore heartbeat errors to not disrupt user
+        } finally {
+            isProcessing = false;
+        }
+    }, interval);
+};
+
 async function main() {
     // Handle --add-plugin argument
     const addPluginIndex = args.indexOf('--add-plugin');
@@ -283,10 +343,18 @@ async function main() {
     console.log(`${agentName} CLI - Press Ctrl+C twice to quit.`);
     process.stdout.write('\n');
 
+    startHeartbeat(agentName, activeTools, manifest);
+
     rl.setPrompt('You: ');
     rl.prompt();
 
     rl.on('line', async (input) => {
+        if (isProcessing) {
+            console.log("Still processing, please wait...");
+            return;
+        }
+
+        isProcessing = true;
         if (input.trim() === '/new') {
         conversationHistory.length = 0;
         loadPersona();
@@ -419,6 +487,7 @@ async function main() {
         }
 
         process.stdout.write('\n');
+        isProcessing = false;
         rl.prompt();
     });
 }

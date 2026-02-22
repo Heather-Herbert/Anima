@@ -1,0 +1,13 @@
+{
+  "name": "Gemini",
+  "description": "Google Gemini API provider",
+  "capabilities": {
+    "tools": ["*"]
+  },
+  "permissions": {
+    "filesystem": {
+      "read": ["*"],
+      "write": ["*"]
+    }
+  }
+}

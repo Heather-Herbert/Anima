@@ -3,6 +3,7 @@ const { z } = require('zod');
 // Define the schema for the configuration
 const configSchema = z.object({
   LLMProvider: z.string().default('openrouter'),
+  heartbeatInterval: z.number().default(300), // Default to 300 seconds (5 minutes)
 });
 
 let loadedConfig = null;
