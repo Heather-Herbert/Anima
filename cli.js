@@ -20,6 +20,7 @@ Usage: node cli.js [options]
 Options:
   --model <name>   Override the model defined in config (e.g., gpt-4, gpt-3.5-turbo)
   --add-plugin <source>  Install a plugin from a local JS file or a URL to a .zip file
+  --hash <sha256>  Expected SHA-256 hash for URL-based plugin verification
   --help, -h       Display this help message
 `);
   process.exit(0);
@@ -290,7 +291,11 @@ async function main() {
   const addPluginIndex = args.indexOf('--add-plugin');
   if (addPluginIndex !== -1 && args[addPluginIndex + 1]) {
     const pluginSource = args[addPluginIndex + 1];
+    const hashIndex = args.indexOf('--hash');
+    const expectedHash = hashIndex !== -1 ? args[hashIndex + 1] : null;
+
     let code, manifest, name;
+    let provenance = { source: pluginSource, date: new Date().toISOString() };
 
     if (pluginSource.startsWith('http://') || pluginSource.startsWith('https://')) {
       console.log(`\x1b[36mDownloading plugin from ${pluginSource}...\x1b[0m`);
@@ -300,6 +305,22 @@ async function main() {
           throw new Error(`Failed to download: ${response.status} ${response.statusText}`);
         const arrayBuffer = await response.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
+
+        // Verification
+        const crypto = require('node:crypto');
+        const actualHash = crypto.createHash('sha256').update(buffer).digest('hex');
+        provenance.hash = actualHash;
+
+        if (expectedHash && expectedHash !== actualHash) {
+          console.error(`\x1b[31mSecurity Error: Hash mismatch!\x1b[0m`);
+          console.error(`Expected: ${expectedHash}`);
+          console.error(`Actual:   ${actualHash}`);
+          process.exit(1);
+        }
+
+        if (!expectedHash) {
+          console.log(`\x1b[33mWarning: No hash provided. Calculated hash: ${actualHash}\x1b[0m`);
+        }
 
         let AdmZip;
         try {
@@ -349,15 +370,19 @@ async function main() {
       code = fs.readFileSync(absolutePath, 'utf8');
       manifest = fs.readFileSync(manifestPath, 'utf8');
       name = pathObj.name;
+
+      const crypto = require('node:crypto');
+      provenance.hash = crypto.createHash('sha256').update(code).digest('hex');
     }
 
     console.log(`\n\x1b[36mInstalling Plugin: ${name}\x1b[0m`);
     console.log(`\x1b[33mMANIFEST:\n${manifest}\x1b[0m`);
+    console.log(`\x1b[90mPROVENANCE: ${JSON.stringify(provenance, null, 2)}\x1b[0m`);
 
     rl = readline.createInterface({ input: process.stdin, output: process.stdout });
     rl.question(`\nAllow installation of plugin '${name}'? (y/N): `, async (answer) => {
       if (answer.trim().toLowerCase() === 'y') {
-        const result = await availableTools.add_plugin({ name, code, manifest });
+        const result = await availableTools.add_plugin({ name, code, manifest, provenance });
         console.log(`\n${result}`);
       } else {
         console.log('\nInstallation cancelled.');

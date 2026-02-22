@@ -298,6 +298,25 @@ describe('Tools', () => {
       expect(fs.writeFileSync).toHaveBeenCalledTimes(2); // Code and manifest
     });
 
+    it('saves provenance information if provided', async () => {
+      fs.existsSync.mockReturnValue(true);
+      fs.writeFileSync.mockImplementation(() => {});
+
+      const provenance = { source: 'http://example.com', hash: '123' };
+      await availableTools.add_plugin({
+        name: 'prov-test',
+        code: '...',
+        manifest: '{}',
+        provenance,
+      });
+
+      expect(fs.writeFileSync).toHaveBeenCalledTimes(3); // Code, manifest, AND provenance
+      expect(fs.writeFileSync).toHaveBeenCalledWith(
+        expect.stringContaining('prov-test.provenance.json'),
+        JSON.stringify(provenance, null, 2),
+      );
+    });
+
     it('fails with invalid manifest', async () => {
       const result = await availableTools.add_plugin({
         name: 'test-plugin',

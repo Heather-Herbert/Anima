@@ -66,6 +66,7 @@ node cli.js
 
 - `--model <name>`: Override the model defined in the provider settings for this session.
 - `--add-plugin <path|url>`: Install a plugin from a local JS file or a URL to a `.zip` archive.
+- `--hash <sha256>`: (Optional) Verify the SHA-256 hash of a remote plugin archive before installation. Highly recommended for production stability.
 - `--help`, `-h`: Display help information.
 
 ### In-Chat Commands
@@ -90,6 +91,14 @@ The agent has access to a variety of tools. Dangerous operations require user co
 - `file_info`: Get metadata about a file.
 - `delete_file`: Remove a file.
 - `add_plugin`: Install new plugins (agent-initiated).
+
+### Plugin Security
+
+To ensure system integrity, Anima provides multiple layers of plugin security:
+
+- **Isolated Execution**: Providers run in separate processes with restricted environment variables.
+- **Provenance Tracking**: Every installed plugin stores its origin (source URL/path, date, and content hash) in a `.provenance.json` file.
+- **Verification**: Remote plugins can be verified against a known SHA-256 hash using the `--hash` argument.
 
 ### Provider Manifests
 

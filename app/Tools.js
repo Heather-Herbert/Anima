@@ -226,6 +226,7 @@ const tools = [
           name: { type: 'string', description: "Name of the plugin (e.g., 'anthropic')" },
           code: { type: 'string', description: 'JavaScript code for the plugin' },
           manifest: { type: 'string', description: 'JSON manifest string' },
+          provenance: { type: 'object', description: 'Provenance information' },
         },
         required: ['name', 'code', 'manifest'],
       },
@@ -467,7 +468,7 @@ const availableTools = {
       return `Error replacing in file: ${e.message}`;
     }
   },
-  add_plugin: async ({ name, code, manifest }, _permissions) => {
+  add_plugin: async ({ name, code, manifest, provenance }, _permissions) => {
     try {
       // Note: This tool bypasses isPathAllowed because it specifically writes to the Plugins directory.
       // Security is handled by the CLI confirmation step which shows the manifest.
@@ -482,6 +483,7 @@ const availableTools = {
 
       const jsPath = path.join(pluginDir, `${safeName}.js`);
       const manifestPath = path.join(pluginDir, `${safeName}.manifest.json`);
+      const provenancePath = path.join(pluginDir, `${safeName}.provenance.json`);
 
       // Validate manifest JSON
       let parsedManifest;
@@ -493,6 +495,10 @@ const availableTools = {
 
       fs.writeFileSync(jsPath, code);
       fs.writeFileSync(manifestPath, JSON.stringify(parsedManifest, null, 2));
+
+      if (provenance) {
+        fs.writeFileSync(provenancePath, JSON.stringify(provenance, null, 2));
+      }
 
       return `Plugin '${safeName}' installed successfully.`;
     } catch (e) {
