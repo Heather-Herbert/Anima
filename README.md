@@ -5,6 +5,8 @@
 
 Anima is a command-line AI agent interface designed to evolve with you. It features persistent memory, tool execution capabilities, a unique "parturition" (birth) process, and a flexible **Plugin-based LLM Provider** architecture with manifest-level security.
 
+🚀 **[Get Started in 5 Minutes](GETTING_STARTED.md)** | 🛠️ **[Developer Guide: Adding Functionality](ADDING_FUNCTIONALITY.md)**
+
 ## Features
 
 - **Persistent Memory**:
@@ -172,6 +174,8 @@ Plugins are accompanied by a `.manifest.json` file which defines:
 - **Security**: The CLI enforces these constraints at runtime. **If a manifest is missing, Anima defaults to a "Read-Only" mode**, allowing only safe inspection tools.
 
 ## Development
+
+For a deep dive into extending Anima, see the **[Adding Functionality Guide](ADDING_FUNCTIONALITY.md)**.
 
 ### Registering New Tools
 

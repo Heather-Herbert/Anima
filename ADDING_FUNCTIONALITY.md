@@ -1,0 +1,107 @@
+# Adding Functionality to Anima
+
+This guide is for developers who want to extend Anima's capabilities. Anima is designed to be modular and easy to hack.
+
+## 1. Adding a New Tool
+
+Tools are the primary way Anima interacts with the world. They are defined in `app/Tools.js`.
+
+### Step A: Define the Tool Schema
+Add an entry to the `tools` array. Use the standard OpenAI Function Calling format.
+
+```javascript
+// app/Tools.js
+const tools = [
+  // ... existing tools
+  {
+    type: 'function',
+    function: {
+      name: 'get_weather',
+      description: 'Get current weather for a city',
+      parameters: {
+        type: 'object',
+        properties: {
+          city: { type: 'string' },
+          justification: { type: 'string', description: 'Why you need this' }
+        },
+        required: ['city', 'justification']
+      }
+    }
+  }
+];
+```
+
+### Step B: Implement the Logic
+Add a corresponding function to the `availableTools` object.
+
+```javascript
+// app/Tools.js
+const availableTools = {
+  // ... existing implementations
+  get_weather: async ({ city }, permissions) => {
+    // Check permissions if this tool touches sensitive areas
+    const result = await someWeatherApi(city);
+    return `The weather in ${city} is ${result}.`;
+  }
+};
+```
+
+**Note**: The `ToolDispatcher` automatically validates incoming arguments against your schema before calling your function.
+
+---
+
+## 2. Adding a New LLM Provider
+
+Providers are plugins that handle the actual AI completion.
+
+1.  **Create Manifest**: Add `Plugins/MyProvider.manifest.json`.
+    ```json
+    {
+      "name": "MyProvider",
+      "capabilities": { "tools": ["*"] }
+    }
+    ```
+2.  **Implement Provider**: Create `Plugins/MyProvider.js`. It must export a `completion(messages, tools)` function.
+3.  **Security**: Providers run in an isolated separate process via `app/ProviderRunner.js`.
+
+---
+
+## 3. Adding an Advisory Council Member
+
+Advisers provide feedback on the main agent's drafts.
+
+1.  **Create Prompt**: Add a new `.md` file to `Personality/Advisers/` (e.g., `CodeReviewer.md`).
+2.  **Register**: Add them to your `Settings/Anima.config.json`.
+    ```json
+    "advisers": [
+      {
+        "name": "CodeReviewer",
+        "role": "Senior Engineer",
+        "promptFile": "CodeReviewer.md"
+      }
+    ]
+    ```
+
+---
+
+## 4. Testing
+
+Always add tests for new functionality!
+
+- **Unit Tests**: Add a `.test.js` file in the relevant directory.
+- **Run Tests**: `npm test`
+- **Check Coverage**: `npm test -- --coverage`
+- **Linting**: `npm run lint`
+
+### Useful Mocks
+Check `app/ConversationService.test.js` or `app/Security.test.js` for examples of how to mock the LLM or the filesystem.
+
+---
+
+## 5. Security Principles
+
+When adding code, keep these principles in mind:
+- **Deny-by-Default**: Don't grant access unless explicitly required.
+- **Redaction**: Use the `redact` utility in `app/Utils.js` for any output that might contain secrets.
+- **Taint Tracking**: If your tool pulls data from the internet, ensure it sets/respects the `isTainted` flag.
+- **Path Validation**: Use `isPathAllowed` for all filesystem operations.
