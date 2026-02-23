@@ -146,6 +146,12 @@ Anima implements a **Reasoning and Action (ReAct)** loop. When a user provides i
 3.  **Observation**: The result of the tool execution is fed back into the context.
 This loop continues until a final answer is produced or a hard limit of **10 iterations** is reached to prevent runaway processes.
 
+### Advisory Council
+Anima can consult a council of specialist "Advisers" to review its proposed actions.
+-   **Always Mode**: Every response is reviewed by the council before the agent "acts" (Draft -> Review -> Act).
+-   **Risk-Based Mode**: The council is automatically triggered when a turn is deemed risky (e.g., destructive keywords like `rm` or `sudo`, tool-heavy turns, or "tainted" sessions after a web search).
+-   **On-Demand Mode**: The agent can explicitly call the council using the `advisory_council` tool.
+
 ### Context Management (Sliding Window)
 To manage the LLM's token limit and maintain performance during long-running tasks, Anima uses a **Sliding Window** strategy for conversation history:
 -   **Fixed Context**: The initial **System Prompt** and the **Original User Prompt** that started the current task are always preserved.

@@ -390,10 +390,13 @@ describe('ConversationService', () => {
     config.advisoryCouncil = {
       enabled: true,
       mode: 'always',
-      advisers: [{ name: 'Auditor', role: 'Security' }],
+      advisers: [{ name: 'Auditor', role: 'Security', promptFile: 'Auditor.md' }],
       maxAdvisersPerCall: 1,
       parallel: true,
     };
+
+    fs.existsSync.mockReturnValue(true);
+    fs.readFileSync.mockReturnValue('Adviser Prompt');
 
     // 1. Mock callAI for Draft
     callAI.mockResolvedValueOnce({
@@ -433,6 +436,48 @@ describe('ConversationService', () => {
     expect(adviceMsg.content).toContain('Very risky');
 
     // Cleanup config mock for other tests
+    config.advisoryCouncil = { enabled: false };
+  });
+
+  it('triggers council automatically in "risk_based" mode for risky turns', async () => {
+    const config = require('./Config');
+    config.advisoryCouncil = {
+      enabled: true,
+      mode: 'risk_based',
+      advisers: [{ name: 'Auditor', role: 'Security', promptFile: 'Auditor.md' }],
+      maxAdvisersPerCall: 1,
+      parallel: true,
+    };
+
+    fs.existsSync.mockReturnValue(true);
+    fs.readFileSync.mockReturnValue('Adviser Prompt');
+
+    // Mock callAI for agent response
+    callAI.mockResolvedValueOnce({
+      choices: [{ message: { role: 'assistant', content: 'I will delete the config file.' } }],
+    });
+
+    // Mock callAI for council advice
+    callAI.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              sentiment: 'negative',
+              riskScore: 1.0,
+              feedback: 'Extremely dangerous',
+            }),
+          },
+        },
+      ],
+    });
+
+    const history = [];
+    const { advice } = await service.processInput('delete EVERYTHING', history, jest.fn());
+
+    expect(advice).toHaveLength(1);
+    expect(advice[0].adviser).toBe('Auditor');
+
     config.advisoryCouncil = { enabled: false };
   });
 });

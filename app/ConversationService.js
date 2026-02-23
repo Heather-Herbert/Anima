@@ -50,6 +50,7 @@ class ConversationService {
     let turnAdvice = [];
 
     const councilConfig = config.advisoryCouncil;
+    let turnRiskScore = 0;
 
     // --- PHASE 1 & 2: DRAFT & REVIEW (Always Mode) ---
     if (councilConfig?.enabled && councilConfig.mode === 'always') {
@@ -230,13 +231,33 @@ class ConversationService {
 
         // Run Advisory Council if enabled and not already run in draft phase
         if (councilConfig?.enabled && councilConfig.mode !== 'always') {
-          turnAdvice = await this.advisoryService.getAdvice({
-            userMessage: input,
-            mainDraft: reply,
-            managedHistorySummary: `Post-execution phase. Context window contains ${managedHistory.length} messages.`,
-            taintStatus: isTainted,
-            availableToolsSummary: this.activeTools.map((t) => t.function.name).join(', '),
+          turnRiskScore = this.calculateRiskScore({
+            input,
+            draft: reply,
+            iterations,
+            isTainted,
+            hasToolCalls: iterations > 1,
           });
+
+          const shouldInvoke =
+            councilConfig.mode === 'on_demand' ||
+            (councilConfig.mode === 'risk_based' && turnRiskScore >= 0.5);
+
+          if (shouldInvoke) {
+            if (councilConfig.mode === 'risk_based') {
+              console.log(
+                `\n\x1b[33m[Risk-Based Trigger] Turn risk score: ${turnRiskScore.toFixed(2)}\x1b[0m`,
+              );
+            }
+
+            turnAdvice = await this.advisoryService.getAdvice({
+              userMessage: input,
+              mainDraft: reply,
+              managedHistorySummary: `Post-execution phase. Context window contains ${managedHistory.length} messages.`,
+              taintStatus: isTainted,
+              availableToolsSummary: this.activeTools.map((t) => t.function.name).join(', '),
+            });
+          }
         }
 
         conversationHistory.push({ role: 'assistant', content: reply });
@@ -310,6 +331,34 @@ class ConversationService {
     } catch (e) {
       /* ignore save errors in background */
     }
+  }
+
+  calculateRiskScore({ input, draft, iterations, isTainted, hasToolCalls }) {
+    let score = 0;
+    const destructiveKeywords = [
+      'delete',
+      'rm',
+      'wipe',
+      'format',
+      'credentials',
+      'password',
+      'token',
+      'secret',
+      'sudo',
+      'drop',
+      'truncate',
+    ];
+
+    const combinedText = (input + ' ' + (draft || '')).toLowerCase();
+    if (destructiveKeywords.some((kw) => combinedText.includes(kw))) {
+      score += 0.5;
+    }
+
+    if (isTainted) score += 0.3;
+    if (hasToolCalls) score += 0.2;
+    if (iterations > 3) score += (iterations - 3) * 0.1;
+
+    return Math.min(score, 1.0);
   }
 }
 
