@@ -50,7 +50,53 @@ const availableTools = {
 
 ---
 
-## 2. Adding a New LLM Provider
+## 2. Creating a Skill (Tool Plugin)
+
+Skills are portable bundles of tools that can be installed without modifying core code. They live in the `Skills/` directory.
+
+### Step A: Create the Manifest
+Create `Skills/MySkill.manifest.json`.
+
+```json
+{
+  "name": "MySkill",
+  "type": "skill",
+  "description": "Adds cool new features",
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "cool_feature",
+        "description": "Does something cool",
+        "parameters": {
+          "type": "object",
+          "properties": { "arg1": { "type": "string" } },
+          "required": ["arg1"]
+        }
+      }
+    }
+  ]
+}
+```
+
+### Step B: Create the Implementation
+Create `Skills/MySkill.js`.
+
+```javascript
+const implementations = {
+  cool_feature: async ({ arg1 }, permissions) => {
+    return `Feature result: ${arg1}`;
+  }
+};
+
+module.exports = { implementations };
+```
+
+Anima will automatically load any `.js` file in the `Skills/` directory that has a matching `.manifest.json`.
+
+---
+
+## 3. Adding a New LLM Provider
 
 Providers are plugins that handle the actual AI completion.
 

@@ -223,6 +223,7 @@ If `Personality/Soul.md` or `Personality/Identity.md` are missing, the system en
 - `cli.js`: Main entry point and CLI loop.
 - `app/`: Core services (`Config.js`, `Tools.js`, `ParturitionService.js`, `Utils.js`).
 - `Plugins/`: LLM provider implementations and manifests.
+- `Skills/`: Tool-based plugins (e.g., Google Calendar) that extend the agent's capabilities.
 - `Settings/`: Configuration and provider settings.
 - `Memory/`: Stores session logs and consolidated memory.
 - `Personality/`: Stores system prompts, identity files, and birth configuration.

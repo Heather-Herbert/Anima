@@ -7,7 +7,7 @@ const { tools, availableTools } = require('./app/Tools');
 const ParturitionService = require('./app/ParturitionService');
 const ConversationService = require('./app/ConversationService');
 const AuditService = require('./app/AuditService');
-const { callAI, getProviderManifest, redact } = require('./app/Utils');
+const { callAI, getProviderManifest, redact, encrypt, decrypt } = require('./app/Utils');
 
 // Check for model override via command line argument
 const args = process.argv.slice(2);
@@ -243,7 +243,9 @@ const loadPersona = () => {
         if (key) {
           content = decrypt(content, key);
         } else {
-          console.log('\x1b[31mEncryption enabled but no key provided. Skipping memory.json.\x1b[0m');
+          console.log(
+            '\x1b[31mEncryption enabled but no key provided. Skipping memory.json.\x1b[0m',
+          );
           return;
         }
       }

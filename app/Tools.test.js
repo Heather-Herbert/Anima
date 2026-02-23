@@ -471,6 +471,28 @@ describe('Tools', () => {
       expect(fs.writeFileSync).toHaveBeenCalled();
     });
 
+    it('installs a skill-type plugin into the Skills directory', async () => {
+      fs.existsSync.mockReturnValue(false);
+      fs.mkdirSync.mockImplementation(() => {});
+      fs.writeFileSync.mockImplementation(() => {});
+
+      const result = await availableTools.add_plugin(
+        {
+          name: 'test-skill',
+          code: 'module.exports = { implementations: {} }',
+          manifest: JSON.stringify({ name: 'test-skill', type: 'skill' }),
+          justification: 'test skill',
+        },
+        fullPermissions,
+      );
+
+      expect(result).toContain("Skill 'test-skill' installed successfully");
+      expect(fs.writeFileSync).toHaveBeenCalledWith(
+        expect.stringContaining('Skills'),
+        expect.anything(),
+      );
+    });
+
     it('fails with invalid manifest', async () => {
       fs.existsSync.mockReturnValue(false);
       const result = await availableTools.add_plugin(

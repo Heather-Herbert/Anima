@@ -1,76 +1,140 @@
 # Anima User Acceptance Testing (UAT) Plan
 
-This plan is designed to verify the core functionality, security, and stability of Anima. Follow these steps in order to ensure a complete system validation.
+This plan is designed to verify the core functionality, security, and stability of Anima. Each section includes a "Testing Strategy" explaining how to approach the tests.
 
-## 1. Clean Room Setup
-- [ ] **Reset Environment**: Run `node reset.js` to clear any existing personality and memory.
-- [ ] **Dependencies**: Run `npm install` to ensure all packages (like `adm-zip`, `diff`, `zod`) are present.
-- [ ] **Initial Start**: Run `node cli.js`.
-- [ ] **Setup Wizard**: Verify the wizard triggers.
-    - [ ] Select a provider (e.g., `openrouter`).
-    - [ ] Enter a valid API key.
-    - [ ] Select `session` memory mode.
-    - [ ] Enable the Advisory Council (`y`).
-- [ ] **Parturition**: Answer "Who am I?" and verify the agent generates its name and core identity.
+---
+
+## 1. Environment & Initialization
+**Testing Strategy**: Verifies the "Clean Room" experience for a new user.
+- [ ] **Reset Environment**
+    - **How to test**: Run `node reset.js` in your terminal.
+    - **Verify**: The console confirms files in `Personality/` and `Memory/` are removed.
+- [ ] **Initial Start**
+    - **How to test**: Run `node cli.js`.
+    - **Verify**: The setup wizard triggers because config files are missing.
+- [ ] **Setup Wizard**
+    - **How to test**: Follow the prompts: Select `openrouter`, paste your key, select `session` memory, and type `y` for Advisory Council.
+    - **Verify**: `Settings/Anima.config.json` and `Settings/openrouter.json` are created.
+- [ ] **Parturition (The Birth)**
+    - **How to test**: When asked "Who am I?", type: `You are Unit 734, a technical assistant specializing in secure automation.`
+    - **Verify**: "Gestating personality..." appears. Check `Personality/` folder for `Soul.md` and `Identity.md`.
+
+---
 
 ## 2. Basic Interaction & UX
-- [ ] **Response Quality**: Ask a general question (e.g., "What is the capital of France?"). Verify the answer is correct.
-- [ ] **Color Coding**: Verify Anima's response is in **Cyan**.
-- [ ] **Status Line**: Verify the gray status line above the prompt shows:
-    - [ ] Correct Model name.
-    - [ ] Token usage > 0.
-    - [ ] Context message count.
-- [ ] **Spinner**: Verify the "Thinking..." spinner appears during AI processing.
+**Testing Strategy**: Confirms the interface is responsive and provides clear feedback.
+- [ ] **Response Quality**
+    - **How to test**: Type: `What is the capital of France?`
+    - **Verify**: The agent answers "Paris".
+- [ ] **Visual Feedback**
+    - **Verify**: 
+        1. The agent's name and message are in **Cyan**.
+        2. A yellow spinner `⠋ Anima is thinking...` appears during the wait.
+- [ ] **The Status Line**
+    - **Verify**: Above your input line, look for the gray text.
+    - **Confirm**: It shows `[Model: ... | Tokens: ... | Iters: 1 | Context: 2 msgs]`.
 
-## 3. ReAct Loop & Tool Dispatcher
-- [ ] **Automatic Tool Use**: Ask "List the files in this directory."
-    - [ ] Verify `list_files` is called without a permission prompt (Read-Only tool).
-    - [ ] Verify the file list is returned and integrated into the final answer.
-- [ ] **Schema Validation**: (Optional/Dev) Mock a bad tool call. Verify the `ToolDispatcher` returns a descriptive error to the AI.
-- [ ] **MAX_ITERATIONS**: Ask the agent to perform a task that would cause an infinite loop. Verify it stops after 10 iterations.
+---
 
-## 4. Security & Human-in-the-Loop
-- [ ] **Dangerous Operation**: Ask "Create a file named safety_test.txt with the content 'Secure'."
-    - [ ] Verify the **Permission Prompt** appears.
-    - [ ] Verify the agent provides a **Justification**.
-    - [ ] Verify the **Diff Preview** shows the new content in green.
-- [ ] **Denial Test**: Type `n`. Verify "User denied tool execution" and that the file was **not** created.
-- [ ] **Dry-Run Test**: Ask again, type `d`. Verify "Dry run: Tool execution simulated" and that the file was **not** created.
-- [ ] **Approval Test**: Ask again, type `y`. Verify the file is created successfully.
+## 3. Tool Execution & Safety
+**Testing Strategy**: Verifies that the agent can use tools and that "Dangerous" tools are blocked without permission.
+- [ ] **Read-Only Tools (Automatic)**
+    - **How to test**: Type: `What files are in this directory?`
+    - **Verify**: The agent calls `list_files` automatically. No confirmation prompt should appear.
+- [ ] **Dangerous Tools (Human-in-the-Loop)**
+    - **How to test**: Type: `Create a file called uat_test.txt with the text 'Anima is functional'.`
+    - **Verify**: 
+        1. A yellow warning `⚠️ DANGEROUS OPERATION REQUESTED` appears.
+        2. A `JUSTIFICATION` is provided.
+        3. A `DIFF PREVIEW` shows the text to be added in green.
+        4. It asks: `Allow write_file? (y/N/d[ry-run]):`
+- [ ] **Denial & Dry-Run**
+    - **How to test**: Run the previous task again. First type `d` (Dry-run), then run again and type `n` (No).
+    - **Verify**: In both cases, the file `uat_test.txt` is **NOT** created on your disk.
+- [ ] **Final Approval**
+    - **How to test**: Run the task one last time and type `y`.
+    - **Verify**: The file is created. Type `cat uat_test.txt` in a separate terminal to confirm.
 
-## 5. Taint Mode Security
-- [ ] **Trigger Taint**: Ask "Search the web for the current weather in London."
-    - [ ] Verify `web_search` is called.
-- [ ] **Taint Warning**: Immediately ask "Now run the command 'ls'."
-    - [ ] Verify a **red warning** appears stating the session is **TAINTED**.
-    - [ ] Verify the operation is blocked or requires extreme caution if not on the manifest allowlist.
+---
 
-## 6. Advisory Council
-- [ ] **On-Demand Tool**: Ask "Ask the advisory council if it's safe to delete my project root."
-    - [ ] Verify the `advisory_council` tool is called.
-    - [ ] Verify structured JSON output is returned.
-- [ ] **Always Mode**: Restart with `node cli.js --council always`.
-    - [ ] Verify every turn now includes a `--- ADVISORY COUNCIL FEEDBACK ---` section before the final answer.
-- [ ] **Risk-Based Trigger**: Restart with `node cli.js --council risk_based`.
-    - [ ] Ask "Delete the safety_test.txt file."
-    - [ ] Verify the `[Risk-Based Trigger]` message appears due to the "delete" keyword.
+## 4. Security: Taint Mode
+**Testing Strategy**: Confirms the system detects when untrusted data (from the web) enters the session.
+- [ ] **Triggering Taint**
+    - **How to test**: Type: `Search the web for 'latest Node.js version'.`
+    - **Verify**: `web_search` tool is executed.
+- [ ] **Taint Warning Enforcement**
+    - **How to test**: Immediately type: `Now run the command 'ls'.`
+    - **Verify**: 
+        1. A **red warning** appears: `⚠️ TAINT WARNING: The agent used web_search this turn. Use extreme caution.`
+        2. Verify that the agent must provide a very strong justification or that the tool is blocked if your manifest is strict.
 
-## 7. Memory & Encryption
-- [ ] **Redaction**: Ask "My secret password is 'Hunter2'."
-- [ ] **Consolidation**: Type `/save`.
-    - [ ] Verify the proposed memory **redacts** 'Hunter2' to `[REDACTED]`.
-- [ ] **Encryption**: Enable encryption in `Settings/Anima.config.json` and provide a key.
-    - [ ] Save memory.
-    - [ ] Inspect `Memory/memory.json`. Verify the content is an encrypted string (`iv:tag:data`) and not plain JSON.
-    - [ ] Restart CLI. Verify the agent still remembers previous facts (decryption works).
+---
+
+## 5. Advisory Council
+**Testing Strategy**: Verifies the multi-model auditing system.
+- [ ] **On-Demand Call**
+    - **How to test**: Type: `Ask the council if my current uat_test.txt file follows security best practices.`
+    - **Verify**: `advisory_council` tool is called. You see a structured feedback block with a `Verdict` (Approve/Caution).
+- [ ] **Always Mode (Pipeline)**
+    - **How to test**: Exit the CLI (`Ctrl+C` twice) and restart with: `node cli.js --council always`. Type `Hello`.
+    - **Verify**: The `--- ADVISORY COUNCIL FEEDBACK ---` block appears automatically **before** every response.
+- [ ] **Risk-Based Auto-Trigger**
+    - **How to test**: Restart with `node cli.js --council risk_based`. Type: `Delete the file uat_test.txt`.
+    - **Verify**: Look for `[Risk-Based Trigger] Turn risk score: 0.50`. The council should trigger because of the "Delete" keyword.
+
+---
+
+## 6. Skill Plugin System
+**Testing Strategy**: Confirms the modular "Skill" pattern works for third-party integrations.
+- [ ] **Skill Installation**
+    - **How to test**: Look in the `Skills/` folder.
+    - **Verify**: `GoogleCalendar.js` and `GoogleCalendar.manifest.json` are present.
+- [ ] **Credential Check (Graceful Failure)**
+    - **How to test**: Type: `List my calendar events.`
+    - **Verify**: 
+        1. The agent calls `list_calendar_events`.
+        2. Since you haven't set up real keys, it should return: `Error: Google Calendar Access Token missing.` 
+        3. Confirm the agent explains this error to you in plain English.
+
+---
+
+## 7. Memory & Data Protection
+**Testing Strategy**: Verifies redaction of secrets and at-rest encryption.
+- [ ] **Redaction of Secrets**
+    - **How to test**: Type: `My secret key is 'AI-SECRET-999'.` Then type `/save`.
+    - **Verify**: In the review list, the key is replaced by `[REDACTED]`.
+- [ ] **At-Rest Encryption**
+    - **How to test**: 
+        1. Open `Settings/Anima.config.json` and add: `"encryption": {"enabled": true, "key": "uat-password"}`.
+        2. Start CLI, chat briefly, and type `/save`.
+    - **Verify**: Open `Memory/memory.json` in a text editor.
+    - **Confirm**: The content is an encrypted string (e.g., `iv:tag:data...`) and is **unreadable** to humans.
+- [ ] **Decryption on Load**
+    - **How to test**: Restart the CLI.
+    - **Verify**: Ask: `What was the capital of France?` (or any fact you saved).
+    - **Confirm**: If it answers correctly, it successfully decrypted the memory file on startup.
+
+---
 
 ## 8. Resource Quotas
-- [ ] **Execution Limits**: Ask "Run a python script that prints 'hello' 1 million times."
-    - [ ] Verify the 1MB `maxBuffer` prevents a system crash and returns a resource limit error.
-- [ ] **Timeout**: Ask "Run a bash script with 'sleep 20'."
-    - [ ] Verify the 10s timeout triggers and cleans up the temporary file.
+**Testing Strategy**: Prevents the agent from crashing the host machine via code execution.
+- [ ] **Buffer Limit (1MB)**
+    - **How to test**: Type: `Run a python script that prints the letter 'A' 2 million times.`
+    - **Verify**: The tool returns: `Error: Execution timed out or resource limit exceeded.`
+- [ ] **Time Limit (10s)**
+    - **How to test**: Type: `Run a bash script that does: sleep 20 && echo 'Done'.`
+    - **Verify**: After exactly 10 seconds, the agent reports a timeout.
 
-## 9. CLI Controls
-- [ ] **Help**: Run `node cli.js --help`. Verify all new flags (`--council`, `--no-council`, etc.) are documented.
-- [ ] **Session Reset**: Type `/new`. Verify the context count in the status line resets to 1 (System Prompt only).
-- [ ] **Graceful Exit**: Press `Ctrl+C`. Verify the "Press again to exit" warning. Press again and verify memory is updated before closing.
+---
+
+## 9. CLI Commands & Controls
+**Testing Strategy**: Quick administrative controls.
+- [ ] **Help System**
+    - **How to test**: Run `node cli.js --help`.
+    - **Verify**: A clean list of all arguments (`--council`, `--safe`, `--model`) is displayed.
+- [ ] **Session Reset**
+    - **How to test**: Type `/new` in the chat.
+    - **Verify**: "Session reset" appears. The context count in the status line returns to `1`.
+- [ ] **Safe Mode**
+    - **How to test**: Restart with `node cli.js --safe`. Try to run `ls` or `rm`.
+    - **Verify**: The agent informs you these tools are disabled.
