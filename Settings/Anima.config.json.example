@@ -20,6 +20,48 @@
         "role": "System Architect",
         "promptFile": "Architect.md",
         "weight": 0.8
+      },
+      {
+        "name": "Ethicist",
+        "role": "AI Ethicist",
+        "promptFile": "Ethicist.md",
+        "weight": 0.7
+      },
+      {
+        "name": "Legal",
+        "role": "Legal Counsel",
+        "promptFile": "LegalCounsel.md",
+        "weight": 0.9
+      },
+      {
+        "name": "UX",
+        "role": "UX Designer",
+        "promptFile": "UXDesigner.md",
+        "weight": 0.6
+      },
+      {
+        "name": "Privacy",
+        "role": "Privacy Expert",
+        "promptFile": "PrivacyExpert.md",
+        "weight": 0.9
+      },
+      {
+        "name": "DevOps",
+        "role": "DevOps Engineer",
+        "promptFile": "DevOpsEngineer.md",
+        "weight": 0.8
+      },
+      {
+        "name": "Product",
+        "role": "Product Manager",
+        "promptFile": "ProductManager.md",
+        "weight": 0.7
+      },
+      {
+        "name": "Writer",
+        "role": "Technical Writer",
+        "promptFile": "TechnicalWriter.md",
+        "weight": 0.5
       }
     ],
     "maxAdvisersPerCall": 3,

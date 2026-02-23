@@ -24,6 +24,9 @@ Options:
   --hash <sha256>  Expected SHA-256 hash for URL-based plugin verification
   --safe           Disable dangerous tools (run_command, execute_code, etc.)
   --read-only      Restrict agent to read-only operations only
+  --council <mode> Set council mode (off, always, on_demand, risk_based)
+  --council-advisers <list> Comma-separated list of adviser names to use
+  --no-council     Completely disable the advisory council for this session
   --help, -h       Display this help message
 `);
   process.exit(0);
@@ -600,6 +603,37 @@ async function main() {
 
   const isSafeMode = args.includes('--safe');
   const isReadOnlyMode = args.includes('--read-only');
+
+  // Advisory Council CLI Overrides
+  if (args.includes('--no-council')) {
+    config.advisoryCouncil.enabled = false;
+    console.log('\x1b[90mAdvisory Council disabled via CLI.\x1b[0m');
+  } else {
+    const councilModeIndex = args.indexOf('--council');
+    if (councilModeIndex !== -1 && args[councilModeIndex + 1]) {
+      const mode = args[councilModeIndex + 1].toLowerCase();
+      if (mode === 'off') {
+        config.advisoryCouncil.enabled = false;
+      } else {
+        config.advisoryCouncil.enabled = true;
+        config.advisoryCouncil.mode = mode;
+      }
+      console.log(`\x1b[90mAdvisory Council mode set via CLI: ${mode}\x1b[0m`);
+    }
+
+    const councilAdvisersIndex = args.indexOf('--council-advisers');
+    if (councilAdvisersIndex !== -1 && args[councilAdvisersIndex + 1]) {
+      const names = args[councilAdvisersIndex + 1].split(',').map((n) => n.trim());
+      const filtered = config.advisoryCouncil.advisers.filter((a) => names.includes(a.name));
+      if (filtered.length === 0) {
+        console.log(`\x1b[33mWarning: No matching advisers found for "${names.join(', ')}"\x1b[0m`);
+      } else {
+        config.advisoryCouncil.advisers = filtered;
+        config.advisoryCouncil.enabled = true;
+        console.log(`\x1b[90mAdvisory Council advisers set via CLI: ${names.join(', ')}\x1b[0m`);
+      }
+    }
+  }
 
   const dangerousTools = [
     'run_command',

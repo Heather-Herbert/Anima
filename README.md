@@ -99,6 +99,9 @@ node cli.js
 - `--hash <sha256>`: (Optional) Verify the SHA-256 hash of a remote plugin archive before installation. Highly recommended for production stability.
 - `--safe`: Disable all dangerous tools (run_command, write_file, etc.) for this session.
 - `--read-only`: Restrict the agent to only use read-only inspection tools.
+- `--council <mode>`: Set the Advisory Council mode (`off`, `always`, `on_demand`, `risk_based`) for this session.
+- `--council-advisers <list>`: Comma-separated list of names of advisers to use.
+- `--no-council`: Completely disable the Advisory Council for this session.
 - `--help`, `-h`: Display help information.
 
 ### In-Chat Commands
