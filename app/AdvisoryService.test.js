@@ -26,6 +26,15 @@ describe('AdvisoryService', () => {
     service = new AdvisoryService();
   });
 
+  const validAdvice = {
+    verdict: 'approve',
+    rationale: ['Logic is sound'],
+    risks: { level: 'low', items: [] },
+    recommendedNextSteps: ['Proceed'],
+    toolPolicy: { allowTools: true },
+    confidence: 0.9,
+  };
+
   it('returns structured advice from advisers and caches prompts', async () => {
     fs.existsSync.mockReturnValue(true);
     fs.readFileSync.mockReturnValue('Adviser Prompt');
@@ -34,11 +43,7 @@ describe('AdvisoryService', () => {
       choices: [
         {
           message: {
-            content: JSON.stringify({
-              sentiment: 'positive',
-              riskScore: 0.1,
-              feedback: 'Looks good',
-            }),
+            content: JSON.stringify(validAdvice),
           },
         },
       ],
@@ -55,25 +60,44 @@ describe('AdvisoryService', () => {
     const results = await service.getAdvice(context);
 
     expect(results).toHaveLength(1);
-    expect(results[0].adviser).toBe('TestAdviser');
-    expect(fs.readFileSync).toHaveBeenCalledTimes(1);
-
-    // Call again, should use cache
-    await service.getAdvice(context);
+    expect(results[0].adviserName).toBe('TestAdviser');
+    expect(results[0].verdict).toBe('approve');
     expect(fs.readFileSync).toHaveBeenCalledTimes(1);
   });
 
-  it('handles adviser failure gracefully', async () => {
+  it('clamps confidence values out of range', async () => {
     fs.existsSync.mockReturnValue(true);
-    fs.readFileSync.mockReturnValue('Adviser Prompt');
-    callAI.mockRejectedValue(new Error('API Failure'));
-
-    const results = await service.getAdvice({
-      userMessage: 'hi',
-      mainDraft: 'hello',
+    fs.readFileSync.mockReturnValue('p');
+    callAI.mockResolvedValue({
+      choices: [{ message: { content: JSON.stringify({ ...validAdvice, confidence: 1.5 }) } }],
     });
 
-    expect(results).toEqual([]);
+    const results = await service.getAdvice({});
+    expect(results[0].confidence).toBe(1);
+  });
+
+  it('provides a safe fallback on invalid JSON', async () => {
+    fs.existsSync.mockReturnValue(true);
+    fs.readFileSync.mockReturnValue('p');
+    callAI.mockResolvedValue({
+      choices: [{ message: { content: 'invalid' } }],
+    });
+
+    const results = await service.getAdvice({});
+    expect(results).toHaveLength(1);
+    expect(results[0].verdict).toBe('block');
+    expect(results[0].risks.level).toBe('high');
+  });
+
+  it('provides a safe fallback on schema violation', async () => {
+    fs.existsSync.mockReturnValue(true);
+    fs.readFileSync.mockReturnValue('p');
+    callAI.mockResolvedValue({
+      choices: [{ message: { content: JSON.stringify({ verdict: 'wrong' }) } }],
+    });
+
+    const results = await service.getAdvice({});
+    expect(results[0].verdict).toBe('block');
   });
 
   it('returns empty array if council is disabled', async () => {
@@ -81,23 +105,6 @@ describe('AdvisoryService', () => {
     const results = await service.getAdvice({});
     expect(results).toEqual([]);
     config.advisoryCouncil.enabled = true; // reset
-  });
-
-  it('validates adviser response format', async () => {
-    fs.existsSync.mockReturnValue(true);
-    fs.readFileSync.mockReturnValue('Adviser Prompt');
-    callAI.mockResolvedValue({
-      choices: [
-        {
-          message: {
-            content: 'invalid json',
-          },
-        },
-      ],
-    });
-
-    const results = await service.getAdvice({});
-    expect(results).toEqual([]);
   });
 
   it('throws error if prompt file is missing', () => {

@@ -742,11 +742,24 @@ async function main() {
         console.log(`\n\x1b[33m--- ADVISORY COUNCIL FEEDBACK --- \x1b[0m`);
         advice.forEach((a) => {
           const sentimentColor =
-            a.sentiment === 'positive' ? '\x1b[32m' : a.sentiment === 'negative' ? '\x1b[31m' : '\x1b[33m';
-          console.log(`[\x1b[36m${a.adviser}\x1b[0m] Sentiment: ${sentimentColor}${a.sentiment.toUpperCase()}\x1b[0m | Risk: \x1b[35m${(a.riskScore * 100).toFixed(0)}%\x1b[0m`);
-          console.log(`\x1b[90mFeedback:\x1b[0m ${a.feedback}`);
-          if (a.suggestedAction) {
-            console.log(`\x1b[90mSuggested Action:\x1b[0m \x1b[33m${a.suggestedAction}\x1b[0m`);
+            a.verdict === 'approve' ? '\x1b[32m' : a.verdict === 'block' ? '\x1b[31m' : '\x1b[33m';
+          const riskColor =
+            a.risks.level === 'high' ? '\x1b[31m' : a.risks.level === 'med' ? '\x1b[33m' : '\x1b[32m';
+
+          console.log(
+            `[\x1b[36m${a.adviserName}\x1b[0m] Verdict: ${sentimentColor}${a.verdict.toUpperCase()}\x1b[0m | Risk: ${riskColor}${a.risks.level.toUpperCase()}\x1b[0m | Confidence: \x1b[35m${(a.confidence * 100).toFixed(0)}%\x1b[0m`,
+          );
+          console.log(`\x1b[90mRationale:\x1b[0m ${a.rationale.join(' ')}`);
+          if (a.risks.items.length > 0) {
+            console.log(`\x1b[90mSpecific Risks:\x1b[0m ${a.risks.items.join(', ')}`);
+          }
+          if (a.recommendedNextSteps.length > 0) {
+            console.log(`\x1b[90mRecommendations:\x1b[0m ${a.recommendedNextSteps.join(', ')}`);
+          }
+          if (a.questionsForUser.length > 0) {
+            console.log(
+              `\x1b[90mQuestions for User:\x1b[0m \x1b[33m${a.questionsForUser.join(' ')}\x1b[0m`,
+            );
           }
         });
         console.log('');

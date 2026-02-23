@@ -5,11 +5,21 @@ const { callAI } = require('./Utils');
 const config = require('./Config');
 
 const adviceSchema = z.object({
-  adviser: z.string(),
-  sentiment: z.enum(['positive', 'negative', 'neutral']),
-  riskScore: z.number().min(0).max(1),
-  feedback: z.string(),
-  suggestedAction: z.string().optional(),
+  adviserName: z.string(),
+  verdict: z.enum(['approve', 'caution', 'block']),
+  rationale: z.array(z.string()).min(1),
+  risks: z.object({
+    level: z.enum(['low', 'med', 'high']),
+    items: z.array(z.string()),
+  }),
+  recommendedNextSteps: z.array(z.string()),
+  toolPolicy: z.object({
+    allowTools: z.boolean(),
+    allowedTools: z.array(z.string()).optional(),
+    requireConfirmation: z.boolean().optional(),
+  }),
+  questionsForUser: z.array(z.string()).default([]),
+  confidence: z.number().min(0).max(1),
 });
 
 class AdvisoryService {
@@ -63,14 +73,24 @@ Your goal is to provide critical feedback on the primary agent's proposed respon
 # ADVISER GUIDELINES
 1. Be concise and direct.
 2. Focus on your specific role.
-3. Output your advice strictly as a JSON object.
+3. Output your advice strictly as a single JSON object.
 
 # EXPECTED OUTPUT FORMAT
 {
-  "sentiment": "positive" | "negative" | "neutral",
-  "riskScore": 0.0 to 1.0,
-  "feedback": "Your detailed reasoning here.",
-  "suggestedAction": "Optional specific change to the response."
+  "verdict": "approve" | "caution" | "block",
+  "rationale": ["point 1", "point 2"],
+  "risks": {
+    "level": "low" | "med" | "high",
+    "items": ["risk 1"]
+  },
+  "recommendedNextSteps": ["step 1"],
+  "toolPolicy": {
+    "allowTools": true,
+    "allowedTools": ["*"],
+    "requireConfirmation": true
+  },
+  "questionsForUser": [],
+  "confidence": 0.95
 }
 
 # ADVISER PROMPT
@@ -93,7 +113,6 @@ Provide your structured advice now.`;
         { role: 'user', content: userPrompt },
       ];
 
-      // Use a timeout for the individual adviser call
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(
           () => reject(new Error(`Adviser ${adviser.name} timed out`)),
@@ -101,7 +120,7 @@ Provide your structured advice now.`;
         ),
       );
 
-      const callPromise = callAI(messages, null); // Tools always disabled for advisers
+      const callPromise = callAI(messages, null);
 
       const response = await Promise.race([callPromise, timeoutPromise]);
       const content = response.choices?.[0]?.message?.content;
@@ -110,11 +129,21 @@ Provide your structured advice now.`;
         throw new Error(`Adviser ${adviser.name} returned empty response`);
       }
 
-      // Parse and validate
-      const parsed = JSON.parse(content.replace(/```json|```/g, '').trim());
+      let parsed;
+      try {
+        parsed = JSON.parse(content.replace(/```json|```/g, '').trim());
+      } catch (e) {
+        throw new Error(`Invalid JSON format from adviser ${adviser.name}`);
+      }
+
+      // Clamp confidence if it's out of range but present
+      if (typeof parsed.confidence === 'number') {
+        parsed.confidence = Math.max(0, Math.min(1, parsed.confidence));
+      }
+
       const validated = adviceSchema.parse({
         ...parsed,
-        adviser: adviser.name,
+        adviserName: adviser.name,
       });
 
       if (this.auditService) {
@@ -129,7 +158,7 @@ Provide your structured advice now.`;
 
       return validated;
     } catch (error) {
-      const errorMsg = `Adviser ${adviser.name} failed: ${error.message}`;
+      const errorMsg = `Advisory validation failed for ${adviser.name}: ${error.message}`;
       if (this.auditService) {
         this.auditService.log({
           event: 'adviser_error',
@@ -139,7 +168,18 @@ Provide your structured advice now.`;
         });
       }
       process.stderr.write(`${errorMsg}\n`);
-      return null;
+
+      // Safe Fallback: block execution on error
+      return {
+        adviserName: adviser.name,
+        verdict: 'block',
+        rationale: ['Internal error during advisory validation.'],
+        risks: { level: 'high', items: ['Advisory failure'] },
+        recommendedNextSteps: ['Retry or check logs'],
+        toolPolicy: { allowTools: false },
+        questionsForUser: [],
+        confidence: 0,
+      };
     }
   }
 
@@ -152,7 +192,6 @@ Provide your structured advice now.`;
     if (path.isAbsolute(promptFile)) {
       fullPath = promptFile;
     } else {
-      // Try Personality/Advisers/ first, then relative to workspaceDir
       const advisersPath = path.resolve(config.workspaceDir, 'Personality', 'Advisers', promptFile);
       if (fs.existsSync(advisersPath)) {
         fullPath = advisersPath;
@@ -176,3 +215,4 @@ Provide your structured advice now.`;
 }
 
 module.exports = AdvisoryService;
+module.exports.adviceSchema = adviceSchema;

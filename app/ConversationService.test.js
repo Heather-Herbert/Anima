@@ -409,9 +409,12 @@ describe('ConversationService', () => {
         {
           message: {
             content: JSON.stringify({
-              sentiment: 'negative',
-              riskScore: 0.9,
-              feedback: 'Very risky',
+              verdict: 'block',
+              rationale: ['Very risky'],
+              risks: { level: 'high', items: ['Exploit potential'] },
+              recommendedNextSteps: ['Abort'],
+              toolPolicy: { allowTools: false },
+              confidence: 0.9,
             }),
           },
         },
@@ -428,7 +431,7 @@ describe('ConversationService', () => {
 
     expect(reply).toBe('Final safe response');
     expect(advice).toHaveLength(1);
-    expect(advice[0].adviser).toBe('Auditor');
+    expect(advice[0].adviserName).toBe('Auditor');
 
     // Check that advice was injected into history
     const adviceMsg = history.find((m) => m.internal && m.role === 'system');
@@ -463,9 +466,12 @@ describe('ConversationService', () => {
         {
           message: {
             content: JSON.stringify({
-              sentiment: 'negative',
-              riskScore: 1.0,
-              feedback: 'Extremely dangerous',
+              verdict: 'block',
+              rationale: ['Extremely dangerous'],
+              risks: { level: 'high', items: ['System damage'] },
+              recommendedNextSteps: ['Deny'],
+              toolPolicy: { allowTools: false },
+              confidence: 1.0,
             }),
           },
         },
@@ -476,7 +482,7 @@ describe('ConversationService', () => {
     const { advice } = await service.processInput('delete EVERYTHING', history, jest.fn());
 
     expect(advice).toHaveLength(1);
-    expect(advice[0].adviser).toBe('Auditor');
+    expect(advice[0].adviserName).toBe('Auditor');
 
     config.advisoryCouncil = { enabled: false };
   });
