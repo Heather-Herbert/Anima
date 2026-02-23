@@ -31,6 +31,8 @@ describe('ConversationService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    const config = require('./Config');
+    config.advisoryCouncil = { enabled: false };
     service = new ConversationService(agentName, [], manifest, historyPath);
   });
 
@@ -381,5 +383,56 @@ describe('ConversationService', () => {
       reason: 'topic change',
       carry_over: 'keep this',
     });
+  });
+
+  it('runs draft and review phases in "always" council mode', async () => {
+    const config = require('./Config');
+    config.advisoryCouncil = {
+      enabled: true,
+      mode: 'always',
+      advisers: [{ name: 'Auditor', role: 'Security' }],
+      maxAdvisersPerCall: 1,
+      parallel: true,
+    };
+
+    // 1. Mock callAI for Draft
+    callAI.mockResolvedValueOnce({
+      choices: [{ message: { role: 'assistant', content: 'Internal Draft' } }],
+    });
+
+    // 2. Mock callAI for Auditor advice (AdvisoryService uses callAI)
+    callAI.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              sentiment: 'negative',
+              riskScore: 0.9,
+              feedback: 'Very risky',
+            }),
+          },
+        },
+      ],
+    });
+
+    // 3. Mock callAI for final response (incorporating advice)
+    callAI.mockResolvedValueOnce({
+      choices: [{ message: { role: 'assistant', content: 'Final safe response' } }],
+    });
+
+    const history = [];
+    const { reply, advice } = await service.processInput('dangerous task', history, jest.fn());
+
+    expect(reply).toBe('Final safe response');
+    expect(advice).toHaveLength(1);
+    expect(advice[0].adviser).toBe('Auditor');
+
+    // Check that advice was injected into history
+    const adviceMsg = history.find((m) => m.internal && m.role === 'system');
+    expect(adviceMsg.content).toContain('ADVISORY COUNCIL REVIEW');
+    expect(adviceMsg.content).toContain('Very risky');
+
+    // Cleanup config mock for other tests
+    config.advisoryCouncil = { enabled: false };
   });
 });

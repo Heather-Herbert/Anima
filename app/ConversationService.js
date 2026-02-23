@@ -39,7 +39,6 @@ class ConversationService {
   async processInput(input, conversationHistory, confirmCallback) {
     const wrappedInput = `<user_input>\n${input}\n</user_input>`;
     conversationHistory.push({ role: 'user', content: wrappedInput });
-    this.saveHistory(conversationHistory);
 
     let processing = true;
     let lastReply = '';
@@ -50,6 +49,47 @@ class ConversationService {
     let resetRequested = null;
     let turnAdvice = [];
 
+    const councilConfig = config.advisoryCouncil;
+
+    // --- PHASE 1 & 2: DRAFT & REVIEW (Always Mode) ---
+    if (councilConfig?.enabled && councilConfig.mode === 'always') {
+      try {
+        const managedHistory = this.getManagedHistory(conversationHistory);
+        // Generate Draft (tools disabled)
+        const draftData = await callAI(managedHistory, null);
+        const draft = draftData.choices?.[0]?.message?.content || '';
+
+        if (draft) {
+          // Run Advisers on Draft
+          turnAdvice = await this.advisoryService.getAdvice({
+            userMessage: input,
+            mainDraft: draft,
+            managedHistorySummary: `Draft phase. Context window contains ${managedHistory.length} messages.`,
+            taintStatus: isTainted,
+            availableToolsSummary: this.activeTools.map((t) => t.function.name).join(', '),
+          });
+
+          if (turnAdvice.length > 0) {
+            const adviceSummary = turnAdvice
+              .map((a) => `[${a.adviser}]: ${a.sentiment.toUpperCase()} - ${a.feedback}`)
+              .join('\n');
+
+            // Inject advice as internal system message for the "Act" phase
+            conversationHistory.push({
+              role: 'system',
+              content: `ADVISORY COUNCIL REVIEW of your intended approach:\n${adviceSummary}\n\nPlease take this feedback into account for your final response and any tool calls.`,
+              internal: true,
+            });
+          }
+        }
+      } catch (e) {
+        process.stderr.write(`Advisory Pipeline Error: ${e.message}\n`);
+      }
+    }
+
+    this.saveHistory(conversationHistory);
+
+    // --- PHASE 3: ACT (Main ReAct Loop) ---
     while (processing && iterations < MAX_ITERATIONS) {
       iterations++;
       let data;
@@ -188,12 +228,12 @@ class ConversationService {
       } else {
         const reply = message.content || JSON.stringify(data, null, 2);
 
-        // Run Advisory Council if enabled
-        if (config.advisoryCouncil?.enabled) {
+        // Run Advisory Council if enabled and not already run in draft phase
+        if (councilConfig?.enabled && councilConfig.mode !== 'always') {
           turnAdvice = await this.advisoryService.getAdvice({
             userMessage: input,
             mainDraft: reply,
-            managedHistorySummary: `Context window contains ${managedHistory.length} messages.`,
+            managedHistorySummary: `Post-execution phase. Context window contains ${managedHistory.length} messages.`,
             taintStatus: isTainted,
             availableToolsSummary: this.activeTools.map((t) => t.function.name).join(', '),
           });
@@ -229,6 +269,7 @@ class ConversationService {
     const inputIdx = history.indexOf(currentUserInput);
 
     // 3. Intermediary: everything AFTER the current user input
+    // We include internal messages here so they are visible to the agent in the next call.
     const intermediary = history.slice(inputIdx + 1);
 
     // 4. Sliding Window: Keep only the last 10 messages of intermediary (5 turns)
@@ -249,7 +290,10 @@ class ConversationService {
 
     try {
       const secrets = this.auditService ? this.auditService.secrets : [];
-      const redactedHistory = history.map((m) => ({
+      // Filter out internal messages from persistent history
+      const persistentHistory = history.filter((m) => !m.internal);
+
+      const redactedHistory = persistentHistory.map((m) => ({
         ...m,
         content: m.content ? redact(m.content, secrets) : m.content,
       }));
