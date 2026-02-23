@@ -12,6 +12,11 @@ Settings/*.json
 Memory/*
 !Memory/.gitkeep
 
+# Generated Personality
+Personality/Soul.md
+Personality/Identity.md
+Personality/user.md
+
 # OS generated files
 .DS_Store
 
