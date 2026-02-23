@@ -54,18 +54,20 @@ class ToolDispatcher {
     for (const [key, value] of Object.entries(args)) {
       const propDef = schema.properties[key];
       if (!propDef) {
+        // We allow extra parameters for flexibility, or we could be strict.
+        // Given we want to harden, let's be strict.
         return `Unexpected parameter: '${key}'`;
       }
 
-      // Type checks
       const actualType = Array.isArray(value) ? 'array' : typeof value;
-      let expectedType = propDef.type;
-      
-      // Normalize 'integer' to 'number' for simple check
-      if (expectedType === 'integer') expectedType = 'number';
+      const expectedType = propDef.type;
 
-      if (actualType !== expectedType && expectedType !== 'object') {
-         return `Parameter '${key}' expected type '${propDef.type}', got '${actualType}'`;
+      if (expectedType === 'integer') {
+        if (!Number.isInteger(value)) {
+          return `Parameter '${key}' expected type 'integer', got '${actualType}'`;
+        }
+      } else if (actualType !== expectedType && expectedType !== 'object') {
+        return `Parameter '${key}' expected type '${expectedType}', got '${actualType}'`;
       }
     }
 

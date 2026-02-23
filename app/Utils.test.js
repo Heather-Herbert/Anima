@@ -36,7 +36,10 @@ describe('Utils', () => {
       const promise = Utils.callAI([{ role: 'user', content: 'hi' }]);
 
       // Simulate output
-      mockChild.stdout.emit('data', JSON.stringify({ choices: [{ message: { content: 'hello' } }] }));
+      mockChild.stdout.emit(
+        'data',
+        JSON.stringify({ choices: [{ message: { content: 'hello' } }] }),
+      );
       mockChild.emit('close', 0);
 
       const result = await promise;

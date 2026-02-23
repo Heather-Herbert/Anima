@@ -35,8 +35,7 @@ const isPathAllowed = (filePath, mode = 'read', permissions = null) => {
     // 1. Check Restricted Prefixes (Deny all access)
     if (
       restrictedPrefixes.some(
-        (prefix) =>
-          relativePathLower === prefix || relativePathLower.startsWith(prefix + path.sep),
+        (prefix) => relativePathLower === prefix || relativePathLower.startsWith(prefix + path.sep),
       )
     ) {
       return false;
@@ -48,8 +47,7 @@ const isPathAllowed = (filePath, mode = 'read', permissions = null) => {
     // To be safe, we deny writes to these in isPathAllowed unless we are in 'read' mode.
     if (
       protectedPrefixes.some(
-        (prefix) =>
-          relativePathLower === prefix || relativePathLower.startsWith(prefix + path.sep),
+        (prefix) => relativePathLower === prefix || relativePathLower.startsWith(prefix + path.sep),
       )
     ) {
       if (mode !== 'read') return false;
@@ -306,10 +304,7 @@ const tools = [
 ];
 
 const availableTools = {
-  write_file: async (
-    { path: filePath, content, justification: _justification },
-    permissions,
-  ) => {
+  write_file: async ({ path: filePath, content, justification: _justification }, permissions) => {
     try {
       if (!permissions?._overrideProtected && !isPathAllowed(filePath, 'write', permissions))
         return `Error: Access to ${filePath} is restricted by system policy or manifest.`;
@@ -335,8 +330,21 @@ const availableTools = {
     }
   },
   run_command: async ({ file, args = [], justification: _justification }, permissions) => {
-    const denylist = ['rm', 'curl', 'wget', 'sudo', 'su', 'mv', 'chmod', 'chown', 'apt', 'npm', 'yarn', 'docker'];
-    
+    const denylist = [
+      'rm',
+      'curl',
+      'wget',
+      'sudo',
+      'su',
+      'mv',
+      'chmod',
+      'chown',
+      'apt',
+      'npm',
+      'yarn',
+      'docker',
+    ];
+
     // 1. Policy: Denylist
     if (denylist.includes(file.toLowerCase())) {
       return `Error: Command '${file}' is blocked by system security policy.`;
@@ -414,10 +422,7 @@ const availableTools = {
       return `Error listing files: ${e.message}`;
     }
   },
-  search_files: async (
-    { path: dirPath = '.', term, max_depth = 3 },
-    permissions,
-  ) => {
+  search_files: async ({ path: dirPath = '.', term, max_depth = 3 }, permissions) => {
     try {
       if (!isPathAllowed(dirPath, 'read', permissions))
         return `Error: Access to ${dirPath} is restricted by system policy or manifest.`;
@@ -536,7 +541,7 @@ const availableTools = {
       }
 
       const fullPath = path.join(tempDir, filename);
-      
+
       // Check if writing to .temp is allowed (it should be since it's in workspace)
       if (!isPathAllowed(path.join('.temp', filename), 'write', permissions))
         return `Error: Permission denied to write temporary execution file to .temp/`;

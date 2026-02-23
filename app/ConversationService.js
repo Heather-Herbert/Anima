@@ -202,21 +202,31 @@ class ConversationService {
   }
 
   getManagedHistory(history) {
+    // 1. Always keep the System Prompt
     const systemPrompt = history.find((m) => m.role === 'system');
+
+    // 2. Identify the boundary: the user message that started this turn.
+    // In our loop, conversationHistory.push({role: 'user', content: wrappedInput})
+    // happened at the very beginning of processInput.
+    // However, if the turn has multiple iterations, we want the LAST user message.
     const userMessages = history.filter((m) => m.role === 'user');
-    const originalUserPrompt = userMessages[userMessages.length - 1];
+    const currentUserInput = userMessages[userMessages.length - 1];
 
-    if (!originalUserPrompt) return history;
+    if (!currentUserInput) return history;
 
-    const originalIdx = history.indexOf(originalUserPrompt);
-    const intermediary = history.slice(originalIdx + 1);
+    const inputIdx = history.indexOf(currentUserInput);
+
+    // 3. Intermediary: everything AFTER the current user input
+    const intermediary = history.slice(inputIdx + 1);
+
+    // 4. Sliding Window: Keep only the last 10 messages of intermediary (5 turns)
     const recentIntermediary = intermediary.slice(-10);
 
     const managed = [];
-    if (systemPrompt && history.indexOf(systemPrompt) < originalIdx) {
+    if (systemPrompt && history.indexOf(systemPrompt) < inputIdx) {
       managed.push(systemPrompt);
     }
-    managed.push(originalUserPrompt);
+    managed.push(currentUserInput);
     managed.push(...recentIntermediary);
 
     return managed;

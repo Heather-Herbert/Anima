@@ -1,7 +1,6 @@
 const { describe, it, expect, beforeEach } = require('@jest/globals');
 const fs = require('node:fs');
 const AuditService = require('./AuditService');
-const { redact } = require('./Utils');
 
 jest.mock('node:fs');
 

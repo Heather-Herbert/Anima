@@ -327,10 +327,7 @@ describe('Tools', () => {
 
     it('handles invalid regex', async () => {
       fs.existsSync.mockReturnValue(true);
-      const result = await availableTools.search_files(
-        { path: '.', term: '[' },
-        fullPermissions,
-      );
+      const result = await availableTools.search_files({ path: '.', term: '[' }, fullPermissions);
       expect(result).toContain('Invalid regex pattern');
     });
   });
