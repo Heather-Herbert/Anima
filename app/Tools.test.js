@@ -327,10 +327,7 @@ describe('Tools', () => {
 
     it('handles invalid regex', async () => {
       fs.existsSync.mockReturnValue(true);
-      const result = await availableTools.search_files(
-        { path: '.', term: '[' },
-        fullPermissions,
-      );
+      const result = await availableTools.search_files({ path: '.', term: '[' }, fullPermissions);
       expect(result).toContain('Invalid regex pattern');
     });
   });
@@ -340,7 +337,10 @@ describe('Tools', () => {
       fs.writeFileSync.mockImplementation(() => {});
       child_process.exec.mockImplementation((cmd, options, cb) => cb(null, 'Bash Output', ''));
 
-      const result = await availableTools.execute_code({ language: 'bash', code: 'ls' });
+      const result = await availableTools.execute_code(
+        { language: 'bash', code: 'ls', justification: 'test' },
+        fullPermissions,
+      );
       expect(result).toBe('Bash Output');
     });
 

@@ -1,5 +1,4 @@
 const fs = require('node:fs');
-const path = require('node:path');
 
 // Mock fs
 jest.mock('node:fs');

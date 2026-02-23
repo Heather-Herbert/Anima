@@ -27,31 +27,35 @@ const callAI = async (messages, tools = null) => {
   // Run provider out-of-process for isolation
   return new Promise((resolve, reject) => {
     const runnerPath = path.join(__dirname, 'ProviderRunner.js');
-    
+
     // Whitelist environment variables if needed (e.g. PATH for node/python)
     const env = {
-        PATH: process.env.PATH,
-        NODE_PATH: process.env.NODE_PATH
+      PATH: process.env.PATH,
+      NODE_PATH: process.env.NODE_PATH,
     };
 
     const child = spawn(process.execPath, [runnerPath, providerPath], {
       env: env,
-      stdio: ['pipe', 'pipe', 'pipe']
+      stdio: ['pipe', 'pipe', 'pipe'],
     });
 
     let stdout = '';
     let stderr = '';
 
-    child.stdout.on('data', (data) => { stdout += data; });
-    child.stderr.on('data', (data) => { stderr += data; });
+    child.stdout.on('data', (data) => {
+      stdout += data;
+    });
+    child.stderr.on('data', (data) => {
+      stderr += data;
+    });
 
     child.on('close', (code) => {
       if (code !== 0) {
         try {
-            const errObj = JSON.parse(stderr);
-            reject(new Error(`Provider Process Error: ${errObj.error}`));
+          const errObj = JSON.parse(stderr);
+          reject(new Error(`Provider Process Error: ${errObj.error}`));
         } catch (e) {
-            reject(new Error(`Provider Process exited with code ${code}. Stderr: ${stderr}`));
+          reject(new Error(`Provider Process exited with code ${code}. Stderr: ${stderr}`));
         }
         return;
       }
@@ -116,10 +120,10 @@ const redact = (text, secrets = []) => {
 
   // Pattern-based redaction (generic API keys, tokens, high-entropy strings)
   redacted = redacted.replace(
-    /(api[_-]?key|token|auth|password|secret)["']?\s*[:=]\s*["']?([a-zA-Z0-9_\-]{8,})["']?/gi,
+    /(api[_-]?key|token|auth|password|secret)["']?\s*[:=]\s*["']?([a-zA-Z0-9_-]{8,})["']?/gi,
     '$1: [REDACTED]',
   );
-  redacted = redacted.replace(/Bearer\s+([a-zA-Z0-9_\-\.]{10,})/gi, 'Bearer [REDACTED]');
+  redacted = redacted.replace(/Bearer\s+([a-zA-Z0-9_-]{10,})/gi, 'Bearer [REDACTED]');
   redacted = redacted.replace(/sk-[a-zA-Z0-9]{20,}/g, '[REDACTED]'); // OpenAI style keys
 
   return redacted;

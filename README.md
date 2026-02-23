@@ -108,6 +108,7 @@ The agent has access to a variety of tools. Dangerous operations require user co
 - `list_files`: List directory contents.
 - `search_files`: Grep-style search within files.
 - `execute_code`: Run Python, JavaScript, or Bash code in a temporary environment.
+- `new_session`: Request to start a fresh session with optional context carry-over. Useful for task completion or major topic switches.
 - `web_search`: Search the web using DuckDuckGo.
 - `file_info`: Get metadata about a file.
 - `delete_file`: Remove a file.
@@ -120,8 +121,24 @@ To ensure system integrity, Anima provides multiple layers of plugin security:
 - **Isolated Execution**: Providers run in separate processes with restricted environment variables.
 - **Provenance Tracking**: Every installed plugin stores its origin (source URL/path, date, and content hash) in a `.provenance.json` file.
 - **Audit Logging**: An append-only log (`Memory/audit.log`) records every tool execution, including redacted arguments, user confirmation results, and cryptographic hashes of tool outputs for forensics.
+- **XML Input Delimiters**: All untrusted user input is wrapped in `<user_input>` tags. The system prompt instructs the agent to treat content within these tags strictly as data, providing a robust defense against prompt injection and instruction hijacking.
 - **Verification**: Remote plugins can be verified against a known SHA-256 hash using the `--hash` argument.
 - **Security-First Development**: We follow a strict policy of keeping all documentation and tests up to date with every change, with a continuous focus on system hardening.
+
+## Architecture
+
+### ReAct Loop
+Anima implements a **Reasoning and Action (ReAct)** loop. When a user provides input, the agent enter a cycle of thought and execution:
+1.  **Thought**: The agent analyzes the current context and decides if a tool call is necessary.
+2.  **Action**: If a tool is needed, the agent requests execution.
+3.  **Observation**: The result of the tool execution is fed back into the context.
+This loop continues until a final answer is produced or a hard limit of **10 iterations** is reached to prevent runaway processes.
+
+### Context Management (Sliding Window)
+To manage the LLM's token limit and maintain performance during long-running tasks, Anima uses a **Sliding Window** strategy for conversation history:
+-   **Fixed Context**: The initial **System Prompt** and the **Original User Prompt** that started the current task are always preserved.
+-   **Intermediary History**: Only the most recent **5 conversational turns** (approx. 10 messages) of tool calls and observations are retained in the active context window.
+-   **Auditability**: While the active window is pruned, the full session history is always preserved in `Memory/*.json` files.
 
 ### Provider Manifests
 
@@ -131,6 +148,37 @@ Plugins are accompanied by a `.manifest.json` file which defines:
 - **Permissions**: Filesystem access restrictions (read/write paths).
 - **Security**: The CLI enforces these constraints at runtime. **If a manifest is missing, Anima defaults to a "Read-Only" mode**, allowing only safe inspection tools.
 
+## Development
+
+### Registering New Tools
+
+To add a new capability to Anima, follow these steps in `app/Tools.js`:
+
+1.  **Define the Schema**: Add a new tool definition to the `tools` array. Follow the OpenAI function calling format, including `name`, `description`, and `parameters`.
+    ```javascript
+    {
+      type: 'function',
+      function: {
+        name: 'my_new_tool',
+        description: 'Does something useful',
+        parameters: {
+          type: 'object',
+          properties: {
+            arg1: { type: 'string' }
+          },
+          required: ['arg1']
+        }
+      }
+    }
+    ```
+2.  **Implement the Logic**: Add a corresponding async function to the `availableTools` object.
+    ```javascript
+    my_new_tool: async ({ arg1 }, permissions) => {
+      // Your implementation here
+      return `Result of my_new_tool with ${arg1}`;
+    }
+    ```
+3.  **Validation**: The `ToolDispatcher` automatically validates LLM input against your schema before execution. If validation fails, an error is returned to the agent for self-correction.
 
 ### Memory System
 The system automatically manages context:

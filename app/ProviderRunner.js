@@ -1,5 +1,4 @@
 const fs = require('node:fs');
-const path = require('node:path');
 
 // Minimalistic runner for out-of-process providers
 const providerPath = process.argv[2];
