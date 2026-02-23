@@ -146,6 +146,37 @@ Plugins are accompanied by a `.manifest.json` file which defines:
 - **Permissions**: Filesystem access restrictions (read/write paths).
 - **Security**: The CLI enforces these constraints at runtime. **If a manifest is missing, Anima defaults to a "Read-Only" mode**, allowing only safe inspection tools.
 
+## Development
+
+### Registering New Tools
+
+To add a new capability to Anima, follow these steps in `app/Tools.js`:
+
+1.  **Define the Schema**: Add a new tool definition to the `tools` array. Follow the OpenAI function calling format, including `name`, `description`, and `parameters`.
+    ```javascript
+    {
+      type: 'function',
+      function: {
+        name: 'my_new_tool',
+        description: 'Does something useful',
+        parameters: {
+          type: 'object',
+          properties: {
+            arg1: { type: 'string' }
+          },
+          required: ['arg1']
+        }
+      }
+    }
+    ```
+2.  **Implement the Logic**: Add a corresponding async function to the `availableTools` object.
+    ```javascript
+    my_new_tool: async ({ arg1 }, permissions) => {
+      // Your implementation here
+      return `Result of my_new_tool with ${arg1}`;
+    }
+    ```
+3.  **Validation**: The `ToolDispatcher` automatically validates LLM input against your schema before execution. If validation fails, an error is returned to the agent for self-correction.
 
 ### Memory System
 The system automatically manages context:

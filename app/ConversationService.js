@@ -1,7 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { callAI, redact } = require('./Utils');
-const { availableTools } = require('./Tools');
+const toolDispatcher = require('./ToolDispatcher');
 const config = require('./Config');
 
 class ConversationService {
@@ -22,6 +22,7 @@ class ConversationService {
   }
 
   isProtectedPath(filePath) {
+    if (!filePath) return false;
     const pathLower = filePath.toLowerCase();
     return (
       pathLower.startsWith('plugins/') ||
@@ -79,9 +80,14 @@ class ConversationService {
         for (const toolCall of message.tool_calls) {
           try {
             const functionName = toolCall.function.name;
-            const functionArgs = JSON.parse(toolCall.function.arguments);
+            let functionArgs;
+            try {
+              functionArgs = JSON.parse(toolCall.function.arguments);
+            } catch (e) {
+              functionArgs = {};
+            }
 
-            // Taint tracking: web_search taints the current turn
+            // Taint tracking
             if (functionName === 'web_search') {
               isTainted = true;
             }
@@ -94,8 +100,6 @@ class ConversationService {
 
             if (this.dangerousTools.includes(functionName) || isWritingToProtected) {
               const justification = functionArgs.justification || 'No justification provided.';
-
-              // Pass taint info to confirmation callback if needed
               const confirmed = await confirmCallback(
                 functionName,
                 functionArgs,
@@ -107,9 +111,9 @@ class ConversationService {
                 const callPermissions = {
                   ...this.manifest.permissions,
                   _overrideProtected: isWritingToProtected,
-                  _isTainted: isTainted, // Pass taint flag to the tool itself
+                  _isTainted: isTainted,
                 };
-                toolResult = await availableTools[functionName](functionArgs, callPermissions);
+                toolResult = await toolDispatcher.dispatch(toolCall, callPermissions);
                 auditResult = 'confirmed';
               } else if (confirmed === 'd') {
                 toolResult = 'Dry run: Tool execution simulated successfully. No changes made.';
@@ -123,7 +127,7 @@ class ConversationService {
                 ...this.manifest.permissions,
                 _isTainted: isTainted,
               };
-              toolResult = await availableTools[functionName](functionArgs, callPermissions);
+              toolResult = await toolDispatcher.dispatch(toolCall, callPermissions);
             }
 
             if (this.auditService) {
@@ -188,8 +192,6 @@ class ConversationService {
 
     const originalIdx = history.indexOf(originalUserPrompt);
     const intermediary = history.slice(originalIdx + 1);
-
-    // Keep only the last 10 intermediary messages (approx 5 turns)
     const recentIntermediary = intermediary.slice(-10);
 
     const managed = [];
@@ -218,7 +220,6 @@ class ConversationService {
 
       fs.writeFileSync(fullPath, JSON.stringify(redactedHistory, null, 2));
 
-      // On Linux, set 0600 permissions
       if (process.platform !== 'win32' && fs.existsSync(fullPath)) {
         fs.chmodSync(fullPath, 0o600);
       }
