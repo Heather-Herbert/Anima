@@ -35,7 +35,8 @@ class ConversationService {
   }
 
   async processInput(input, conversationHistory, confirmCallback) {
-    conversationHistory.push({ role: 'user', content: input });
+    const wrappedInput = `<user_input>\n${input}\n</user_input>`;
+    conversationHistory.push({ role: 'user', content: wrappedInput });
     this.saveHistory(conversationHistory);
 
     let processing = true;
