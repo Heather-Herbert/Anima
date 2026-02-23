@@ -309,8 +309,11 @@ class ConversationService {
 
     try {
       const secrets = this.auditService ? this.auditService.secrets : [];
-      // Filter out internal messages from persistent history
-      const persistentHistory = history.filter((m) => !m.internal);
+      // Filter out internal messages from persistent history, unless storeCouncilMemos is true
+      const persistentHistory = history.filter((m) => {
+        if (m.internal && !config.advisoryCouncil?.storeCouncilMemos) return false;
+        return true;
+      });
 
       const redactedHistory = persistentHistory.map((m) => ({
         ...m,

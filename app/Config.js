@@ -28,6 +28,7 @@ const configSchema = z.object({
       timeoutMs: z.number().default(30000),
       maxTokens: z.number().default(1000),
       parallel: z.boolean().default(true),
+      storeCouncilMemos: z.boolean().default(false),
     })
     .default({}),
 });

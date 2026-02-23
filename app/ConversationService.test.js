@@ -438,6 +438,10 @@ describe('ConversationService', () => {
     expect(adviceMsg.content).toContain('ADVISORY COUNCIL REVIEW');
     expect(adviceMsg.content).toContain('Very risky');
 
+    // Verify persistence excludes internal messages
+    const lastWrite = fs.writeFileSync.mock.calls[fs.writeFileSync.mock.calls.length - 1][1];
+    expect(lastWrite).not.toContain('ADVISORY COUNCIL REVIEW');
+
     // Cleanup config mock for other tests
     config.advisoryCouncil = { enabled: false };
   });

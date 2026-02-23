@@ -152,6 +152,8 @@ Anima can consult a council of specialist "Advisers" to review its proposed acti
 -   **Risk-Based Mode**: The council is automatically triggered when a turn is deemed risky (e.g., destructive keywords like `rm` or `sudo`, tool-heavy turns, or "tainted" sessions after a web search).
 -   **On-Demand Mode**: The agent can explicitly call the council using the `advisory_council` tool.
 
+Advisory council discussions and memos are **excluded from long-term memory by default** to keep the agent's identity clean. This can be changed by setting `storeCouncilMemos: true` in the configuration.
+
 ### Context Management (Sliding Window)
 To manage the LLM's token limit and maintain performance during long-running tasks, Anima uses a **Sliding Window** strategy for conversation history:
 -   **Fixed Context**: The initial **System Prompt** and the **Original User Prompt** that started the current task are always preserved.

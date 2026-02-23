@@ -17,6 +17,7 @@
     "maxAdvisersPerCall": 3,
     "timeoutMs": 30000,
     "maxTokens": 1000,
-    "parallel": true
+    "parallel": true,
+    "storeCouncilMemos": false
   }
 }
