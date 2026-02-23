@@ -60,9 +60,16 @@ class ConversationService {
         const draftData = await callAI(managedHistory, null);
         const draft = draftData.choices?.[0]?.message?.content || '';
 
+        // Track usage for draft
+        if (draftData.usage) {
+          totalUsage.prompt_tokens += draftData.usage.prompt_tokens || 0;
+          totalUsage.completion_tokens += draftData.usage.completion_tokens || 0;
+          totalUsage.total_tokens += draftData.usage.total_tokens || 0;
+        }
+
         if (draft) {
           // Run Advisers on Draft
-          turnAdvice = await this.advisoryService.getAdvice({
+          const advice = await this.advisoryService.getAdvice({
             userMessage: input,
             mainDraft: draft,
             managedHistorySummary: `Draft phase. Context window contains ${managedHistory.length} messages.`,
@@ -70,7 +77,8 @@ class ConversationService {
             availableToolsSummary: this.activeTools.map((t) => t.function.name).join(', '),
           });
 
-          if (turnAdvice.length > 0) {
+          if (advice && advice.length > 0) {
+            turnAdvice = advice;
             const memo = this.advisoryService.generateCouncilMemo(turnAdvice);
 
             // Inject memo as internal system message for the "Act" phase
@@ -248,13 +256,14 @@ class ConversationService {
               );
             }
 
-            turnAdvice = await this.advisoryService.getAdvice({
+            const advice = await this.advisoryService.getAdvice({
               userMessage: input,
               mainDraft: reply,
               managedHistorySummary: `Post-execution phase. Context window contains ${managedHistory.length} messages.`,
               taintStatus: isTainted,
               availableToolsSummary: this.activeTools.map((t) => t.function.name).join(', '),
             });
+            if (advice) turnAdvice = advice;
           }
         }
 
@@ -277,7 +286,7 @@ class ConversationService {
 
   getManagedHistory(history) {
     // 1. Always keep the System Prompt
-    const systemPrompt = history.find((m) => m.role === 'system');
+    const systemPrompt = history.find((m) => m.role === 'system' && !m.internal);
 
     // 2. Identify the boundary: the user message that started this turn.
     const userMessages = history.filter((m) => m.role === 'user');
@@ -329,8 +338,6 @@ class ConversationService {
         const key = config.encryption.key || process.env.ANIMA_ENCRYPTION_KEY;
         if (key) {
           finalContent = encrypt(finalContent, key);
-        } else {
-          // Silent failure for background saves, but maybe we should log once?
         }
       }
 

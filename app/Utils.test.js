@@ -25,6 +25,7 @@ describe('Utils', () => {
   describe('callAI', () => {
     it('spawns a provider process and returns its output', async () => {
       fs.existsSync.mockReturnValue(true);
+      fs.readdirSync.mockReturnValue(['test-provider.js']);
 
       const mockChild = new EventEmitter();
       mockChild.stdout = new EventEmitter();
@@ -53,6 +54,7 @@ describe('Utils', () => {
 
     it('handles provider process errors', async () => {
       fs.existsSync.mockReturnValue(true);
+      fs.readdirSync.mockReturnValue(['test-provider.js']);
 
       const mockChild = new EventEmitter();
       mockChild.stdout = new EventEmitter();
@@ -71,14 +73,41 @@ describe('Utils', () => {
 
     it('throws error if provider does not exist', async () => {
       fs.existsSync.mockReturnValue(false);
+      fs.readdirSync.mockReturnValue([]);
       await expect(Utils.callAI([])).rejects.toThrow('Unknown provider: test-provider');
+    });
+
+    it('resolves provider name case-insensitively', async () => {
+      // REGRESSION: Fixed issue where 'openrouter' (lowercase) failed to find 'OpenRouter.js'
+      fs.existsSync.mockReturnValue(true);
+      fs.readdirSync.mockReturnValue(['OpenRouter.js']);
+      config.LLMProvider = 'openrouter';
+
+      const mockChild = new EventEmitter();
+      mockChild.stdout = new EventEmitter();
+      mockChild.stderr = new EventEmitter();
+      mockChild.stdin = { write: jest.fn(), end: jest.fn() };
+      spawn.mockReturnValue(mockChild);
+
+      const promise = Utils.callAI([{ role: 'user', content: 'hi' }]);
+      mockChild.stdout.emit('data', JSON.stringify({ choices: [{ message: { content: 'hello' } }] }));
+      mockChild.emit('close', 0);
+
+      await promise;
+      expect(spawn).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.arrayContaining([expect.stringContaining('OpenRouter.js')]),
+        expect.anything(),
+      );
     });
   });
 
   describe('getProviderManifest', () => {
     it('returns manifest if it exists', () => {
-      const mockManifestPath = path.join(__dirname, '..', 'Plugins', 'test-provider.manifest.json');
-      fs.existsSync.mockImplementation((p) => p === mockManifestPath);
+      const pluginsDir = path.join(__dirname, '..', 'Plugins');
+      const mockManifestPath = path.join(pluginsDir, 'test-provider.manifest.json');
+      fs.readdirSync.mockReturnValue(['test-provider.manifest.json']);
+      fs.existsSync.mockImplementation((p) => p === mockManifestPath || p === pluginsDir);
       fs.readFileSync.mockReturnValue(JSON.stringify({ capabilities: { tools: ['write_file'] } }));
 
       const manifest = Utils.getProviderManifest();
@@ -86,8 +115,22 @@ describe('Utils', () => {
       expect(manifest).toEqual({ capabilities: { tools: ['write_file'] } });
     });
 
+    it('resolves manifest case-insensitively', () => {
+      // REGRESSION: Fixed issue where 'openrouter' failed to find 'OpenRouter.manifest.json'
+      fs.readdirSync.mockReturnValue(['OpenRouter.manifest.json']);
+      fs.existsSync.mockReturnValue(true);
+      fs.readFileSync.mockReturnValue(JSON.stringify({ name: 'OpenRouter' }));
+      config.LLMProvider = 'openrouter';
+
+      const manifest = Utils.getProviderManifest();
+
+      expect(manifest.name).toBe('OpenRouter');
+      expect(fs.readFileSync).toHaveBeenCalledWith(expect.stringContaining('OpenRouter.manifest.json'), 'utf8');
+    });
+
     it('returns default secure manifest if file missing', () => {
       fs.existsSync.mockReturnValue(false);
+      fs.readdirSync.mockReturnValue([]);
 
       const manifest = Utils.getProviderManifest();
 
@@ -128,6 +171,13 @@ describe('Utils', () => {
 
     it('fails to decrypt malformed data', () => {
       expect(() => Utils.decrypt('invalid:data', key)).toThrow('Decryption failed');
+    });
+
+    it('redacts secrets with "is" separator - REGRESSION', () => {
+      const text = "My secret key is 'AI-SECRET-999'.";
+      const redacted = Utils.redact(text);
+      expect(redacted).toContain('[REDACTED]');
+      expect(redacted).not.toContain('AI-SECRET-999');
     });
   });
 });

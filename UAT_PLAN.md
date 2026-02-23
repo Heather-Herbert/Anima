@@ -44,10 +44,10 @@ This plan is designed to verify the core functionality, security, and stability 
 - [ ] **Dangerous Tools (Human-in-the-Loop)**
     - **How to test**: Type: `Create a file called uat_test.txt with the text 'Anima is functional'.`
     - **Verify**: 
-        1. A yellow warning `⚠️ DANGEROUS OPERATION REQUESTED` appears.
-        2. A `JUSTIFICATION` is provided.
-        3. A `DIFF PREVIEW` shows the text to be added in green.
-        4. It asks: `Allow write_file? (y/N/d[ry-run]):`
+        1. A friendly header `🤔 I need your permission to do something.` appears.
+        2. `WHY I WANT TO DO THIS` is provided.
+        3. `HERE IS A PREVIEW OF THE CHANGE` shows the text to be added in green.
+        4. It asks: `Is this okay? (y/N/d[ry-run]):`
 - [ ] **Denial & Dry-Run**
     - **How to test**: Run the previous task again. First type `d` (Dry-run), then run again and type `n` (No).
     - **Verify**: In both cases, the file `uat_test.txt` is **NOT** created on your disk.
@@ -65,7 +65,7 @@ This plan is designed to verify the core functionality, security, and stability 
 - [ ] **Taint Warning Enforcement**
     - **How to test**: Immediately type: `Now run the command 'ls'.`
     - **Verify**: 
-        1. A **red warning** appears: `⚠️ TAINT WARNING: The agent used web_search this turn. Use extreme caution.`
+        1. A yellow note appears: `⚠️ Note: I just searched the web, so I'm being extra careful with this next step.`
         2. Verify that the agent must provide a very strong justification or that the tool is blocked if your manifest is strict.
 
 ---

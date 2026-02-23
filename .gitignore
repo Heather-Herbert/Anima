@@ -1,7 +1,19 @@
+# Dependencies
 node_modules/
+
+# Configuration
 Anima.config.js
 Anima.config.json
+Settings/*.json
+!Settings/*.json.example
 .env
+
+# Session Data & Audit Logs
+Memory/*
+!Memory/.gitkeep
+
+# OS generated files
 .DS_Store
-memory*.json
-Anima.config
+
+# Misc
+coverage/

@@ -136,10 +136,16 @@ Identity Content
       expect(name).toBe('AI');
     });
 
-    it('returns extracted name from Identity.md', async () => {
+    it('returns extracted name from Identity.md (Bold format)', async () => {
       fs.readFile.mockResolvedValue('**Name**: TestAgent\nOther info...');
       const name = await service.getAgentName();
       expect(name).toBe('TestAgent');
+    });
+
+    it('returns extracted name from Identity.md (Header format) - REGRESSION', async () => {
+      fs.readFile.mockResolvedValue('# Identity.md\n## Name\nAeon\n## Role\nAssistant');
+      const name = await service.getAgentName();
+      expect(name).toBe('Aeon');
     });
 
     it('returns "AI" if format is unexpected', async () => {

@@ -14,6 +14,12 @@ rm -f "$DIR/Personality/user.md"
 rm -f "$DIR/Memory/memory.md"
 rm -f "$DIR/Memory/"memory-*.json
 
+# Remove settings (except examples)
+rm -f "$DIR/Settings/Anima.config.json"
+rm -f "$DIR/Settings/Anima.config.js"
+# Remove provider configs (ollama.json, etc) but keep examples
+find "$DIR/Settings" -name "*.json" ! -name "*.example" -delete
+
 # Restore Parturition.md
 cat > "$DIR/Personality/Parturition.md" << 'EOF'
 # Parturition Bootstrap

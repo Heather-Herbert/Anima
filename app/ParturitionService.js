@@ -94,8 +94,15 @@ class ParturitionService {
     const identityFile = path.join(this.personalityDir, 'Identity.md');
     try {
       const content = await fs.readFile(identityFile, 'utf-8');
-      const match = content.match(/\*\*Name\*\*:\s*(.+)/);
-      return match ? match[1].trim() : 'AI';
+      // Try bold key-value format: **Name**: Aeon
+      const boldMatch = content.match(/\*\*Name\*\*:\s*(.+)/);
+      if (boldMatch) return boldMatch[1].trim();
+
+      // Try Header format: ## Name\nAeon
+      const headerMatch = content.match(/## Name\s*\n\s*(.+)/);
+      if (headerMatch) return headerMatch[1].trim();
+
+      return 'AI';
     } catch (e) {
       return 'AI';
     }
