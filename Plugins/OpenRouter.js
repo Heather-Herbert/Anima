@@ -18,7 +18,7 @@ const completion = async (messages, tools = null) => {
   const headers = {
     'Content-Type': 'application/json',
     Authorization: `Bearer ${providerConfig.apiKey}`,
-    'HTTP-Referer': 'https://github.com/HeatherHerbert/Anima',
+    'HTTP-Referer': 'https://github.com/Heather-Herbert/Anima',
     'X-Title': 'Anima CLI',
   };
 

@@ -12,12 +12,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/HeatherHerbert/Anima.git"
+    "url": "git+https://github.com/Heather-Herbert/Anima.git"
   },
   "author": "Heather Herbert",
   "license": "LGPL-2.1",
   "bugs": {
-    "url": "https://github.com/HeatherHerbert/Anima/issues"
+    "url": "https://github.com/Heather-Herbert/Anima/issues"
   },
   "engines": {
     "node": ">=18.0.0"
