@@ -102,4 +102,32 @@ describe('Utils', () => {
       expect(manifest.permissions.filesystem.write).toEqual([]);
     });
   });
+
+  describe('encryption', () => {
+    const key = 'test-secret-key';
+    const text = 'Sensitive information';
+
+    it('encrypts and decrypts text correctly', () => {
+      const encrypted = Utils.encrypt(text, key);
+      expect(encrypted).not.toBe(text);
+      expect(encrypted.split(':')).toHaveLength(3);
+
+      const decrypted = Utils.decrypt(encrypted, key);
+      expect(decrypted).toBe(text);
+    });
+
+    it('throws error if key is missing', () => {
+      expect(() => Utils.encrypt(text, '')).toThrow('Encryption key is required');
+      expect(() => Utils.decrypt('...', '')).toThrow('Encryption key is required');
+    });
+
+    it('fails to decrypt with wrong key', () => {
+      const encrypted = Utils.encrypt(text, key);
+      expect(() => Utils.decrypt(encrypted, 'wrong-key')).toThrow('Decryption failed');
+    });
+
+    it('fails to decrypt malformed data', () => {
+      expect(() => Utils.decrypt('invalid:data', key)).toThrow('Decryption failed');
+    });
+  });
 });

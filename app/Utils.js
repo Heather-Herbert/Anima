@@ -3,6 +3,39 @@ const fs = require('fs');
 const path = require('path');
 
 const { spawn } = require('node:child_process');
+const crypto = require('node:crypto');
+
+const ALGORITHM = 'aes-256-gcm';
+const IV_LENGTH = 12;
+
+const encrypt = (text, key) => {
+  if (!key) throw new Error('Encryption key is required');
+  const hashedKey = crypto.createHash('sha256').update(key).digest();
+  const iv = crypto.randomBytes(IV_LENGTH);
+  const cipher = crypto.createCipheriv(ALGORITHM, hashedKey, iv);
+  let encrypted = cipher.update(text, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  const tag = cipher.getAuthTag().toString('hex');
+  return `${iv.toString('hex')}:${tag}:${encrypted}`;
+};
+
+const decrypt = (encryptedText, key) => {
+  if (!key) throw new Error('Encryption key is required');
+  try {
+    const hashedKey = crypto.createHash('sha256').update(key).digest();
+    const [ivHex, tagHex, encrypted] = encryptedText.split(':');
+    if (!ivHex || !tagHex || !encrypted) throw new Error('Invalid encrypted format');
+    const iv = Buffer.from(ivHex, 'hex');
+    const tag = Buffer.from(tagHex, 'hex');
+    const decipher = crypto.createDecipheriv(ALGORITHM, hashedKey, iv);
+    decipher.setAuthTag(tag);
+    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+  } catch (e) {
+    throw new Error(`Decryption failed: ${e.message}`);
+  }
+};
 
 const callAI = async (messages, tools = null) => {
   const providerName = config.LLMProvider || 'openrouter';
@@ -129,4 +162,4 @@ const redact = (text, secrets = []) => {
   return redacted;
 };
 
-module.exports = { callAI, getProviderManifest, redact };
+module.exports = { callAI, getProviderManifest, redact, encrypt, decrypt };

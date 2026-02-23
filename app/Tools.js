@@ -574,23 +574,39 @@ const availableTools = {
 
       fs.writeFileSync(fullPath, code);
 
+      const isUnix = process.platform !== 'win32';
+      // Basic resource limiting for Unix-like systems
+      // 512MB virtual memory limit
+      const quotaPrefix = isUnix ? 'ulimit -v 524288 && ' : '';
+      const finalCommand = (language.toLowerCase() === 'bash' || language.toLowerCase() === 'python' || language.toLowerCase() === 'py') 
+        ? `${quotaPrefix}${command}` 
+        : command;
+
       return new Promise((resolve) => {
-        exec(command, { timeout: 10000, cwd: tempDir }, (error, stdout, stderr) => {
-          try {
-            fs.unlinkSync(fullPath);
-          } catch (e) {
-            /* Ignore unlink error */
-          }
-          if (error) {
-            if (error.killed) {
-              resolve(`Error: Execution timed out after 10 seconds.`);
-            } else {
-              resolve(`Error: ${error.message}\nStderr: ${stderr}`);
+        exec(
+          finalCommand,
+          { 
+            timeout: 10000, 
+            cwd: tempDir,
+            maxBuffer: 1024 * 1024 // 1MB output limit
+          },
+          (error, stdout, stderr) => {
+            try {
+              fs.unlinkSync(fullPath);
+            } catch (e) {
+              /* Ignore unlink error */
             }
-          } else {
-            resolve(stdout || stderr || 'Code executed successfully.');
-          }
-        });
+            if (error) {
+              if (error.killed) {
+                resolve(`Error: Execution timed out or resource limit exceeded.`);
+              } else {
+                resolve(`Error: ${error.message}\nStderr: ${stderr}`);
+              }
+            } else {
+              resolve(stdout || stderr || 'Code executed successfully.');
+            }
+          },
+        );
       });
     } catch (e) {
       return `Error executing code: ${e.message}`;

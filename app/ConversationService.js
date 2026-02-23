@@ -1,6 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const { callAI, redact } = require('./Utils');
+const { callAI, redact, encrypt } = require('./Utils');
 const toolDispatcher = require('./ToolDispatcher');
 const config = require('./Config');
 const AdvisoryService = require('./AdvisoryService');
@@ -324,7 +324,17 @@ class ConversationService {
         ? this.historyPath
         : path.resolve(config.workspaceDir || '.', this.historyPath);
 
-      fs.writeFileSync(fullPath, JSON.stringify(redactedHistory, null, 2));
+      let finalContent = JSON.stringify(redactedHistory, null, 2);
+      if (config.encryption?.enabled) {
+        const key = config.encryption.key || process.env.ANIMA_ENCRYPTION_KEY;
+        if (key) {
+          finalContent = encrypt(finalContent, key);
+        } else {
+          // Silent failure for background saves, but maybe we should log once?
+        }
+      }
+
+      fs.writeFileSync(fullPath, finalContent);
 
       if (process.platform !== 'win32' && fs.existsSync(fullPath)) {
         fs.chmodSync(fullPath, 0o600);

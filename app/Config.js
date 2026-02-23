@@ -31,6 +31,12 @@ const configSchema = z.object({
       storeCouncilMemos: z.boolean().default(false),
     })
     .default({}),
+  encryption: z
+    .object({
+      enabled: z.boolean().default(false),
+      key: z.string().optional(),
+    })
+    .default({}),
 });
 
 let loadedConfig = null;

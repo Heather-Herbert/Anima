@@ -139,10 +139,33 @@ const updateMemory = async (auditService) => {
       const memoryFile = path.join(memoryDir, 'memory.json');
       let existing = [];
       if (fs.existsSync(memoryFile)) {
-        existing = JSON.parse(fs.readFileSync(memoryFile, 'utf8'));
+        let existingContent = fs.readFileSync(memoryFile, 'utf8');
+        if (config.encryption?.enabled) {
+          const key = config.encryption.key || process.env.ANIMA_ENCRYPTION_KEY;
+          if (key) {
+            try {
+              existingContent = decrypt(existingContent, key);
+            } catch (e) {
+              console.log('\x1b[31mFailed to decrypt existing memory.json. Overwriting.\x1b[0m');
+              existingContent = '[]';
+            }
+          }
+        }
+        existing = JSON.parse(existingContent);
       }
       const updated = [...existing, ...accepted];
-      fs.writeFileSync(memoryFile, JSON.stringify(updated, null, 2));
+      let finalContent = JSON.stringify(updated, null, 2);
+
+      if (config.encryption?.enabled) {
+        const key = config.encryption.key || process.env.ANIMA_ENCRYPTION_KEY;
+        if (key) {
+          finalContent = encrypt(finalContent, key);
+        } else {
+          console.log('\x1b[31mEncryption enabled but no key provided. Saving UNENCRYPTED.\x1b[0m');
+        }
+      }
+
+      fs.writeFileSync(memoryFile, finalContent);
 
       // Harden permissions
       if (process.platform !== 'win32') fs.chmodSync(memoryFile, 0o600);
@@ -214,7 +237,17 @@ const loadPersona = () => {
     : path.resolve(__dirname, config.workspaceDir, 'Memory', 'memory.json');
   if (fs.existsSync(memoryFile)) {
     try {
-      const memories = JSON.parse(fs.readFileSync(memoryFile, 'utf8'));
+      let content = fs.readFileSync(memoryFile, 'utf8');
+      if (config.encryption?.enabled) {
+        const key = config.encryption.key || process.env.ANIMA_ENCRYPTION_KEY;
+        if (key) {
+          content = decrypt(content, key);
+        } else {
+          console.log('\x1b[31mEncryption enabled but no key provided. Skipping memory.json.\x1b[0m');
+          return;
+        }
+      }
+      const memories = JSON.parse(content);
       if (memories.length > 0) {
         systemPrompt += '\n\n# Long-term Memory\n';
         const grouped = memories.reduce((acc, m) => {
@@ -229,7 +262,7 @@ const loadPersona = () => {
         console.log(`Loaded ${memories.length} memory items from ${memoryFile}.`);
       }
     } catch (e) {
-      console.log('\x1b[31mFailed to load memory.json.\x1b[0m');
+      console.log(`\x1b[31mFailed to load memory.json: ${e.message}\x1b[0m`);
     }
   }
 
