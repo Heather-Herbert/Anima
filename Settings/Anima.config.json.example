@@ -1,0 +1,72 @@
+{
+  "LLMProvider": "openrouter",
+  "heartbeatInterval": 300,
+  "workspaceDir": "./workspace",
+  "memoryMode": "session",
+  "advisoryCouncil": {
+    "enabled": false,
+    "mode": "on_demand",
+    "advisers": [
+      {
+        "name": "SecurityOfficer",
+        "role": "Security Auditor",
+        "promptFile": "SecurityOfficer.md",
+        "weight": 1.0,
+        "temperature": 0.2,
+        "model": "gpt-4-turbo-preview"
+      },
+      {
+        "name": "Architect",
+        "role": "System Architect",
+        "promptFile": "Architect.md",
+        "weight": 0.8
+      },
+      {
+        "name": "Ethicist",
+        "role": "AI Ethicist",
+        "promptFile": "Ethicist.md",
+        "weight": 0.7
+      },
+      {
+        "name": "Legal",
+        "role": "Legal Counsel",
+        "promptFile": "LegalCounsel.md",
+        "weight": 0.9
+      },
+      {
+        "name": "UX",
+        "role": "UX Designer",
+        "promptFile": "UXDesigner.md",
+        "weight": 0.6
+      },
+      {
+        "name": "Privacy",
+        "role": "Privacy Expert",
+        "promptFile": "PrivacyExpert.md",
+        "weight": 0.9
+      },
+      {
+        "name": "DevOps",
+        "role": "DevOps Engineer",
+        "promptFile": "DevOpsEngineer.md",
+        "weight": 0.8
+      },
+      {
+        "name": "Product",
+        "role": "Product Manager",
+        "promptFile": "ProductManager.md",
+        "weight": 0.7
+      },
+      {
+        "name": "Writer",
+        "role": "Technical Writer",
+        "promptFile": "TechnicalWriter.md",
+        "weight": 0.5
+      }
+    ],
+    "maxAdvisersPerCall": 3,
+    "timeoutMs": 30000,
+    "maxTokens": 1000,
+    "parallel": true
+  }
+}

@@ -1,3 +1,23 @@
 {
-  "LLMProvider": "openrouter"
+  "LLMProvider": "openrouter",
+  "heartbeatInterval": 300,
+  "memoryMode": "session",
+  "advisoryCouncil": {
+    "enabled": false,
+    "mode": "on_demand",
+    "advisers": [
+      {
+        "name": "SecurityOfficer",
+        "role": "Security Auditor",
+        "promptFile": "Personality/Advisers/Security.md",
+        "weight": 1.0,
+        "model": "gpt-4-turbo-preview"
+      }
+    ],
+    "maxAdvisersPerCall": 3,
+    "timeoutMs": 30000,
+    "maxTokens": 1000,
+    "parallel": true,
+    "storeCouncilMemos": false
+  }
 }

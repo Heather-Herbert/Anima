@@ -3,6 +3,7 @@ const path = require('node:path');
 const { callAI, redact } = require('./Utils');
 const toolDispatcher = require('./ToolDispatcher');
 const config = require('./Config');
+const AdvisoryService = require('./AdvisoryService');
 
 class ConversationService {
   constructor(agentName, activeTools, manifest, historyPath, auditService = null) {
@@ -11,6 +12,7 @@ class ConversationService {
     this.manifest = manifest;
     this.historyPath = historyPath;
     this.auditService = auditService;
+    this.advisoryService = new AdvisoryService(auditService);
     this.dangerousTools = [
       'run_command',
       'execute_code',
@@ -37,7 +39,6 @@ class ConversationService {
   async processInput(input, conversationHistory, confirmCallback) {
     const wrappedInput = `<user_input>\n${input}\n</user_input>`;
     conversationHistory.push({ role: 'user', content: wrappedInput });
-    this.saveHistory(conversationHistory);
 
     let processing = true;
     let lastReply = '';
@@ -46,7 +47,48 @@ class ConversationService {
     const MAX_ITERATIONS = 10;
     let totalUsage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
     let resetRequested = null;
+    let turnAdvice = [];
 
+    const councilConfig = config.advisoryCouncil;
+    let turnRiskScore = 0;
+
+    // --- PHASE 1 & 2: DRAFT & REVIEW (Always Mode) ---
+    if (councilConfig?.enabled && councilConfig.mode === 'always') {
+      try {
+        const managedHistory = this.getManagedHistory(conversationHistory);
+        // Generate Draft (tools disabled)
+        const draftData = await callAI(managedHistory, null);
+        const draft = draftData.choices?.[0]?.message?.content || '';
+
+        if (draft) {
+          // Run Advisers on Draft
+          turnAdvice = await this.advisoryService.getAdvice({
+            userMessage: input,
+            mainDraft: draft,
+            managedHistorySummary: `Draft phase. Context window contains ${managedHistory.length} messages.`,
+            taintStatus: isTainted,
+            availableToolsSummary: this.activeTools.map((t) => t.function.name).join(', '),
+          });
+
+          if (turnAdvice.length > 0) {
+            const memo = this.advisoryService.generateCouncilMemo(turnAdvice);
+
+            // Inject memo as internal system message for the "Act" phase
+            conversationHistory.push({
+              role: 'system',
+              content: `ADVISORY COUNCIL REVIEW of your intended approach:\n${memo}\n\nPlease take this feedback into account for your final response and any tool calls.`,
+              internal: true,
+            });
+          }
+        }
+      } catch (e) {
+        process.stderr.write(`Advisory Pipeline Error: ${e.message}\n`);
+      }
+    }
+
+    this.saveHistory(conversationHistory);
+
+    // --- PHASE 3: ACT (Main ReAct Loop) ---
     while (processing && iterations < MAX_ITERATIONS) {
       iterations++;
       let data;
@@ -184,6 +226,38 @@ class ConversationService {
         }
       } else {
         const reply = message.content || JSON.stringify(data, null, 2);
+
+        // Run Advisory Council if enabled and not already run in draft phase
+        if (councilConfig?.enabled && councilConfig.mode !== 'always') {
+          turnRiskScore = this.calculateRiskScore({
+            input,
+            draft: reply,
+            iterations,
+            isTainted,
+            hasToolCalls: iterations > 1,
+          });
+
+          const shouldInvoke =
+            councilConfig.mode === 'on_demand' ||
+            (councilConfig.mode === 'risk_based' && turnRiskScore >= 0.5);
+
+          if (shouldInvoke) {
+            if (councilConfig.mode === 'risk_based') {
+              console.log(
+                `\n\x1b[33m[Risk-Based Trigger] Turn risk score: ${turnRiskScore.toFixed(2)}\x1b[0m`,
+              );
+            }
+
+            turnAdvice = await this.advisoryService.getAdvice({
+              userMessage: input,
+              mainDraft: reply,
+              managedHistorySummary: `Post-execution phase. Context window contains ${managedHistory.length} messages.`,
+              taintStatus: isTainted,
+              availableToolsSummary: this.activeTools.map((t) => t.function.name).join(', '),
+            });
+          }
+        }
+
         conversationHistory.push({ role: 'assistant', content: reply });
         this.saveHistory(conversationHistory);
         lastReply = reply;
@@ -195,10 +269,10 @@ class ConversationService {
       const limitMessage = 'Max iterations reached. Stopping to prevent infinite loop.';
       conversationHistory.push({ role: 'assistant', content: limitMessage });
       this.saveHistory(conversationHistory);
-      return { reply: limitMessage, usage: totalUsage, iterations, resetRequested };
+      return { reply: limitMessage, usage: totalUsage, iterations, resetRequested, advice: [] };
     }
 
-    return { reply: lastReply, usage: totalUsage, iterations, resetRequested };
+    return { reply: lastReply, usage: totalUsage, iterations, resetRequested, advice: turnAdvice };
   }
 
   getManagedHistory(history) {
@@ -206,9 +280,6 @@ class ConversationService {
     const systemPrompt = history.find((m) => m.role === 'system');
 
     // 2. Identify the boundary: the user message that started this turn.
-    // In our loop, conversationHistory.push({role: 'user', content: wrappedInput})
-    // happened at the very beginning of processInput.
-    // However, if the turn has multiple iterations, we want the LAST user message.
     const userMessages = history.filter((m) => m.role === 'user');
     const currentUserInput = userMessages[userMessages.length - 1];
 
@@ -217,6 +288,7 @@ class ConversationService {
     const inputIdx = history.indexOf(currentUserInput);
 
     // 3. Intermediary: everything AFTER the current user input
+    // We include internal messages here so they are visible to the agent in the next call.
     const intermediary = history.slice(inputIdx + 1);
 
     // 4. Sliding Window: Keep only the last 10 messages of intermediary (5 turns)
@@ -237,7 +309,13 @@ class ConversationService {
 
     try {
       const secrets = this.auditService ? this.auditService.secrets : [];
-      const redactedHistory = history.map((m) => ({
+      // Filter out internal messages from persistent history, unless storeCouncilMemos is true
+      const persistentHistory = history.filter((m) => {
+        if (m.internal && !config.advisoryCouncil?.storeCouncilMemos) return false;
+        return true;
+      });
+
+      const redactedHistory = persistentHistory.map((m) => ({
         ...m,
         content: m.content ? redact(m.content, secrets) : m.content,
       }));
@@ -254,6 +332,34 @@ class ConversationService {
     } catch (e) {
       /* ignore save errors in background */
     }
+  }
+
+  calculateRiskScore({ input, draft, iterations, isTainted, hasToolCalls }) {
+    let score = 0;
+    const destructiveKeywords = [
+      'delete',
+      'rm',
+      'wipe',
+      'format',
+      'credentials',
+      'password',
+      'token',
+      'secret',
+      'sudo',
+      'drop',
+      'truncate',
+    ];
+
+    const combinedText = (input + ' ' + (draft || '')).toLowerCase();
+    if (destructiveKeywords.some((kw) => combinedText.includes(kw))) {
+      score += 0.5;
+    }
+
+    if (isTainted) score += 0.3;
+    if (hasToolCalls) score += 0.2;
+    if (iterations > 3) score += (iterations - 3) * 0.1;
+
+    return Math.min(score, 1.0);
   }
 }
 

@@ -24,6 +24,9 @@ Options:
   --hash <sha256>  Expected SHA-256 hash for URL-based plugin verification
   --safe           Disable dangerous tools (run_command, execute_code, etc.)
   --read-only      Restrict agent to read-only operations only
+  --council <mode> Set council mode (off, always, on_demand, risk_based)
+  --council-advisers <list> Comma-separated list of adviser names to use
+  --no-council     Completely disable the advisory council for this session
   --help, -h       Display this help message
 `);
   process.exit(0);
@@ -343,6 +346,10 @@ const runSetup = async () => {
       'session';
     mainConfig.memoryMode = memMode;
 
+    const councilEnabled =
+      (await question('Enable Advisory Council? (y/N): ')).toLowerCase() === 'y';
+    mainConfig.advisoryCouncil = { enabled: councilEnabled };
+
     fs.writeFileSync(configPath, JSON.stringify(mainConfig, null, 2));
 
     console.log(`\n\x1b[36mConfiguring ${provider}...\x1b[0m`);
@@ -598,6 +605,37 @@ async function main() {
   const isSafeMode = args.includes('--safe');
   const isReadOnlyMode = args.includes('--read-only');
 
+  // Advisory Council CLI Overrides
+  if (args.includes('--no-council')) {
+    config.advisoryCouncil.enabled = false;
+    console.log('\x1b[90mAdvisory Council disabled via CLI.\x1b[0m');
+  } else {
+    const councilModeIndex = args.indexOf('--council');
+    if (councilModeIndex !== -1 && args[councilModeIndex + 1]) {
+      const mode = args[councilModeIndex + 1].toLowerCase();
+      if (mode === 'off') {
+        config.advisoryCouncil.enabled = false;
+      } else {
+        config.advisoryCouncil.enabled = true;
+        config.advisoryCouncil.mode = mode;
+      }
+      console.log(`\x1b[90mAdvisory Council mode set via CLI: ${mode}\x1b[0m`);
+    }
+
+    const councilAdvisersIndex = args.indexOf('--council-advisers');
+    if (councilAdvisersIndex !== -1 && args[councilAdvisersIndex + 1]) {
+      const names = args[councilAdvisersIndex + 1].split(',').map((n) => n.trim());
+      const filtered = config.advisoryCouncil.advisers.filter((a) => names.includes(a.name));
+      if (filtered.length === 0) {
+        console.log(`\x1b[33mWarning: No matching advisers found for "${names.join(', ')}"\x1b[0m`);
+      } else {
+        config.advisoryCouncil.advisers = filtered;
+        config.advisoryCouncil.enabled = true;
+        console.log(`\x1b[90mAdvisory Council advisers set via CLI: ${names.join(', ')}\x1b[0m`);
+      }
+    }
+  }
+
   const dangerousTools = [
     'run_command',
     'execute_code',
@@ -727,13 +765,42 @@ async function main() {
     };
 
     try {
-      const { reply, usage, iterations, resetRequested } = await conversationService.processInput(
-        input,
-        conversationHistory,
-        confirmCallback,
-      );
+      const { reply, usage, iterations, resetRequested, advice } =
+        await conversationService.processInput(input, conversationHistory, confirmCallback);
       lastUsage = { ...usage, iterations };
       stopSpinner(spinner);
+
+      if (advice && advice.length > 0) {
+        console.log(`\n\x1b[33m--- ADVISORY COUNCIL FEEDBACK --- \x1b[0m`);
+        advice.forEach((a) => {
+          const sentimentColor =
+            a.verdict === 'approve' ? '\x1b[32m' : a.verdict === 'block' ? '\x1b[31m' : '\x1b[33m';
+          const riskColor =
+            a.risks.level === 'high'
+              ? '\x1b[31m'
+              : a.risks.level === 'med'
+                ? '\x1b[33m'
+                : '\x1b[32m';
+
+          console.log(
+            `[\x1b[36m${a.adviserName}\x1b[0m] Verdict: ${sentimentColor}${a.verdict.toUpperCase()}\x1b[0m | Risk: ${riskColor}${a.risks.level.toUpperCase()}\x1b[0m | Confidence: \x1b[35m${(a.confidence * 100).toFixed(0)}%\x1b[0m`,
+          );
+          console.log(`\x1b[90mRationale:\x1b[0m ${a.rationale.join(' ')}`);
+          if (a.risks.items.length > 0) {
+            console.log(`\x1b[90mSpecific Risks:\x1b[0m ${a.risks.items.join(', ')}`);
+          }
+          if (a.recommendedNextSteps.length > 0) {
+            console.log(`\x1b[90mRecommendations:\x1b[0m ${a.recommendedNextSteps.join(', ')}`);
+          }
+          if (a.questionsForUser.length > 0) {
+            console.log(
+              `\x1b[90mQuestions for User:\x1b[0m \x1b[33m${a.questionsForUser.join(' ')}\x1b[0m`,
+            );
+          }
+        });
+        console.log('');
+      }
+
       console.log(`\x1b[36m${agentName}: ${reply}\x1b[0m`);
 
       if (resetRequested) {

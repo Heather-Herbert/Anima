@@ -89,4 +89,15 @@ describe('ToolDispatcher', () => {
     const result = await toolDispatcher.dispatch(toolCall, {});
     expect(result).toContain("expected type 'string', got 'number'");
   });
+
+  it('validates array parameters for advisory_council', async () => {
+    const toolCall = {
+      function: {
+        name: 'advisory_council',
+        arguments: '{"question": "test", "focus": "not an array"}',
+      },
+    };
+    const result = await toolDispatcher.dispatch(toolCall, {});
+    expect(result).toContain("expected type 'array', got 'string'");
+  });
 });

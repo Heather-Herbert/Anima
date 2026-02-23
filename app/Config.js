@@ -8,6 +8,29 @@ const configSchema = z.object({
   heartbeatInterval: z.number().default(300), // Default to 300 seconds (5 minutes)
   workspaceDir: z.string().default(path.join(__dirname, '..')),
   memoryMode: z.enum(['off', 'session', 'longterm']).default('session'),
+  advisoryCouncil: z
+    .object({
+      enabled: z.boolean().default(false),
+      mode: z.enum(['always', 'on_demand', 'risk_based']).default('on_demand'),
+      advisers: z
+        .array(
+          z.object({
+            name: z.string(),
+            role: z.string(),
+            promptFile: z.string(),
+            weight: z.number().optional(),
+            temperature: z.number().optional(),
+            model: z.string().optional(),
+          }),
+        )
+        .default([]),
+      maxAdvisersPerCall: z.number().default(3),
+      timeoutMs: z.number().default(30000),
+      maxTokens: z.number().default(1000),
+      parallel: z.boolean().default(true),
+      storeCouncilMemos: z.boolean().default(false),
+    })
+    .default({}),
 });
 
 let loadedConfig = null;

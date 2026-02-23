@@ -61,7 +61,18 @@ If you prefer to configure manually:
      "LLMProvider": "openrouter",
      "heartbeatInterval": 300,
      "workspaceDir": "./my-workspace",
-     "memoryMode": "session"
+     "memoryMode": "session",
+     "advisoryCouncil": {
+       "enabled": true,
+       "mode": "on_demand",
+       "advisers": [
+         {
+           "name": "Architect",
+           "role": "System Architect",
+           "promptFile": "Personality/Advisers/Architect.md"
+         }
+       ]
+     }
    }
    ```
 2. **Provider Settings**: Create a settings file named after your provider (e.g., `openai.json`, `anthropic.json`, `gemini.json`, `deepseek.json`, `openrouter.json`, `ollama.json`) in the `Settings/` directory.
@@ -88,6 +99,9 @@ node cli.js
 - `--hash <sha256>`: (Optional) Verify the SHA-256 hash of a remote plugin archive before installation. Highly recommended for production stability.
 - `--safe`: Disable all dangerous tools (run_command, write_file, etc.) for this session.
 - `--read-only`: Restrict the agent to only use read-only inspection tools.
+- `--council <mode>`: Set the Advisory Council mode (`off`, `always`, `on_demand`, `risk_based`) for this session.
+- `--council-advisers <list>`: Comma-separated list of names of advisers to use.
+- `--no-council`: Completely disable the Advisory Council for this session.
 - `--help`, `-h`: Display help information.
 
 ### In-Chat Commands
@@ -113,6 +127,7 @@ The agent has access to a variety of tools. Dangerous operations require user co
 - `file_info`: Get metadata about a file.
 - `delete_file`: Remove a file.
 - `add_plugin`: Install new plugins (agent-initiated).
+- `advisory_council`: Request on-demand structured feedback from the advisory council on a specific question or plan.
 
 ### Plugin Security
 
@@ -133,6 +148,14 @@ Anima implements a **Reasoning and Action (ReAct)** loop. When a user provides i
 2.  **Action**: If a tool is needed, the agent requests execution.
 3.  **Observation**: The result of the tool execution is fed back into the context.
 This loop continues until a final answer is produced or a hard limit of **10 iterations** is reached to prevent runaway processes.
+
+### Advisory Council
+Anima can consult a council of specialist "Advisers" to review its proposed actions.
+-   **Always Mode**: Every response is reviewed by the council before the agent "acts" (Draft -> Review -> Act).
+-   **Risk-Based Mode**: The council is automatically triggered when a turn is deemed risky (e.g., destructive keywords like `rm` or `sudo`, tool-heavy turns, or "tainted" sessions after a web search).
+-   **On-Demand Mode**: The agent can explicitly call the council using the `advisory_council` tool.
+
+Advisory council discussions and memos are **excluded from long-term memory by default** to keep the agent's identity clean. This can be changed by setting `storeCouncilMemos: true` in the configuration.
 
 ### Context Management (Sliding Window)
 To manage the LLM's token limit and maintain performance during long-running tasks, Anima uses a **Sliding Window** strategy for conversation history:
@@ -199,3 +222,4 @@ If `Personality/Soul.md` or `Personality/Identity.md` are missing, the system en
 - `Settings/`: Configuration and provider settings.
 - `Memory/`: Stores session logs and consolidated memory.
 - `Personality/`: Stores system prompts, identity files, and birth configuration.
+  - `Advisers/`: Markdown files containing prompts for the Advisory Council.
