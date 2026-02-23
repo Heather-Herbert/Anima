@@ -111,4 +111,33 @@ describe('AdvisoryService', () => {
     fs.existsSync.mockReturnValue(false);
     expect(() => service.loadPrompt('missing.md')).toThrow('Prompt file not found');
   });
+
+  it('generates a consolidated council memo', () => {
+    const adviceList = [
+      {
+        adviserName: 'Security',
+        verdict: 'block',
+        rationale: ['Exploit'],
+        risks: { level: 'high', items: ['Injection'] },
+        recommendedNextSteps: ['Deny'],
+        toolPolicy: { allowTools: false },
+        confidence: 1.0,
+      },
+      {
+        adviserName: 'Architect',
+        verdict: 'approve',
+        rationale: ['Efficient'],
+        risks: { level: 'low', items: [] },
+        recommendedNextSteps: ['Proceed'],
+        toolPolicy: { allowTools: true },
+        confidence: 0.8,
+      },
+    ];
+
+    const memo = service.generateCouncilMemo(adviceList);
+    expect(memo).toContain('Consensus Verdict**: BLOCK');
+    expect(memo).toContain('Overall Risk Level**: HIGH');
+    expect(memo).toContain('Disagreements**: Security recommended BLOCK, Architect recommended APPROVE');
+    expect(memo).toContain('BLOCK ALL TOOLS');
+  });
 });

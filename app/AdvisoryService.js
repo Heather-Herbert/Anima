@@ -212,6 +212,63 @@ Provide your structured advice now.`;
   clearCache() {
     this.promptCache.clear();
   }
+
+  generateCouncilMemo(adviceList) {
+    if (!adviceList || adviceList.length === 0) return null;
+
+    const consensus = this.getConsensus(adviceList);
+    const topRisks = [...new Set(adviceList.flatMap((a) => a.risks.items))].slice(0, 5);
+    const recommendations = [...new Set(adviceList.flatMap((a) => a.recommendedNextSteps))].slice(
+      0,
+      5,
+    );
+
+    // Identify disagreements
+    const verdicts = adviceList.map((a) => a.verdict);
+    const hasDisagreement = new Set(verdicts).size > 1;
+    let disagreementNote = 'None.';
+    if (hasDisagreement) {
+      disagreementNote = adviceList
+        .map((a) => `${a.adviserName} recommended ${a.verdict.toUpperCase()}`)
+        .join(', ');
+    }
+
+    // Tool constraints aggregation
+    const restrictedTools = adviceList
+      .filter((a) => a.toolPolicy.allowTools === false || a.toolPolicy.allowedTools)
+      .map((a) => ({
+        adviser: a.adviserName,
+        policy: a.toolPolicy,
+      }));
+
+    return `
+# COUNCIL MEMO
+- **Consensus Verdict**: ${consensus.verdict.toUpperCase()}
+- **Overall Risk Level**: ${consensus.riskLevel.toUpperCase()}
+- **Top Risks**: ${topRisks.join(', ') || 'None identified.'}
+- **Recommended Plan**: ${recommendations.join(' ') || 'Follow primary agent strategy.'}
+- **Disagreements**: ${disagreementNote}
+
+## Constraints & Requirements
+${restrictedTools.length > 0 ? restrictedTools.map((t) => `- [${t.adviser}]: ${t.policy.allowTools ? 'Allow only: ' + (t.policy.allowedTools?.join(', ') || '*') : 'BLOCK ALL TOOLS'}`).join('\n') : '- None.'}
+`;
+  }
+
+  getConsensus(adviceList) {
+    const verdicts = adviceList.map((a) => a.verdict);
+    const riskLevels = adviceList.map((a) => a.risks.level);
+
+    // Highest severity wins
+    let finalVerdict = 'approve';
+    if (verdicts.includes('block')) finalVerdict = 'block';
+    else if (verdicts.includes('caution')) finalVerdict = 'caution';
+
+    let finalRisk = 'low';
+    if (riskLevels.includes('high')) finalRisk = 'high';
+    else if (riskLevels.includes('med')) finalRisk = 'med';
+
+    return { verdict: finalVerdict, riskLevel: finalRisk };
+  }
 }
 
 module.exports = AdvisoryService;

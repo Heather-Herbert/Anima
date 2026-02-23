@@ -71,14 +71,12 @@ class ConversationService {
           });
 
           if (turnAdvice.length > 0) {
-            const adviceSummary = turnAdvice
-              .map((a) => `[${a.adviser}]: ${a.sentiment.toUpperCase()} - ${a.feedback}`)
-              .join('\n');
+            const memo = this.advisoryService.generateCouncilMemo(turnAdvice);
 
-            // Inject advice as internal system message for the "Act" phase
+            // Inject memo as internal system message for the "Act" phase
             conversationHistory.push({
               role: 'system',
-              content: `ADVISORY COUNCIL REVIEW of your intended approach:\n${adviceSummary}\n\nPlease take this feedback into account for your final response and any tool calls.`,
+              content: `ADVISORY COUNCIL REVIEW of your intended approach:\n${memo}\n\nPlease take this feedback into account for your final response and any tool calls.`,
               internal: true,
             });
           }
