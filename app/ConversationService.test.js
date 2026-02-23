@@ -4,9 +4,20 @@ const { callAI } = require('./Utils');
 const { availableTools } = require('./Tools');
 const fs = require('node:fs');
 
-jest.mock('./Utils');
+jest.mock('./Utils', () => ({
+  callAI: jest.fn(),
+  redact: jest.fn((text, secrets = []) => {
+    let r = text;
+    secrets.forEach((s) => (r = r.replace(s, '[REDACTED]')));
+    return r;
+  }),
+}));
 jest.mock('./Tools');
 jest.mock('node:fs');
+jest.mock('./Config', () => ({
+  memoryMode: 'session',
+  workspaceDir: '.',
+}));
 
 describe('ConversationService', () => {
   let service;
@@ -99,7 +110,7 @@ describe('ConversationService', () => {
     const history = [];
     await service.processInput('Write it', history, confirmMock);
 
-    expect(confirmMock).toHaveBeenCalledWith('write_file', expect.anything(), 'need it');
+    expect(confirmMock).toHaveBeenCalledWith('write_file', expect.anything(), 'need it', false);
     expect(availableTools.write_file).toHaveBeenCalled();
   });
 
@@ -242,5 +253,62 @@ describe('ConversationService', () => {
 
     // Verify confirm was called with isTainted = true
     expect(confirmMock).toHaveBeenCalledWith('write_file', expect.anything(), 'j', true);
+  });
+
+  it('enforces MAX_ITERATIONS limit', async () => {
+    // Mock callAI to always return a tool call
+    callAI.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            role: 'assistant',
+            tool_calls: [
+              {
+                id: 'loop',
+                function: {
+                  name: 'read_file',
+                  arguments: '{"path":".","justification":"test"}',
+                },
+              },
+            ],
+          },
+        },
+      ],
+    });
+    availableTools.read_file.mockResolvedValue('output');
+
+    const history = [];
+    const reply = await service.processInput('Loop me', history, jest.fn());
+
+    expect(reply).toBe('Max iterations reached. Stopping to prevent infinite loop.');
+    expect(callAI).toHaveBeenCalledTimes(10);
+  });
+
+  it('getManagedHistory implements sliding window correctly', () => {
+    const history = [
+      { role: 'system', content: 'SYS' },
+      { role: 'user', content: 'Old User' },
+      { role: 'assistant', content: 'Old Asst' },
+      { role: 'user', content: 'Current User' }, // The one that triggered the turn
+      { role: 'assistant', content: 'T1' },
+      { role: 'tool', content: 'O1' },
+      { role: 'assistant', content: 'T2' },
+      { role: 'tool', content: 'O2' },
+      { role: 'assistant', content: 'T3' },
+      { role: 'tool', content: 'O3' },
+      { role: 'assistant', content: 'T4' },
+      { role: 'tool', content: 'O4' },
+      { role: 'assistant', content: 'T5' },
+      { role: 'tool', content: 'O5' },
+      { role: 'assistant', content: 'T6' }, // Should be kept (within last 10)
+      { role: 'tool', content: 'O6' }, // Should be kept
+    ];
+
+    const managed = service.getManagedHistory(history);
+
+    expect(managed[0]).toEqual({ role: 'system', content: 'SYS' });
+    expect(managed[1]).toEqual({ role: 'user', content: 'Current User' });
+    expect(managed).toHaveLength(12); // System + Current User + 10 intermediary
+    expect(managed[managed.length - 1]).toEqual({ role: 'tool', content: 'O6' });
   });
 });

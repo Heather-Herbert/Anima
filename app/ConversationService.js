@@ -1,4 +1,5 @@
 const fs = require('node:fs');
+const path = require('node:path');
 const { callAI, redact } = require('./Utils');
 const { availableTools } = require('./Tools');
 const config = require('./Config');
@@ -10,7 +11,14 @@ class ConversationService {
     this.manifest = manifest;
     this.historyPath = historyPath;
     this.auditService = auditService;
-    this.dangerousTools = ['run_command', 'execute_code', 'add_plugin'];
+    this.dangerousTools = [
+      'run_command',
+      'execute_code',
+      'add_plugin',
+      'write_file',
+      'delete_file',
+      'replace_in_file',
+    ];
   }
 
   isProtectedPath(filePath) {
@@ -32,16 +40,21 @@ class ConversationService {
     let processing = true;
     let lastReply = '';
     let isTainted = false; // Reset taint per user input turn
+    let iterations = 0;
+    const MAX_ITERATIONS = 10;
 
-    while (processing) {
+    while (processing && iterations < MAX_ITERATIONS) {
+      iterations++;
       let data;
       let attempts = 0;
       const maxAttempts = 3;
 
+      const managedHistory = this.getManagedHistory(conversationHistory);
+
       while (attempts < maxAttempts) {
         try {
           attempts++;
-          data = await callAI(conversationHistory, this.activeTools);
+          data = await callAI(managedHistory, this.activeTools);
           if (!data?.choices?.[0]?.message) {
             throw new Error('Malformed response from AI provider');
           }
@@ -81,10 +94,15 @@ class ConversationService {
 
             if (this.dangerousTools.includes(functionName) || isWritingToProtected) {
               const justification = functionArgs.justification || 'No justification provided.';
-              
+
               // Pass taint info to confirmation callback if needed
-              const confirmed = await confirmCallback(functionName, functionArgs, justification, isTainted);
-              
+              const confirmed = await confirmCallback(
+                functionName,
+                functionArgs,
+                justification,
+                isTainted,
+              );
+
               if (confirmed === 'y') {
                 const callPermissions = {
                   ...this.manifest.permissions,
@@ -105,10 +123,7 @@ class ConversationService {
                 ...this.manifest.permissions,
                 _isTainted: isTainted,
               };
-              toolResult = await availableTools[functionName](
-                functionArgs,
-                callPermissions,
-              );
+              toolResult = await availableTools[functionName](functionArgs, callPermissions);
             }
 
             if (this.auditService) {
@@ -153,7 +168,38 @@ class ConversationService {
         processing = false;
       }
     }
+
+    if (iterations >= MAX_ITERATIONS && processing) {
+      const limitMessage = 'Max iterations reached. Stopping to prevent infinite loop.';
+      conversationHistory.push({ role: 'assistant', content: limitMessage });
+      this.saveHistory(conversationHistory);
+      return limitMessage;
+    }
+
     return lastReply;
+  }
+
+  getManagedHistory(history) {
+    const systemPrompt = history.find((m) => m.role === 'system');
+    const userMessages = history.filter((m) => m.role === 'user');
+    const originalUserPrompt = userMessages[userMessages.length - 1];
+
+    if (!originalUserPrompt) return history;
+
+    const originalIdx = history.indexOf(originalUserPrompt);
+    const intermediary = history.slice(originalIdx + 1);
+
+    // Keep only the last 10 intermediary messages (approx 5 turns)
+    const recentIntermediary = intermediary.slice(-10);
+
+    const managed = [];
+    if (systemPrompt && history.indexOf(systemPrompt) < originalIdx) {
+      managed.push(systemPrompt);
+    }
+    managed.push(originalUserPrompt);
+    managed.push(...recentIntermediary);
+
+    return managed;
   }
 
   saveHistory(history) {
@@ -168,7 +214,7 @@ class ConversationService {
 
       const fullPath = path.isAbsolute(this.historyPath)
         ? this.historyPath
-        : path.resolve(config.workspaceDir, this.historyPath);
+        : path.resolve(config.workspaceDir || '.', this.historyPath);
 
       fs.writeFileSync(fullPath, JSON.stringify(redactedHistory, null, 2));
 

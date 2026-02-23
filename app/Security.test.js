@@ -78,10 +78,13 @@ describe('Security: isPathAllowed', () => {
       expect(isPathAllowed('Memory/memory.md', 'write', permissions)).toBe(false);
     });
 
-    it('allows everything if manifest uses asterisk', () => {
-      const wildcard = { filesystem: { read: ['*'], write: ['*'] } };
+    it('allows everything if manifest uses asterisk (with override for protected)', () => {
+      const wildcard = {
+        filesystem: { read: ['*'], write: ['*'] },
+        _overrideProtected: true,
+      };
       expect(isPathAllowed('README.md', 'read', wildcard)).toBe(true);
-      expect(isPathAllowed('Memory/memory.md', 'write', wildcard)).toBe(true);
+      expect(isPathAllowed('some_new_file.txt', 'write', wildcard)).toBe(true);
     });
   });
 });

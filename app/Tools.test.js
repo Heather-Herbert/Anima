@@ -340,7 +340,10 @@ describe('Tools', () => {
       fs.writeFileSync.mockImplementation(() => {});
       child_process.exec.mockImplementation((cmd, options, cb) => cb(null, 'Bash Output', ''));
 
-      const result = await availableTools.execute_code({ language: 'bash', code: 'ls' });
+      const result = await availableTools.execute_code(
+        { language: 'bash', code: 'ls', justification: 'test' },
+        fullPermissions,
+      );
       expect(result).toBe('Bash Output');
     });
 

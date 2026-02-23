@@ -123,6 +123,21 @@ To ensure system integrity, Anima provides multiple layers of plugin security:
 - **Verification**: Remote plugins can be verified against a known SHA-256 hash using the `--hash` argument.
 - **Security-First Development**: We follow a strict policy of keeping all documentation and tests up to date with every change, with a continuous focus on system hardening.
 
+## Architecture
+
+### ReAct Loop
+Anima implements a **Reasoning and Action (ReAct)** loop. When a user provides input, the agent enter a cycle of thought and execution:
+1.  **Thought**: The agent analyzes the current context and decides if a tool call is necessary.
+2.  **Action**: If a tool is needed, the agent requests execution.
+3.  **Observation**: The result of the tool execution is fed back into the context.
+This loop continues until a final answer is produced or a hard limit of **10 iterations** is reached to prevent runaway processes.
+
+### Context Management (Sliding Window)
+To manage the LLM's token limit and maintain performance during long-running tasks, Anima uses a **Sliding Window** strategy for conversation history:
+-   **Fixed Context**: The initial **System Prompt** and the **Original User Prompt** that started the current task are always preserved.
+-   **Intermediary History**: Only the most recent **5 conversational turns** (approx. 10 messages) of tool calls and observations are retained in the active context window.
+-   **Auditability**: While the active window is pruned, the full session history is always preserved in `Memory/*.json` files.
+
 ### Provider Manifests
 
 Plugins are accompanied by a `.manifest.json` file which defines:
