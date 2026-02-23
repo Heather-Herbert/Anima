@@ -5,6 +5,7 @@ console.log('Resetting Anima environment...');
 
 const personalityDir = path.join(__dirname, 'Personality');
 const memoryDir = path.join(__dirname, 'Memory');
+const settingsDir = path.join(__dirname, 'Settings');
 
 // Files to remove
 const filesToRemove = [
@@ -13,6 +14,7 @@ const filesToRemove = [
   path.join(personalityDir, 'user.md'),
   path.join(memoryDir, 'memory.json'),
   path.join(memoryDir, 'audit.log'),
+  path.join(settingsDir, 'Anima.config.json'),
 ];
 
 filesToRemove.forEach((file) => {
@@ -21,6 +23,20 @@ filesToRemove.forEach((file) => {
     console.log(`Removed: ${file}`);
   }
 });
+
+// Remove provider configs in Settings/ (except .example)
+if (fs.existsSync(settingsDir)) {
+  const files = fs.readdirSync(settingsDir);
+  files.forEach((file) => {
+    if (!file.endsWith('.example') && file !== 'Anima.config.json') {
+      const fullPath = path.join(settingsDir, file);
+      if (fs.statSync(fullPath).isFile()) {
+        fs.unlinkSync(fullPath);
+        console.log(`Removed config: ${file}`);
+      }
+    }
+  });
+}
 
 // Remove memory JSON files
 if (fs.existsSync(memoryDir)) {

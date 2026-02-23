@@ -3,25 +3,59 @@ const fs = require('fs');
 const path = require('path');
 
 const { spawn } = require('node:child_process');
+const crypto = require('node:crypto');
+
+const ALGORITHM = 'aes-256-gcm';
+const IV_LENGTH = 12;
+
+const encrypt = (text, key) => {
+  if (!key) throw new Error('Encryption key is required');
+  const hashedKey = crypto.createHash('sha256').update(key).digest();
+  const iv = crypto.randomBytes(IV_LENGTH);
+  const cipher = crypto.createCipheriv(ALGORITHM, hashedKey, iv);
+  let encrypted = cipher.update(text, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  const tag = cipher.getAuthTag().toString('hex');
+  return `${iv.toString('hex')}:${tag}:${encrypted}`;
+};
+
+const decrypt = (encryptedText, key) => {
+  if (!key) throw new Error('Encryption key is required');
+  try {
+    const hashedKey = crypto.createHash('sha256').update(key).digest();
+    const [ivHex, tagHex, encrypted] = encryptedText.split(':');
+    if (!ivHex || !tagHex || !encrypted) throw new Error('Invalid encrypted format');
+    const iv = Buffer.from(ivHex, 'hex');
+    const tag = Buffer.from(tagHex, 'hex');
+    const decipher = crypto.createDecipheriv(ALGORITHM, hashedKey, iv);
+    decipher.setAuthTag(tag);
+    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+  } catch (e) {
+    throw new Error(`Decryption failed: ${e.message}`);
+  }
+};
+
+const resolvePluginFile = (name, suffix) => {
+  const pluginsDir = path.join(__dirname, '..', 'Plugins');
+  if (!fs.existsSync(pluginsDir)) return null;
+
+  const target = (name + suffix).toLowerCase();
+  const files = fs.readdirSync(pluginsDir);
+  const match = files.find((f) => f.toLowerCase() === target);
+
+  return match ? path.join(pluginsDir, match) : null;
+};
 
 const callAI = async (messages, tools = null) => {
   const providerName = config.LLMProvider || 'openrouter';
 
-  // Dynamic provider loading from plugins directory
-  // Try to find the provider in ../Plugins, handling capitalization
-  let providerFilename = `${providerName}.js`;
-  let providerPath = path.join(__dirname, '..', 'Plugins', providerFilename);
+  // Dynamic provider loading from plugins directory (case-insensitive)
+  const providerPath = resolvePluginFile(providerName, '.js');
 
-  if (!fs.existsSync(providerPath)) {
-    // Try capitalized version (e.g. openrouter -> OpenRouter.js)
-    const capitalized = providerName.charAt(0).toUpperCase() + providerName.slice(1);
-    providerPath = path.join(__dirname, '..', 'Plugins', `${capitalized}.js`);
-
-    if (!fs.existsSync(providerPath)) {
-      throw new Error(
-        `Unknown provider: ${providerName}. Plugin file not found at ${providerPath}`,
-      );
-    }
+  if (!providerPath) {
+    throw new Error(`Unknown provider: ${providerName}. Plugin file not found in Plugins/`);
   }
 
   // Run provider out-of-process for isolation
@@ -76,17 +110,9 @@ const callAI = async (messages, tools = null) => {
 const getProviderManifest = () => {
   const providerName = config.LLMProvider || 'openrouter';
   try {
-    // Assumes manifest is named {provider}.manifest.json in the Plugins directory
-    let manifestFilename = `${providerName}.manifest.json`;
-    let manifestPath = path.join(__dirname, '..', 'Plugins', manifestFilename);
+    const manifestPath = resolvePluginFile(providerName, '.manifest.json');
 
-    if (!fs.existsSync(manifestPath)) {
-      // Try capitalized version
-      const capitalized = providerName.charAt(0).toUpperCase() + providerName.slice(1);
-      manifestPath = path.join(__dirname, '..', 'Plugins', `${capitalized}.manifest.json`);
-    }
-
-    if (fs.existsSync(manifestPath)) {
+    if (manifestPath && fs.existsSync(manifestPath)) {
       return JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
     }
   } catch (e) {
@@ -120,7 +146,7 @@ const redact = (text, secrets = []) => {
 
   // Pattern-based redaction (generic API keys, tokens, high-entropy strings)
   redacted = redacted.replace(
-    /(api[_-]?key|token|auth|password|secret)["']?\s*[:=]\s*["']?([a-zA-Z0-9_-]{8,})["']?/gi,
+    /(api[_-]?key|token|auth|password|secret(?:\s+key|[_-]?key)?|key)["']?\s*(?:[:=]|\bis\b)\s*["']?([a-zA-Z0-9_-]{8,})["']?/gi,
     '$1: [REDACTED]',
   );
   redacted = redacted.replace(/Bearer\s+([a-zA-Z0-9_-]{10,})/gi, 'Bearer [REDACTED]');
@@ -129,4 +155,4 @@ const redact = (text, secrets = []) => {
   return redacted;
 };
 
-module.exports = { callAI, getProviderManifest, redact };
+module.exports = { callAI, getProviderManifest, redact, encrypt, decrypt };

@@ -131,8 +131,14 @@ describe('Config', () => {
     expect(Object.keys(config)).toEqual([]);
     expect(Object.getOwnPropertyDescriptor(config, 'any')).toBeUndefined();
 
-    // Test setting on missing config
     config.newProp = 'value';
     expect(config.newProp).toBe('value');
+  });
+
+  it('correctly handles advisoryCouncil config updates (REGRESSION)', () => {
+    const config = require('./Config');
+    config.advisoryCouncil = { enabled: true, mode: 'always' };
+    expect(config.advisoryCouncil.enabled).toBe(true);
+    expect(config.advisoryCouncil.mode).toBe('always');
   });
 });

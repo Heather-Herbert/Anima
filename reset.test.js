@@ -13,7 +13,13 @@ describe('reset.js', () => {
   it('removes expected files and restores Parturition.md', () => {
     // Mock existence of files
     fs.existsSync.mockReturnValue(true);
-    fs.readdirSync.mockReturnValue(['memory-123.json', 'not-memory.txt']);
+    fs.readdirSync.mockImplementation((dir) => {
+      if (dir.includes('Memory')) return ['memory-123.json', 'not-memory.txt'];
+      if (dir.includes('Settings'))
+        return ['Anima.config.json', 'openrouter.json', 'openai.json.example'];
+      return [];
+    });
+    fs.statSync.mockReturnValue({ isFile: () => true });
     fs.unlinkSync.mockImplementation(() => {});
     fs.writeFileSync.mockImplementation(() => {});
 
@@ -27,6 +33,11 @@ describe('reset.js', () => {
     expect(fs.unlinkSync).toHaveBeenCalledWith(expect.stringContaining('user.md'));
     expect(fs.unlinkSync).toHaveBeenCalledWith(expect.stringContaining('memory.json'));
     expect(fs.unlinkSync).toHaveBeenCalledWith(expect.stringContaining('audit.log'));
+
+    // Verify settings removal
+    expect(fs.unlinkSync).toHaveBeenCalledWith(expect.stringContaining('Anima.config.json'));
+    expect(fs.unlinkSync).toHaveBeenCalledWith(expect.stringContaining('openrouter.json'));
+    expect(fs.unlinkSync).not.toHaveBeenCalledWith(expect.stringContaining('openai.json.example'));
 
     // Verify JSON memory removal
     expect(fs.unlinkSync).toHaveBeenCalledWith(expect.stringContaining('memory-123.json'));

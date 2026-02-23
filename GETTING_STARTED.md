@@ -44,6 +44,15 @@ Anima will detect that it's the first run and start a **Setup Wizard**:
 3.  **Memory Mode**: Choose `session` (saves history for the current chat) or `longterm` (learns over time). We recommend `session` to start.
 4.  **Advisory Council**: Type `y` if you want a second AI to check the first one's work for safety.
 
+### Where is my key saved?
+
+After the wizard finishes, your key is saved in a "Config File" (a simple text file) so you don't have to type it every time.
+
+- **The Folder**: Open the `Settings` folder inside your Anima folder.
+- **The File**: You will see a file named after your provider (like `openrouter.json` or `openai.json`).
+- **How to edit it**: If you ever need to change your key, right-click that file and choose **"Open with..."** then select **Notepad** (on Windows) or **TextEdit** (on Mac).
+- **The Content**: You will see your key inside the quotes after `"apiKey"`. Just paste your new key there, save the file, and restart Anima!
+
 ## 3. Basic Usage
 
 Once the setup is done, you can start talking to Anima!

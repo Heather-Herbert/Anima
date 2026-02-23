@@ -1,0 +1,55 @@
+{
+  "name": "GoogleCalendar",
+  "type": "skill",
+  "description": "Integration with Google Calendar API",
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "list_calendar_events",
+        "description": "List upcoming events from Google Calendar",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "calendarId": {
+              "type": "string",
+              "description": "The calendar identifier. Default is 'primary'."
+            },
+            "timeMin": {
+              "type": "string",
+              "description": "Lower bound (inclusive) for an event's end time to filter by. (ISO 8601)"
+            },
+            "maxResults": {
+              "type": "integer",
+              "description": "Maximum number of events to return."
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "create_calendar_event",
+        "description": "Create a new event in Google Calendar",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "calendarId": {
+              "type": "string",
+              "description": "The calendar identifier. Default is 'primary'."
+            },
+            "summary": { "type": "string", "description": "The title of the event." },
+            "description": { "type": "string", "description": "The description of the event." },
+            "start": { "type": "string", "description": "Start time (ISO 8601)" },
+            "end": { "type": "string", "description": "End time (ISO 8601)" }
+          },
+          "required": ["summary", "start", "end"]
+        }
+      }
+    }
+  ],
+  "permissions": {
+    "network": ["https://www.googleapis.com"]
+  }
+}

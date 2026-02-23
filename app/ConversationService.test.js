@@ -572,4 +572,80 @@ describe('ConversationService', () => {
     // 0.5 (kw) + 0.3 (taint) + 0.2 (tools) + 0.2 (iters) = 1.2, clamped to 1.0
     expect(veryHighRisk).toBe(1.0);
   });
+
+  it('correctly consolidates multiple advisers in "always" mode - REGRESSION', async () => {
+    const config = require('./Config');
+    config.advisoryCouncil = {
+      enabled: true,
+      mode: 'always',
+      advisers: [
+        { name: 'Security', role: 'Security', promptFile: 's.md' },
+        { name: 'Architect', role: 'Architect', promptFile: 'a.md' },
+      ],
+      maxAdvisersPerCall: 2,
+      parallel: true,
+    };
+
+    fs.existsSync.mockReturnValue(true);
+    fs.readFileSync.mockReturnValue('Adviser Prompt');
+
+    // 1. Mock callAI for Draft
+    callAI.mockResolvedValueOnce({
+      choices: [{ message: { role: 'assistant', content: 'Internal Draft' } }],
+    });
+
+    // 2. Mock callAI for Security advice
+    callAI.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              adviserName: 'Security',
+              verdict: 'block',
+              rationale: ['Risky'],
+              risks: { level: 'high', items: ['Exploit'] },
+              recommendedNextSteps: ['Abort'],
+              toolPolicy: { allowTools: false },
+              confidence: 1.0,
+            }),
+          },
+        },
+      ],
+    });
+
+    // 3. Mock callAI for Architect advice
+    callAI.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              adviserName: 'Architect',
+              verdict: 'approve',
+              rationale: ['Clean'],
+              risks: { level: 'low', items: [] },
+              recommendedNextSteps: ['Proceed'],
+              toolPolicy: { allowTools: true },
+              confidence: 0.9,
+            }),
+          },
+        },
+      ],
+    });
+
+    // 4. Mock callAI for final response
+    callAI.mockResolvedValueOnce({
+      choices: [{ message: { role: 'assistant', content: 'Final response' } }],
+    });
+
+    const history = [];
+    await service.processInput('test', history, jest.fn());
+
+    const adviceMsg = history.find((m) => m.internal && m.role === 'system');
+    expect(adviceMsg.content).toContain('COUNCIL MEMO');
+    expect(adviceMsg.content).toContain('Consensus Verdict**: BLOCK');
+    expect(adviceMsg.content).toContain('Security recommended BLOCK');
+    expect(adviceMsg.content).toContain('Architect recommended APPROVE');
+
+    config.advisoryCouncil = { enabled: false };
+  });
 });

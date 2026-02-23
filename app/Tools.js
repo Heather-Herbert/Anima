@@ -9,7 +9,6 @@ const isPathAllowed = (filePath, mode = 'read', permissions = null) => {
     const root = path.resolve(config.workspaceDir);
     const absolutePath = path.resolve(root, filePath);
 
-    // Prevent path traversal outside of workspace root
     if (!absolutePath.startsWith(root)) {
       return false;
     }
@@ -29,10 +28,8 @@ const isPathAllowed = (filePath, mode = 'read', permissions = null) => {
       'anima.config.json',
     ];
 
-    // Core protected directories (for writes)
     const protectedPrefixes = ['plugins', 'memory', 'personality'];
 
-    // 1. Check Restricted Prefixes (Deny all access)
     if (
       restrictedPrefixes.some(
         (prefix) => relativePathLower === prefix || relativePathLower.startsWith(prefix + path.sep),
@@ -41,10 +38,6 @@ const isPathAllowed = (filePath, mode = 'read', permissions = null) => {
       return false;
     }
 
-    // 2. Check Protected Prefixes (Read-only by default unless explicitly allowed by manifest)
-    // If mode is 'write', we still return false here to force the tool to check manifest or fail.
-    // However, ConversationService handles the user-confirmation for writes to these.
-    // To be safe, we deny writes to these in isPathAllowed unless we are in 'read' mode.
     if (
       protectedPrefixes.some(
         (prefix) => relativePathLower === prefix || relativePathLower.startsWith(prefix + path.sep),
@@ -53,20 +46,14 @@ const isPathAllowed = (filePath, mode = 'read', permissions = null) => {
       if (mode !== 'read') return false;
     }
 
-    // Check Manifest Permissions
     if (permissions && permissions.filesystem) {
       const allowedPaths = permissions.filesystem[mode];
-      if (!allowedPaths) return false; // If mode is restricted but not defined, deny
+      if (!allowedPaths) return false;
       if (allowedPaths.includes('*')) return true;
 
       return allowedPaths.some((allowed) => {
         const allowedAbs = path.resolve(root, allowed);
-
-        // Check if explicitly allowed as directory or file
         if (absolutePath === allowedAbs) return true;
-
-        // If not exact match, check if absolutePath is inside allowedAbs
-        // We consider allowedAbs a directory if it ends with a slash OR has no extension OR exists as a directory
         const isDirectory =
           allowed.endsWith(path.sep) ||
           !path.extname(allowed) ||
@@ -79,12 +66,12 @@ const isPathAllowed = (filePath, mode = 'read', permissions = null) => {
       });
     }
 
-    // Default policy if no manifest filesystem restrictions: Deny access.
     return false;
   } catch (e) {
     return false;
   }
 };
+
 const tools = [
   {
     type: 'function',
@@ -371,19 +358,16 @@ const availableTools = {
       'docker',
     ];
 
-    // 1. Policy: Denylist
     if (denylist.includes(file.toLowerCase())) {
       return `Error: Command '${file}' is blocked by system security policy.`;
     }
 
-    // 2. Policy: Manifest Allowlist
     if (permissions?.commands?.allow) {
       if (!permissions.commands.allow.includes(file) && !permissions.commands.allow.includes('*')) {
         return `Error: Command '${file}' is not permitted by the active manifest.`;
       }
     }
 
-    // 3. Policy: Taint Mode
     if (permissions?._isTainted) {
       const allowedInTaint = permissions?.commands?.allow || [];
       if (!allowedInTaint.includes(file)) {
@@ -397,13 +381,13 @@ const availableTools = {
       const child = spawn(file, args, {
         shell: false,
         cwd: root,
-        env: { PATH: process.env.PATH }, // Minimal env
-        timeout: 30000, // 30 second timeout
+        env: { PATH: process.env.PATH },
+        timeout: 30000,
       });
 
       let stdout = '';
       let stderr = '';
-      const maxOutput = 1024 * 100; // 100KB limit
+      const maxOutput = 1024 * 100;
 
       child.stdout.on('data', (data) => {
         if (stdout.length < maxOutput) stdout += data;
@@ -459,7 +443,7 @@ const availableTools = {
       const results = [];
       const MAX_MATCHES = 100;
       const startTime = Date.now();
-      const TIMEOUT_MS = 10000; // 10s timeout
+      const TIMEOUT_MS = 10000;
 
       let regex;
       try {
@@ -475,7 +459,7 @@ const availableTools = {
 
         try {
           const content = fs.readFileSync(filePath, 'utf8');
-          if (content.includes('\0')) return; // Skip binary files
+          if (content.includes('\0')) return;
 
           const lines = content.split(/\r?\n/);
           for (let i = 0; i < lines.length; i++) {
@@ -487,7 +471,7 @@ const availableTools = {
             }
           }
         } catch (err) {
-          // Ignore read errors
+          /* ignore read errors */
         }
       };
 
@@ -530,7 +514,6 @@ const availableTools = {
       const isWindows = process.platform === 'win32';
       let filename, command;
 
-      // 1. Taint Mode check
       if (permissions?._isTainted && !permissions?.capabilities?.allow_code_in_taint) {
         return 'Error: Code execution is disabled because the session is tainted by a web search. This is a security measure to prevent prompt injection execution.';
       }
@@ -545,7 +528,6 @@ const availableTools = {
         case 'python':
         case 'py':
           filename = `temp_${timestamp}.py`;
-          // On Windows, 'python' is more common than 'python3'
           command = isWindows ? `python ${filename}` : `python3 ${filename}`;
           break;
         case 'bash':
@@ -568,29 +550,45 @@ const availableTools = {
 
       const fullPath = path.join(tempDir, filename);
 
-      // Check if writing to .temp is allowed (it should be since it's in workspace)
       if (!isPathAllowed(path.join('.temp', filename), 'write', permissions))
         return `Error: Permission denied to write temporary execution file to .temp/`;
 
       fs.writeFileSync(fullPath, code);
 
+      const isUnix = process.platform !== 'win32';
+      const quotaPrefix = isUnix ? 'ulimit -v 524288 && ' : '';
+      const finalCommand =
+        language.toLowerCase() === 'bash' ||
+        language.toLowerCase() === 'python' ||
+        language.toLowerCase() === 'py'
+          ? `${quotaPrefix}${command}`
+          : command;
+
       return new Promise((resolve) => {
-        exec(command, { timeout: 10000, cwd: tempDir }, (error, stdout, stderr) => {
-          try {
-            fs.unlinkSync(fullPath);
-          } catch (e) {
-            /* Ignore unlink error */
-          }
-          if (error) {
-            if (error.killed) {
-              resolve(`Error: Execution timed out after 10 seconds.`);
-            } else {
-              resolve(`Error: ${error.message}\nStderr: ${stderr}`);
+        exec(
+          finalCommand,
+          {
+            timeout: 10000,
+            cwd: tempDir,
+            maxBuffer: 1024 * 1024,
+          },
+          (error, stdout, stderr) => {
+            try {
+              fs.unlinkSync(fullPath);
+            } catch (e) {
+              /* ignore unlink errors */
             }
-          } else {
-            resolve(stdout || stderr || 'Code executed successfully.');
-          }
-        });
+            if (error) {
+              if (error.killed) {
+                resolve(`Error: Execution timed out or resource limit exceeded.`);
+              } else {
+                resolve(`Error: ${error.message}\nStderr: ${stderr}`);
+              }
+            } else {
+              resolve(stdout || stderr || 'Code executed successfully.');
+            }
+          },
+        );
       });
     } catch (e) {
       return `Error executing code: ${e.message}`;
@@ -656,10 +654,17 @@ const availableTools = {
   },
   add_plugin: async ({ name, code, manifest, provenance, isOverwrite }, _permissions) => {
     try {
-      // Note: This tool bypasses isPathAllowed because it specifically writes to the Plugins directory.
-      // Security is handled by the CLI confirmation step which shows the manifest.
+      let parsedManifest;
+      try {
+        parsedManifest = typeof manifest === 'string' ? JSON.parse(manifest) : manifest;
+      } catch (e) {
+        return 'Error: Manifest is not valid JSON.';
+      }
 
-      const pluginDir = path.join(__dirname, '..', 'Plugins');
+      const type = parsedManifest.type || 'provider';
+      const targetDir = type === 'skill' ? 'Skills' : 'Plugins';
+      const pluginDir = path.join(__dirname, '..', targetDir);
+
       if (!fs.existsSync(pluginDir)) {
         fs.mkdirSync(pluginDir, { recursive: true });
       }
@@ -671,17 +676,8 @@ const availableTools = {
       const manifestPath = path.join(pluginDir, `${safeName}.manifest.json`);
       const provenancePath = path.join(pluginDir, `${safeName}.provenance.json`);
 
-      // Overwrite protection
       if (fs.existsSync(jsPath) && !isOverwrite) {
-        return `Error: Plugin '${safeName}' is already installed. Use an explicit overwrite command or remove it first.`;
-      }
-
-      // Validate manifest JSON
-      let parsedManifest;
-      try {
-        parsedManifest = typeof manifest === 'string' ? JSON.parse(manifest) : manifest;
-      } catch (e) {
-        return 'Error: Manifest is not valid JSON.';
+        return `Error: ${type} '${safeName}' is already installed. Use an explicit overwrite command or remove it first.`;
       }
 
       fs.writeFileSync(jsPath, code);
@@ -691,7 +687,7 @@ const availableTools = {
         fs.writeFileSync(provenancePath, JSON.stringify(provenance, null, 2));
       }
 
-      return `Plugin '${safeName}' installed successfully.`;
+      return `${type.charAt(0).toUpperCase() + type.slice(1)} '${safeName}' installed successfully.`;
     } catch (e) {
       return `Error installing plugin: ${e.message}`;
     }
@@ -705,8 +701,6 @@ const availableTools = {
   ) => {
     try {
       const AdvisoryService = require('./AdvisoryService');
-      // Note: We don't have access to the main auditService here easily without refactor
-      // But we can create a transient service for the tool call
       const service = new AdvisoryService();
       const advice = await service.getAdvice({
         userMessage: question,
@@ -750,5 +744,40 @@ const availableTools = {
     }
   },
 };
+
+// --- SKILL LOADING LOGIC ---
+const loadSkills = () => {
+  const skillsDir = path.join(__dirname, '..', 'Skills');
+  if (!fs.existsSync(skillsDir)) return;
+
+  const files = fs.readdirSync(skillsDir);
+  for (const file of files) {
+    if (file.endsWith('.js')) {
+      const skillName = path.basename(file, '.js');
+      const manifestPath = path.join(skillsDir, `${skillName}.manifest.json`);
+      const jsPath = path.join(skillsDir, file);
+
+      if (fs.existsSync(manifestPath)) {
+        try {
+          const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+          const skillModule = require(jsPath);
+
+          if (manifest.tools && Array.isArray(manifest.tools)) {
+            tools.push(...manifest.tools);
+          }
+
+          if (skillModule.implementations) {
+            Object.assign(availableTools, skillModule.implementations);
+          }
+        } catch (e) {
+          process.stderr.write(`Error loading skill ${skillName}: ${e.message}\n`);
+        }
+      }
+    }
+  }
+};
+
+// Load dynamic skills
+loadSkills();
 
 module.exports = { tools, availableTools, isPathAllowed };

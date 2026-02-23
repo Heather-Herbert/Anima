@@ -188,7 +188,7 @@ describe('Tools', () => {
   });
 
   describe('execute_code', () => {
-    it('handles timeout correctly', async () => {
+    it('handles timeout or resource limits correctly', async () => {
       fs.writeFileSync.mockImplementation(() => {});
 
       child_process.exec.mockImplementation((cmd, options, cb) => {
@@ -205,10 +205,13 @@ describe('Tools', () => {
         },
         fullPermissions,
       );
-      expect(result).toBe('Error: Execution timed out after 10 seconds.');
+      expect(result).toBe('Error: Execution timed out or resource limit exceeded.');
     });
 
-    it('executes python code', async () => {
+    it('executes python code with quota prefix on Unix', async () => {
+      const originalPlatform = process.platform;
+      Object.defineProperty(process, 'platform', { value: 'linux' });
+
       fs.writeFileSync.mockImplementation(() => {});
       child_process.exec.mockImplementation((cmd, options, cb) => cb(null, 'Python Output', ''));
 
@@ -222,10 +225,38 @@ describe('Tools', () => {
       );
       expect(result).toBe('Python Output');
       expect(child_process.exec).toHaveBeenCalledWith(
-        expect.stringContaining('python3'),
+        expect.stringContaining('ulimit -v'),
+        expect.objectContaining({ maxBuffer: 1024 * 1024 }),
+        expect.anything(),
+      );
+
+      Object.defineProperty(process, 'platform', { value: originalPlatform });
+    });
+
+    it('executes bash code with quota prefix on Unix', async () => {
+      const originalPlatform = process.platform;
+      Object.defineProperty(process, 'platform', { value: 'linux' });
+
+      fs.writeFileSync.mockImplementation(() => {});
+      child_process.exec.mockImplementation((cmd, options, cb) => cb(null, 'Bash Output', ''));
+
+      const result = await availableTools.execute_code(
+        { language: 'bash', code: 'ls', justification: 'test' },
+        fullPermissions,
+      );
+      expect(result).toBe('Bash Output');
+      expect(child_process.exec).toHaveBeenCalledWith(
+        expect.stringContaining('ulimit -v'),
         expect.anything(),
         expect.anything(),
       );
+
+      Object.defineProperty(process, 'platform', { value: originalPlatform });
+    });
+
+    it('returns error for unsupported language', async () => {
+      const result = await availableTools.execute_code({ language: 'cobol', code: '' });
+      expect(result).toContain('Unsupported language');
     });
   });
 
@@ -329,24 +360,6 @@ describe('Tools', () => {
       fs.existsSync.mockReturnValue(true);
       const result = await availableTools.search_files({ path: '.', term: '[' }, fullPermissions);
       expect(result).toContain('Invalid regex pattern');
-    });
-  });
-
-  describe('execute_code', () => {
-    it('executes bash code', async () => {
-      fs.writeFileSync.mockImplementation(() => {});
-      child_process.exec.mockImplementation((cmd, options, cb) => cb(null, 'Bash Output', ''));
-
-      const result = await availableTools.execute_code(
-        { language: 'bash', code: 'ls', justification: 'test' },
-        fullPermissions,
-      );
-      expect(result).toBe('Bash Output');
-    });
-
-    it('returns error for unsupported language', async () => {
-      const result = await availableTools.execute_code({ language: 'cobol', code: '' });
-      expect(result).toContain('Unsupported language');
     });
   });
 
@@ -456,6 +469,28 @@ describe('Tools', () => {
       );
       expect(result).toContain('installed successfully');
       expect(fs.writeFileSync).toHaveBeenCalled();
+    });
+
+    it('installs a skill-type plugin into the Skills directory', async () => {
+      fs.existsSync.mockReturnValue(false);
+      fs.mkdirSync.mockImplementation(() => {});
+      fs.writeFileSync.mockImplementation(() => {});
+
+      const result = await availableTools.add_plugin(
+        {
+          name: 'test-skill',
+          code: 'module.exports = { implementations: {} }',
+          manifest: JSON.stringify({ name: 'test-skill', type: 'skill' }),
+          justification: 'test skill',
+        },
+        fullPermissions,
+      );
+
+      expect(result).toContain("Skill 'test-skill' installed successfully");
+      expect(fs.writeFileSync).toHaveBeenCalledWith(
+        expect.stringContaining('Skills'),
+        expect.anything(),
+      );
     });
 
     it('fails with invalid manifest', async () => {

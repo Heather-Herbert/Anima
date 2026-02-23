@@ -7,7 +7,7 @@ const { tools, availableTools } = require('./app/Tools');
 const ParturitionService = require('./app/ParturitionService');
 const ConversationService = require('./app/ConversationService');
 const AuditService = require('./app/AuditService');
-const { callAI, getProviderManifest, redact } = require('./app/Utils');
+const { callAI, getProviderManifest, redact, encrypt, decrypt } = require('./app/Utils');
 
 // Check for model override via command line argument
 const args = process.argv.slice(2);
@@ -139,10 +139,33 @@ const updateMemory = async (auditService) => {
       const memoryFile = path.join(memoryDir, 'memory.json');
       let existing = [];
       if (fs.existsSync(memoryFile)) {
-        existing = JSON.parse(fs.readFileSync(memoryFile, 'utf8'));
+        let existingContent = fs.readFileSync(memoryFile, 'utf8');
+        if (config.encryption?.enabled) {
+          const key = config.encryption.key || process.env.ANIMA_ENCRYPTION_KEY;
+          if (key) {
+            try {
+              existingContent = decrypt(existingContent, key);
+            } catch (e) {
+              console.log('\x1b[31mFailed to decrypt existing memory.json. Overwriting.\x1b[0m');
+              existingContent = '[]';
+            }
+          }
+        }
+        existing = JSON.parse(existingContent);
       }
       const updated = [...existing, ...accepted];
-      fs.writeFileSync(memoryFile, JSON.stringify(updated, null, 2));
+      let finalContent = JSON.stringify(updated, null, 2);
+
+      if (config.encryption?.enabled) {
+        const key = config.encryption.key || process.env.ANIMA_ENCRYPTION_KEY;
+        if (key) {
+          finalContent = encrypt(finalContent, key);
+        } else {
+          console.log('\x1b[31mEncryption enabled but no key provided. Saving UNENCRYPTED.\x1b[0m');
+        }
+      }
+
+      fs.writeFileSync(memoryFile, finalContent);
 
       // Harden permissions
       if (process.platform !== 'win32') fs.chmodSync(memoryFile, 0o600);
@@ -209,12 +232,24 @@ const loadPersona = () => {
     console.log(`Loaded personality from ${files.length} file(s).`);
   }
 
-  const memoryFile = path.isAbsolute(config.workspaceDir)
-    ? path.join(config.workspaceDir, 'Memory', 'memory.json')
-    : path.resolve(__dirname, config.workspaceDir, 'Memory', 'memory.json');
+  const memoryFile = path.isAbsolute(config.workspaceDir || __dirname)
+    ? path.join(config.workspaceDir || __dirname, 'Memory', 'memory.json')
+    : path.resolve(__dirname, config.workspaceDir || __dirname, 'Memory', 'memory.json');
   if (fs.existsSync(memoryFile)) {
     try {
-      const memories = JSON.parse(fs.readFileSync(memoryFile, 'utf8'));
+      let content = fs.readFileSync(memoryFile, 'utf8');
+      if (config.encryption?.enabled) {
+        const key = config.encryption.key || process.env.ANIMA_ENCRYPTION_KEY;
+        if (key) {
+          content = decrypt(content, key);
+        } else {
+          console.log(
+            '\x1b[31mEncryption enabled but no key provided. Skipping memory.json.\x1b[0m',
+          );
+          return;
+        }
+      }
+      const memories = JSON.parse(content);
       if (memories.length > 0) {
         systemPrompt += '\n\n# Long-term Memory\n';
         const grouped = memories.reduce((acc, m) => {
@@ -229,7 +264,7 @@ const loadPersona = () => {
         console.log(`Loaded ${memories.length} memory items from ${memoryFile}.`);
       }
     } catch (e) {
-      console.log('\x1b[31mFailed to load memory.json.\x1b[0m');
+      console.log(`\x1b[31mFailed to load memory.json: ${e.message}\x1b[0m`);
     }
   }
 
@@ -265,7 +300,7 @@ const _stopHeartbeat = () => {
   }
 };
 
-const startHeartbeat = (agentName, activeTools, manifest, auditService, _parturition) => {
+const startHeartbeat = (agentName, activeTools, manifest, auditService, parturition) => {
   const interval = (config.heartbeatInterval || 300) * 1000;
   if (interval <= 0) return;
 
@@ -279,6 +314,7 @@ const startHeartbeat = (agentName, activeTools, manifest, auditService, _parturi
       const heartbeatPrompt =
         "Heartbeat tick. You are running in the background. Review your current goals and environment. If there's something you should do, do it. If not, just reply 'IDLE'.";
 
+      const agentName = await parturition.getAgentName();
       const heartbeatService = new ConversationService(
         agentName,
         activeTools,
@@ -348,7 +384,26 @@ const runSetup = async () => {
 
     const councilEnabled =
       (await question('Enable Advisory Council? (y/N): ')).toLowerCase() === 'y';
-    mainConfig.advisoryCouncil = { enabled: councilEnabled };
+    if (councilEnabled) {
+      mainConfig.advisoryCouncil = {
+        enabled: true,
+        mode: 'on_demand',
+        advisers: [
+          {
+            name: 'SecurityOfficer',
+            role: 'Security Auditor',
+            promptFile: 'SecurityOfficer.md',
+          },
+          {
+            name: 'Architect',
+            role: 'System Architect',
+            promptFile: 'Architect.md',
+          },
+        ],
+      };
+    } else {
+      mainConfig.advisoryCouncil = { enabled: false };
+    }
 
     fs.writeFileSync(configPath, JSON.stringify(mainConfig, null, 2));
 
@@ -402,15 +457,24 @@ const showStatusLine = () => {
 };
 
 async function main() {
-  const parturition = new ParturitionService(__dirname);
-  const auditLogPath = path.isAbsolute(config.workspaceDir)
-    ? path.join(config.workspaceDir, 'Memory', 'audit.log')
-    : path.resolve(__dirname, config.workspaceDir, 'Memory', 'audit.log');
-  const auditService = new AuditService(auditLogPath);
-
   await runSetup();
 
-  // Handle --add-plugin argument
+  const parturition = new ParturitionService(__dirname);
+
+  if (await parturition.isParturitionRequired()) {
+    await parturition.performParturition(async (prompt) => {
+      process.stdout.write('\x1b[33mGestating...\x1b[0m\n');
+      try {
+        const data = await callAI([{ role: 'user', content: prompt }]);
+        return data.choices?.[0]?.message?.content || '';
+      } catch (error) {
+        console.error(`\n\x1b[31mError: ${error.message}\x1b[0m`);
+        process.exit(1);
+      }
+    });
+  }
+
+  // Handle --add-plugin argument (Moved after Setup/Parturition to ensure config is loaded)
   const addPluginIndex = args.indexOf('--add-plugin');
   if (addPluginIndex !== -1 && args[addPluginIndex + 1]) {
     const pluginSource = args[addPluginIndex + 1];
@@ -547,18 +611,11 @@ async function main() {
     process.exit(0);
   }
 
-  if (await parturition.isParturitionRequired()) {
-    await parturition.performParturition(async (prompt) => {
-      process.stdout.write('\x1b[33mGestating...\x1b[0m\n');
-      try {
-        const data = await callAI([{ role: 'user', content: prompt }]);
-        return data.choices?.[0]?.message?.content || '';
-      } catch (error) {
-        console.error(`\n\x1b[31mError: ${error.message}\x1b[0m`);
-        process.exit(1);
-      }
-    });
-  }
+  const workspace = config.workspaceDir || __dirname;
+  const auditLogPath = path.isAbsolute(workspace)
+    ? path.join(workspace, 'Memory', 'audit.log')
+    : path.resolve(__dirname, workspace, 'Memory', 'audit.log');
+  const auditService = new AuditService(auditLogPath);
 
   rl = readline.createInterface({
     input: process.stdin,
@@ -655,6 +712,10 @@ async function main() {
   }
 
   const agentName = await parturition.getAgentName();
+  if (config.advisoryCouncil?.enabled) {
+    console.log(`\x1b[90mAdvisory Council active (mode: ${config.advisoryCouncil.mode})\x1b[0m`);
+  }
+
   const conversationService = new ConversationService(
     agentName,
     activeTools,
@@ -706,33 +767,31 @@ async function main() {
 
     const confirmCallback = async (functionName, functionArgs, justification, isTainted) => {
       stopSpinner(spinner);
-      console.log(`\n\x1b[33m⚠️  DANGEROUS OPERATION REQUESTED\x1b[0m`);
+      console.log(`\n\x1b[33m🤔 I need your permission to do something.\x1b[0m`);
       if (isTainted) {
         console.log(
-          `\x1b[31m⚠️  TAINT WARNING: The agent used web_search this turn. Use extreme caution.\x1b[0m`,
+          `\x1b[31m⚠️  Note: I just searched the web, so I'm being extra careful with this next step.\x1b[0m`,
         );
       }
-      console.log(`\x1b[36mJUSTIFICATION:\x1b[0m ${justification}`);
+      console.log(`\x1b[36mWHY I WANT TO DO THIS:\x1b[0m ${justification}`);
       let warning = '';
       let touches = '';
       let diff = '';
 
       if (functionName === 'run_command') {
-        touches = `System (executing: ${functionArgs.file})`;
-        warning = `\x1b[31mCOMMAND: ${functionArgs.file} ${(functionArgs.args || []).join(' ')}\x1b[0m`;
+        touches = `I will run a system command: ${functionArgs.file}`;
+        warning = `\x1b[33mCommand:\x1b[0m ${functionArgs.file} ${(functionArgs.args || []).join(' ')}`;
       } else if (functionName === 'delete_file') {
-        touches = `Filesystem (deleting: ${functionArgs.path})`;
-        warning = `\x1b[31mDELETE: ${functionArgs.path}\x1b[0m`;
+        touches = `I will permanently delete this file: ${functionArgs.path}`;
+        warning = `\x1b[31mAction:\x1b[0m Delete ${functionArgs.path}`;
       } else if (functionName === 'write_file') {
-        touches = `Filesystem (writing: ${functionArgs.path})`;
-        warning = `\x1b[31mWRITE: ${functionArgs.path}\x1b[0m`;
+        touches = `I will create or update this file: ${functionArgs.path}`;
         const oldContent = fs.existsSync(functionArgs.path)
           ? fs.readFileSync(functionArgs.path, 'utf8')
           : '';
         diff = generateDiff(oldContent, functionArgs.content, functionArgs.path);
       } else if (functionName === 'replace_in_file') {
-        touches = `Filesystem (modifying: ${functionArgs.path})`;
-        warning = `\x1b[31mREPLACE IN: ${functionArgs.path}\nSEARCH: ${functionArgs.search}\nREPLACE: ${functionArgs.replace}\x1b[0m`;
+        touches = `I will change some text inside this file: ${functionArgs.path}`;
         if (fs.existsSync(functionArgs.path)) {
           const oldContent = fs.readFileSync(functionArgs.path, 'utf8');
           const regex = new RegExp(functionArgs.search, 'g');
@@ -740,25 +799,25 @@ async function main() {
           diff = generateDiff(oldContent, newContent, functionArgs.path);
         }
       } else if (functionName === 'execute_code') {
-        touches = `System (executing ${functionArgs.language} code)`;
-        warning = `\x1b[31mEXECUTE (${functionArgs.language}):\n${functionArgs.code}\x1b[0m`;
+        touches = `I will run some ${functionArgs.language} code.`;
+        warning = `\x1b[33mCode to run:\x1b[0m\n${functionArgs.code}`;
       } else if (functionName === 'add_plugin') {
-        touches = `System (installing plugin: ${functionArgs.name})`;
-        warning = `\x1b[31mADD PLUGIN: ${functionArgs.name}\x1b[0m\n\x1b[33mMANIFEST:\n${functionArgs.manifest}\x1b[0m`;
+        touches = `I will install a new plugin called: ${functionArgs.name}`;
+        warning = `\x1b[33mPlugin Details:\n${functionArgs.manifest}\x1b[0m`;
       } else {
-        touches = 'Unknown';
-        warning = `\x1b[31mARGS: ${JSON.stringify(functionArgs)}\x1b[0m`;
+        touches = 'Unknown action';
+        warning = `\x1b[31mDetails: ${JSON.stringify(functionArgs)}\x1b[0m`;
       }
 
-      console.log(`\x1b[36mTHIS WILL TOUCH:\x1b[0m ${touches}`);
-      console.log(warning);
+      console.log(`\x1b[36mWHAT WILL BE CHANGED:\x1b[0m ${touches}`);
+      if (warning) console.log(warning);
 
       if (diff) {
-        console.log(`\x1b[36mDIFF PREVIEW:\x1b[0m\n${diff}`);
+        console.log(`\x1b[36mHERE IS A PREVIEW OF THE CHANGE:\x1b[0m\n${diff}`);
       }
 
       const answer = await new Promise((resolve) => {
-        rl.question(`\x1b[33mAllow ${functionName}? (y/N/d[ry-run]): \x1b[0m`, resolve);
+        rl.question(`\x1b[33mIs this okay? (y/N/d[ry-run]): \x1b[0m`, resolve);
       });
       spinner = startSpinner(`${agentName} is thinking...`);
       return answer.trim().toLowerCase();
