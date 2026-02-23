@@ -490,4 +490,86 @@ describe('ConversationService', () => {
 
     config.advisoryCouncil = { enabled: false };
   });
+
+  it('allows the main agent to call the advisory_council tool explicitly', async () => {
+    // 1st call: Agent calls advisory_council
+    callAI.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            role: 'assistant',
+            tool_calls: [
+              {
+                id: 'ac1',
+                function: {
+                  name: 'advisory_council',
+                  arguments: '{"question":"Should I do this?","draftPlan":"rm -rf /"}',
+                },
+              },
+            ],
+          },
+        },
+      ],
+    });
+
+    // 2nd call: Final answer after seeing advice
+    callAI.mockResolvedValueOnce({
+      choices: [{ message: { role: 'assistant', content: 'The council said no.' } }],
+    });
+
+    const toolDispatcher = require('./ToolDispatcher');
+    toolDispatcher.dispatch.mockResolvedValue('[{"adviserName":"Security","verdict":"block"}]');
+
+    const history = [];
+    const { reply } = await service.processInput('Check with council', history, jest.fn());
+
+    expect(reply).toBe('The council said no.');
+    expect(toolDispatcher.dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ function: expect.objectContaining({ name: 'advisory_council' }) }),
+      expect.anything(),
+    );
+  });
+
+  it('correctly calculates risk scores based on heuristics', () => {
+    // Normal input
+    const lowRisk = service.calculateRiskScore({
+      input: 'hello',
+      draft: 'hi',
+      iterations: 1,
+      isTainted: false,
+      hasToolCalls: false,
+    });
+    expect(lowRisk).toBe(0);
+
+    // Destructive keyword
+    const highRiskKw = service.calculateRiskScore({
+      input: 'rm everything',
+      draft: '',
+      iterations: 1,
+      isTainted: false,
+      hasToolCalls: false,
+    });
+    expect(highRiskKw).toBe(0.5);
+
+    // Tainted turn
+    const taintedRisk = service.calculateRiskScore({
+      input: 'hi',
+      draft: 'hi',
+      iterations: 1,
+      isTainted: true,
+      hasToolCalls: false,
+    });
+    expect(taintedRisk).toBe(0.3);
+
+    // Combined risky factors
+    const veryHighRisk = service.calculateRiskScore({
+      input: 'delete logs',
+      draft: 'I will use rm',
+      iterations: 5,
+      isTainted: true,
+      hasToolCalls: true,
+    });
+    // 0.5 (kw) + 0.3 (taint) + 0.2 (tools) + 0.2 (iters) = 1.2, clamped to 1.0
+    expect(veryHighRisk).toBe(1.0);
+  });
 });

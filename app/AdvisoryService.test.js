@@ -140,4 +140,40 @@ describe('AdvisoryService', () => {
     expect(memo).toContain('Disagreements**: Security recommended BLOCK, Architect recommended APPROVE');
     expect(memo).toContain('BLOCK ALL TOOLS');
   });
+
+  it('correctly handles tool constraints in council memo', () => {
+    const adviceList = [
+      {
+        adviserName: 'SafeGuard',
+        verdict: 'caution',
+        rationale: ['Limit access'],
+        risks: { level: 'med', items: ['Network'] },
+        recommendedNextSteps: ['Restrict'],
+        toolPolicy: { allowTools: true, allowedTools: ['read_file', 'list_files'] },
+        confidence: 1.0,
+      },
+    ];
+
+    const memo = service.generateCouncilMemo(adviceList);
+    expect(memo).toContain('Allow only: read_file, list_files');
+  });
+
+  it('produces a neutral memo when no risks identified', () => {
+    const adviceList = [
+      {
+        adviserName: 'Helper',
+        verdict: 'approve',
+        rationale: ['Safe'],
+        risks: { level: 'low', items: [] },
+        recommendedNextSteps: ['Proceed'],
+        toolPolicy: { allowTools: true },
+        confidence: 1.0,
+      },
+    ];
+
+    const memo = service.generateCouncilMemo(adviceList);
+    expect(memo).toContain('Consensus Verdict**: APPROVE');
+    expect(memo).toContain('Overall Risk Level**: LOW');
+    expect(memo).toContain('Follow primary agent strategy.');
+  });
 });
