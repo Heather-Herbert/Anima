@@ -290,6 +290,28 @@ const tools = [
   {
     type: 'function',
     function: {
+      name: 'advisory_council',
+      description: 'Request structured feedback from the advisory council on a specific question or plan.',
+      parameters: {
+        type: 'object',
+        properties: {
+          question: { type: 'string', description: 'The specific question for the council.' },
+          draftPlan: { type: 'string', description: 'Optional draft plan or response to review.' },
+          riskHints: { type: 'string', description: 'Optional hints about specific risks to check.' },
+          focus: {
+            type: 'array',
+            items: { type: 'string', enum: ['security', 'planning', 'quality'] },
+            description: 'Optional focus areas.',
+          },
+          maxAdvisers: { type: 'integer', description: 'Optional limit on number of advisers.' },
+        },
+        required: ['question'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'web_search',
       description: 'Search the web for information',
       parameters: {
@@ -672,6 +694,28 @@ const availableTools = {
   },
   new_session: async ({ reason, carry_over }, _permissions) => {
     return `New session requested. Reason: ${reason}${carry_over ? '\nCarry over: ' + carry_over : ''}`;
+  },
+  advisory_council: async (
+    { question, draftPlan, riskHints, focus, maxAdvisers },
+    permissions,
+  ) => {
+    try {
+      const AdvisoryService = require('./AdvisoryService');
+      // Note: We don't have access to the main auditService here easily without refactor
+      // But we can create a transient service for the tool call
+      const service = new AdvisoryService();
+      const advice = await service.getAdvice({
+        userMessage: question,
+        mainDraft: draftPlan || 'No draft provided.',
+        managedHistorySummary: `On-demand council call. Focus: ${focus?.join(', ') || 'general'}. Risk Hints: ${riskHints || 'none'}`,
+        taintStatus: permissions?._isTainted,
+        availableToolsSummary: 'Internal tool call',
+      });
+
+      return JSON.stringify(advice, null, 2);
+    } catch (e) {
+      return `Error calling advisory council: ${e.message}`;
+    }
   },
   web_search: async ({ query }, _permissions) => {
     try {

@@ -124,6 +124,7 @@ The agent has access to a variety of tools. Dangerous operations require user co
 - `file_info`: Get metadata about a file.
 - `delete_file`: Remove a file.
 - `add_plugin`: Install new plugins (agent-initiated).
+- `advisory_council`: Request on-demand structured feedback from the advisory council on a specific question or plan.
 
 ### Plugin Security
 
