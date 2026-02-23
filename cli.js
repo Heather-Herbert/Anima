@@ -346,7 +346,8 @@ const runSetup = async () => {
       'session';
     mainConfig.memoryMode = memMode;
 
-    const councilEnabled = (await question('Enable Advisory Council? (y/N): ')).toLowerCase() === 'y';
+    const councilEnabled =
+      (await question('Enable Advisory Council? (y/N): ')).toLowerCase() === 'y';
     mainConfig.advisoryCouncil = { enabled: councilEnabled };
 
     fs.writeFileSync(configPath, JSON.stringify(mainConfig, null, 2));
@@ -764,11 +765,8 @@ async function main() {
     };
 
     try {
-      const { reply, usage, iterations, resetRequested, advice } = await conversationService.processInput(
-        input,
-        conversationHistory,
-        confirmCallback,
-      );
+      const { reply, usage, iterations, resetRequested, advice } =
+        await conversationService.processInput(input, conversationHistory, confirmCallback);
       lastUsage = { ...usage, iterations };
       stopSpinner(spinner);
 
@@ -778,7 +776,11 @@ async function main() {
           const sentimentColor =
             a.verdict === 'approve' ? '\x1b[32m' : a.verdict === 'block' ? '\x1b[31m' : '\x1b[33m';
           const riskColor =
-            a.risks.level === 'high' ? '\x1b[31m' : a.risks.level === 'med' ? '\x1b[33m' : '\x1b[32m';
+            a.risks.level === 'high'
+              ? '\x1b[31m'
+              : a.risks.level === 'med'
+                ? '\x1b[33m'
+                : '\x1b[32m';
 
           console.log(
             `[\x1b[36m${a.adviserName}\x1b[0m] Verdict: ${sentimentColor}${a.verdict.toUpperCase()}\x1b[0m | Risk: ${riskColor}${a.risks.level.toUpperCase()}\x1b[0m | Confidence: \x1b[35m${(a.confidence * 100).toFixed(0)}%\x1b[0m`,

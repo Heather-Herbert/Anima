@@ -137,7 +137,9 @@ describe('AdvisoryService', () => {
     const memo = service.generateCouncilMemo(adviceList);
     expect(memo).toContain('Consensus Verdict**: BLOCK');
     expect(memo).toContain('Overall Risk Level**: HIGH');
-    expect(memo).toContain('Disagreements**: Security recommended BLOCK, Architect recommended APPROVE');
+    expect(memo).toContain(
+      'Disagreements**: Security recommended BLOCK, Architect recommended APPROVE',
+    );
     expect(memo).toContain('BLOCK ALL TOOLS');
   });
 
@@ -174,6 +176,6 @@ describe('AdvisoryService', () => {
     const memo = service.generateCouncilMemo(adviceList);
     expect(memo).toContain('Consensus Verdict**: APPROVE');
     expect(memo).toContain('Overall Risk Level**: LOW');
-    expect(memo).toContain('Follow primary agent strategy.');
+    expect(memo).toContain('Recommended Plan**: Proceed');
   });
 });

@@ -436,7 +436,7 @@ describe('ConversationService', () => {
     // Check that advice was injected into history
     const adviceMsg = history.find((m) => m.internal && m.role === 'system');
     expect(adviceMsg.content).toContain('ADVISORY COUNCIL REVIEW');
-    expect(adviceMsg.content).toContain('Very risky');
+    expect(adviceMsg.content).toContain('Consensus Verdict**: BLOCK');
 
     // Verify persistence excludes internal messages
     const lastWrite = fs.writeFileSync.mock.calls[fs.writeFileSync.mock.calls.length - 1][1];

@@ -291,13 +291,17 @@ const tools = [
     type: 'function',
     function: {
       name: 'advisory_council',
-      description: 'Request structured feedback from the advisory council on a specific question or plan.',
+      description:
+        'Request structured feedback from the advisory council on a specific question or plan.',
       parameters: {
         type: 'object',
         properties: {
           question: { type: 'string', description: 'The specific question for the council.' },
           draftPlan: { type: 'string', description: 'Optional draft plan or response to review.' },
-          riskHints: { type: 'string', description: 'Optional hints about specific risks to check.' },
+          riskHints: {
+            type: 'string',
+            description: 'Optional hints about specific risks to check.',
+          },
           focus: {
             type: 'array',
             items: { type: 'string', enum: ['security', 'planning', 'quality'] },
@@ -696,7 +700,7 @@ const availableTools = {
     return `New session requested. Reason: ${reason}${carry_over ? '\nCarry over: ' + carry_over : ''}`;
   },
   advisory_council: async (
-    { question, draftPlan, riskHints, focus, maxAdvisers },
+    { question, draftPlan, riskHints, focus, maxAdvisers: _maxAdvisers },
     permissions,
   ) => {
     try {
