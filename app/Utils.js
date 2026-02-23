@@ -146,7 +146,7 @@ const redact = (text, secrets = []) => {
 
   // Pattern-based redaction (generic API keys, tokens, high-entropy strings)
   redacted = redacted.replace(
-    /(api[_-]?key|token|auth|password|secret|secret[_-]?key)["']?\s*(?:[:=]|\bis\b)\s*["']?([a-zA-Z0-9_-]{8,})["']?/gi,
+    /(api[_-]?key|token|auth|password|secret(?:\s+key|[_-]?key)?|key)["']?\s*(?:[:=]|\bis\b)\s*["']?([a-zA-Z0-9_-]{8,})["']?/gi,
     '$1: [REDACTED]',
   );
   redacted = redacted.replace(/Bearer\s+([a-zA-Z0-9_-]{10,})/gi, 'Bearer [REDACTED]');

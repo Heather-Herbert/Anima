@@ -90,7 +90,10 @@ describe('Utils', () => {
       spawn.mockReturnValue(mockChild);
 
       const promise = Utils.callAI([{ role: 'user', content: 'hi' }]);
-      mockChild.stdout.emit('data', JSON.stringify({ choices: [{ message: { content: 'hello' } }] }));
+      mockChild.stdout.emit(
+        'data',
+        JSON.stringify({ choices: [{ message: { content: 'hello' } }] }),
+      );
       mockChild.emit('close', 0);
 
       await promise;
@@ -125,7 +128,10 @@ describe('Utils', () => {
       const manifest = Utils.getProviderManifest();
 
       expect(manifest.name).toBe('OpenRouter');
-      expect(fs.readFileSync).toHaveBeenCalledWith(expect.stringContaining('OpenRouter.manifest.json'), 'utf8');
+      expect(fs.readFileSync).toHaveBeenCalledWith(
+        expect.stringContaining('OpenRouter.manifest.json'),
+        'utf8',
+      );
     });
 
     it('returns default secure manifest if file missing', () => {

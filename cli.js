@@ -243,7 +243,9 @@ const loadPersona = () => {
         if (key) {
           content = decrypt(content, key);
         } else {
-          console.log('\x1b[31mEncryption enabled but no key provided. Skipping memory.json.\x1b[0m');
+          console.log(
+            '\x1b[31mEncryption enabled but no key provided. Skipping memory.json.\x1b[0m',
+          );
           return;
         }
       }
@@ -298,7 +300,7 @@ const _stopHeartbeat = () => {
   }
 };
 
-const startHeartbeat = (agentName, activeTools, manifest, auditService, _parturition) => {
+const startHeartbeat = (agentName, activeTools, manifest, auditService, parturition) => {
   const interval = (config.heartbeatInterval || 300) * 1000;
   if (interval <= 0) return;
 
@@ -833,7 +835,11 @@ async function main() {
           const sentimentColor =
             a.verdict === 'approve' ? '\x1b[32m' : a.verdict === 'block' ? '\x1b[31m' : '\x1b[33m';
           const riskColor =
-            a.risks.level === 'high' ? '\x1b[31m' : a.risks.level === 'med' ? '\x1b[33m' : '\x1b[32m';
+            a.risks.level === 'high'
+              ? '\x1b[31m'
+              : a.risks.level === 'med'
+                ? '\x1b[33m'
+                : '\x1b[32m';
 
           console.log(
             `[\x1b[36m${a.adviserName}\x1b[0m] Verdict: ${sentimentColor}${a.verdict.toUpperCase()}\x1b[0m | Risk: ${riskColor}${a.risks.level.toUpperCase()}\x1b[0m | Confidence: \x1b[35m${(a.confidence * 100).toFixed(0)}%\x1b[0m`,

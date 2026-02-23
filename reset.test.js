@@ -15,7 +15,8 @@ describe('reset.js', () => {
     fs.existsSync.mockReturnValue(true);
     fs.readdirSync.mockImplementation((dir) => {
       if (dir.includes('Memory')) return ['memory-123.json', 'not-memory.txt'];
-      if (dir.includes('Settings')) return ['Anima.config.json', 'openrouter.json', 'openai.json.example'];
+      if (dir.includes('Settings'))
+        return ['Anima.config.json', 'openrouter.json', 'openai.json.example'];
       return [];
     });
     fs.statSync.mockReturnValue({ isFile: () => true });
