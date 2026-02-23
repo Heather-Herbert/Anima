@@ -162,12 +162,16 @@ const tools = [
     type: 'function',
     function: {
       name: 'search_files',
-      description: 'Search for a text pattern in files within a directory',
+      description: 'Search for a text pattern in files within a directory (ReDoS protected)',
       parameters: {
         type: 'object',
         properties: {
           path: { type: 'string', description: 'Relative path to search in (default: .)' },
           term: { type: 'string', description: 'The text or regex pattern to search for' },
+          max_depth: {
+            type: 'integer',
+            description: 'Maximum directory depth to search (default: 3)',
+          },
         },
         required: ['term'],
       },
@@ -391,7 +395,10 @@ const availableTools = {
       return `Error listing files: ${e.message}`;
     }
   },
-  search_files: async ({ path: dirPath = '.', term }, permissions) => {
+  search_files: async (
+    { path: dirPath = '.', term, max_depth = 3 },
+    permissions,
+  ) => {
     try {
       if (!isPathAllowed(dirPath, 'read', permissions))
         return `Error: Access to ${dirPath} is restricted by system policy or manifest.`;
@@ -400,6 +407,10 @@ const availableTools = {
       if (!fs.existsSync(rootPath)) return `Path not found: ${dirPath}`;
 
       const results = [];
+      const MAX_MATCHES = 100;
+      const startTime = Date.now();
+      const TIMEOUT_MS = 10000; // 10s timeout
+
       let regex;
       try {
         regex = new RegExp(term);
@@ -409,29 +420,38 @@ const availableTools = {
 
       const searchFile = (filePath) => {
         if (!isPathAllowed(filePath, 'read', permissions)) return;
+        if (results.length >= MAX_MATCHES) return;
+        if (Date.now() - startTime > TIMEOUT_MS) return;
+
         try {
           const content = fs.readFileSync(filePath, 'utf8');
           if (content.includes('\0')) return; // Skip binary files
 
           const lines = content.split(/\r?\n/);
-          lines.forEach((line, index) => {
-            if (regex.test(line)) {
+          for (let i = 0; i < lines.length; i++) {
+            if (Date.now() - startTime > TIMEOUT_MS) break;
+            if (regex.test(lines[i])) {
               const relativePath = path.relative(root, filePath);
-              results.push(`${relativePath}:${index + 1}:${line}`);
+              results.push(`${relativePath}:${i + 1}:${lines[i]}`);
+              if (results.length >= MAX_MATCHES) break;
             }
-          });
+          }
         } catch (err) {
           // Ignore read errors
         }
       };
 
-      const walkDir = (currentPath) => {
+      const walkDir = (currentPath, depth) => {
+        if (depth > max_depth) return;
+        if (results.length >= MAX_MATCHES) return;
+        if (Date.now() - startTime > TIMEOUT_MS) return;
+
         const entries = fs.readdirSync(currentPath, { withFileTypes: true });
         for (const entry of entries) {
           const entryPath = path.join(currentPath, entry.name);
           if (entry.isDirectory()) {
             if (entry.name === 'node_modules' || entry.name === '.git') continue;
-            walkDir(entryPath);
+            walkDir(entryPath, depth + 1);
           } else if (entry.isFile()) {
             searchFile(entryPath);
           }
@@ -442,10 +462,14 @@ const availableTools = {
       if (stats.isFile()) {
         searchFile(rootPath);
       } else if (stats.isDirectory()) {
-        walkDir(rootPath);
+        walkDir(rootPath, 0);
       }
 
-      return results.length > 0 ? results.join('\n') : 'No matches found.';
+      let output = results.join('\n');
+      if (results.length >= MAX_MATCHES) output += '\n... [Maximum match limit reached]';
+      if (Date.now() - startTime > TIMEOUT_MS) output += '\n... [Search timed out]';
+
+      return output || 'No matches found.';
     } catch (e) {
       return `Error searching files: ${e.message}`;
     }

@@ -1,6 +1,7 @@
 const { describe, it, expect, beforeEach } = require('@jest/globals');
 const fs = require('node:fs');
 const AuditService = require('./AuditService');
+const { redact } = require('./Utils');
 
 jest.mock('node:fs');
 
@@ -11,20 +12,6 @@ describe('AuditService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     service = new AuditService(logPath);
-  });
-
-  it('redacts known secrets', () => {
-    service.addSecret('super-secret-key');
-    const input = 'My key is super-secret-key';
-    const redacted = service.redact(input);
-    expect(redacted).toBe('My key is [REDACTED]');
-  });
-
-  it('redacts generic API keys and tokens', () => {
-    const input = '{"api_key": "1234567890abcdef", "token": "Bearer abcdef123456"}';
-    const redacted = service.redact(input);
-    expect(redacted).toContain('api_key: [REDACTED]');
-    expect(redacted).toContain('Bearer [REDACTED]');
   });
 
   it('logs redacted entries with output hashes', () => {

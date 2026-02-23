@@ -3,16 +3,21 @@ const fs = require('node:fs');
 const { isPathAllowed, availableTools } = require('./Tools');
 
 jest.mock('node:fs');
+jest.mock('./Config', () => ({
+  workspaceDir: '.',
+}));
 
 describe('Security: isPathAllowed', () => {
+  const fullPermissions = { filesystem: { read: ['*'], write: ['*'] } };
+
   it('allows access to files in project root', () => {
-    expect(isPathAllowed('README.md')).toBe(true);
-    expect(isPathAllowed('./test.txt')).toBe(true);
+    expect(isPathAllowed('README.md', 'read', fullPermissions)).toBe(true);
+    expect(isPathAllowed('./test.txt', 'read', fullPermissions)).toBe(true);
   });
 
   it('denies access outside project root (traversal)', () => {
-    expect(isPathAllowed('../outside.txt')).toBe(false);
-    expect(isPathAllowed('/etc/passwd')).toBe(false);
+    expect(isPathAllowed('../outside.txt', 'read', fullPermissions)).toBe(false);
+    expect(isPathAllowed('/etc/passwd', 'read', fullPermissions)).toBe(false);
   });
 
   it('denies all access by default when no permissions are provided', () => {
@@ -21,30 +26,30 @@ describe('Security: isPathAllowed', () => {
   });
 
   it('denies access to restricted system directories (case-insensitive)', () => {
-    expect(isPathAllowed('app/Config.js')).toBe(false);
-    expect(isPathAllowed('APP/Config.js')).toBe(false);
-    expect(isPathAllowed('Settings/ollama.json')).toBe(false);
-    expect(isPathAllowed('settings/ollama.json')).toBe(false);
-    expect(isPathAllowed('.git/config')).toBe(false);
-    expect(isPathAllowed('node_modules/jest/index.js')).toBe(false);
+    expect(isPathAllowed('app/Config.js', 'read', fullPermissions)).toBe(false);
+    expect(isPathAllowed('APP/Config.js', 'read', fullPermissions)).toBe(false);
+    expect(isPathAllowed('Settings/ollama.json', 'read', fullPermissions)).toBe(false);
+    expect(isPathAllowed('settings/ollama.json', 'read', fullPermissions)).toBe(false);
+    expect(isPathAllowed('.git/config', 'read', fullPermissions)).toBe(false);
+    expect(isPathAllowed('node_modules/jest/index.js', 'read', fullPermissions)).toBe(false);
   });
 
   it('denies access to sensitive root files', () => {
-    expect(isPathAllowed('cli.js')).toBe(false);
-    expect(isPathAllowed('package.json')).toBe(false);
-    expect(isPathAllowed('Anima.config.json')).toBe(false);
+    expect(isPathAllowed('cli.js', 'read', fullPermissions)).toBe(false);
+    expect(isPathAllowed('package.json', 'read', fullPermissions)).toBe(false);
+    expect(isPathAllowed('Anima.config.json', 'read', fullPermissions)).toBe(false);
   });
 
   it('allows read-only access to core protected directories', () => {
-    expect(isPathAllowed('Plugins/OpenRouter.js', 'read')).toBe(true);
-    expect(isPathAllowed('Memory/memory.json', 'read')).toBe(true);
-    expect(isPathAllowed('Personality/main.md', 'read')).toBe(true);
+    expect(isPathAllowed('Plugins/OpenRouter.js', 'read', fullPermissions)).toBe(true);
+    expect(isPathAllowed('Memory/memory.json', 'read', fullPermissions)).toBe(true);
+    expect(isPathAllowed('Personality/main.md', 'read', fullPermissions)).toBe(true);
   });
 
   it('denies write access to core protected directories by default', () => {
-    expect(isPathAllowed('Plugins/Malicious.js', 'write')).toBe(false);
-    expect(isPathAllowed('Memory/memory.json', 'write')).toBe(false);
-    expect(isPathAllowed('Personality/Soul.md', 'write')).toBe(false);
+    expect(isPathAllowed('Plugins/Malicious.js', 'write', fullPermissions)).toBe(false);
+    expect(isPathAllowed('Memory/memory.json', 'write', fullPermissions)).toBe(false);
+    expect(isPathAllowed('Personality/Soul.md', 'write', fullPermissions)).toBe(false);
   });
 
   describe('Manifest Enforcement', () => {

@@ -121,6 +121,7 @@ To ensure system integrity, Anima provides multiple layers of plugin security:
 - **Provenance Tracking**: Every installed plugin stores its origin (source URL/path, date, and content hash) in a `.provenance.json` file.
 - **Audit Logging**: An append-only log (`Memory/audit.log`) records every tool execution, including redacted arguments, user confirmation results, and cryptographic hashes of tool outputs for forensics.
 - **Verification**: Remote plugins can be verified against a known SHA-256 hash using the `--hash` argument.
+- **Security-First Development**: We follow a strict policy of keeping all documentation and tests up to date with every change, with a continuous focus on system hardening.
 
 ### Provider Manifests
 

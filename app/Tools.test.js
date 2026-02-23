@@ -5,10 +5,15 @@ const child_process = require('node:child_process');
 // Mock fs and child_process
 jest.mock('node:fs');
 jest.mock('node:child_process');
+jest.mock('./Config', () => ({
+  workspaceDir: '.',
+}));
 
 const { availableTools } = require('./Tools');
 
 describe('Tools', () => {
+  const fullPermissions = { filesystem: { read: ['*'], write: ['*'] } };
+
   beforeEach(() => {
     jest.clearAllMocks();
     global.fetch = jest.fn();
@@ -23,7 +28,10 @@ describe('Tools', () => {
       fs.mkdirSync.mockImplementation(() => {});
       fs.writeFileSync.mockImplementation(() => {});
 
-      const result = await availableTools.write_file({ path: 'test.txt', content: 'hello' });
+      const result = await availableTools.write_file(
+        { path: 'test.txt', content: 'hello', justification: 'test' },
+        fullPermissions,
+      );
 
       expect(result).toContain('written successfully');
       expect(fs.mkdirSync).toHaveBeenCalled();
@@ -35,7 +43,10 @@ describe('Tools', () => {
         throw new Error('Permission denied');
       });
 
-      const result = await availableTools.write_file({ path: 'test.txt', content: 'hello' });
+      const result = await availableTools.write_file(
+        { path: 'test.txt', content: 'hello', justification: 'test' },
+        fullPermissions,
+      );
       expect(result).toContain('Error writing file');
     });
   });
@@ -45,13 +56,13 @@ describe('Tools', () => {
       fs.existsSync.mockReturnValue(true);
       fs.readFileSync.mockReturnValue('file content');
 
-      const result = await availableTools.read_file({ path: 'test.txt' });
+      const result = await availableTools.read_file({ path: 'test.txt' }, fullPermissions);
       expect(result).toBe('file content');
     });
 
     it('returns error if file does not exist', async () => {
       fs.existsSync.mockReturnValue(false);
-      const result = await availableTools.read_file({ path: 'missing.txt' });
+      const result = await availableTools.read_file({ path: 'missing.txt' }, fullPermissions);
       expect(result).toContain('File not found');
     });
   });
@@ -65,7 +76,10 @@ describe('Tools', () => {
       mockChild.stderr = new EventEmitter();
       child_process.spawn.mockReturnValue(mockChild);
 
-      const promise = availableTools.run_command({ file: 'echo', args: ['hello'] });
+      const promise = availableTools.run_command(
+        { file: 'echo', args: ['hello'], justification: 'test' },
+        fullPermissions,
+      );
 
       mockChild.stdout.emit('data', 'hello output');
       mockChild.emit('close', 0);
@@ -85,7 +99,10 @@ describe('Tools', () => {
       mockChild.stderr = new EventEmitter();
       child_process.spawn.mockReturnValue(mockChild);
 
-      const promise = availableTools.run_command({ file: 'false' });
+      const promise = availableTools.run_command(
+        { file: 'false', justification: 'test' },
+        fullPermissions,
+      );
 
       mockChild.emit('close', 1);
 
@@ -94,7 +111,10 @@ describe('Tools', () => {
     });
 
     it('blocks commands in denylist', async () => {
-      const result = await availableTools.run_command({ file: 'rm', args: ['-rf', '/'] });
+      const result = await availableTools.run_command(
+        { file: 'rm', args: ['-rf', '/'], justification: 'test' },
+        fullPermissions,
+      );
       expect(result).toContain('blocked by system security policy');
       expect(child_process.spawn).not.toHaveBeenCalled();
     });
@@ -102,10 +122,14 @@ describe('Tools', () => {
     it('enforces manifest allowlist', async () => {
       const permissions = {
         commands: { allow: ['git'] },
+        filesystem: { read: ['*'], write: ['*'] },
       };
 
       // Denied
-      const resultDenied = await availableTools.run_command({ file: 'ls' }, permissions);
+      const resultDenied = await availableTools.run_command(
+        { file: 'ls', justification: 'test' },
+        permissions,
+      );
       expect(resultDenied).toContain('not permitted by the active manifest');
 
       // Allowed
@@ -114,7 +138,10 @@ describe('Tools', () => {
       mockChild.stderr = new EventEmitter();
       child_process.spawn.mockReturnValue(mockChild);
 
-      const promise = availableTools.run_command({ file: 'git', args: ['status'] }, permissions);
+      const promise = availableTools.run_command(
+        { file: 'git', args: ['status'], justification: 'test' },
+        permissions,
+      );
       mockChild.emit('close', 0);
       await promise;
       expect(child_process.spawn).toHaveBeenCalledWith('git', ['status'], expect.anything());
@@ -127,11 +154,15 @@ describe('Tools', () => {
       fs.readFileSync.mockReturnValue('Hello World');
       fs.writeFileSync.mockImplementation(() => {});
 
-      const result = await availableTools.replace_in_file({
-        path: 'test.txt',
-        search: 'World',
-        replace: 'Jest',
-      });
+      const result = await availableTools.replace_in_file(
+        {
+          path: 'test.txt',
+          search: 'World',
+          replace: 'Jest',
+          justification: 'test',
+        },
+        fullPermissions,
+      );
       expect(fs.writeFileSync).toHaveBeenCalledWith(
         expect.stringContaining('test.txt'),
         'Hello Jest',
@@ -143,11 +174,15 @@ describe('Tools', () => {
       fs.existsSync.mockReturnValue(true);
       fs.readFileSync.mockReturnValue('Hello World');
 
-      const result = await availableTools.replace_in_file({
-        path: 'test.txt',
-        search: 'Universe',
-        replace: 'Jest',
-      });
+      const result = await availableTools.replace_in_file(
+        {
+          path: 'test.txt',
+          search: 'Universe',
+          replace: 'Jest',
+          justification: 'test',
+        },
+        fullPermissions,
+      );
       expect(result).toBe('No matches found.');
     });
   });
@@ -162,10 +197,14 @@ describe('Tools', () => {
         cb(error, '', '');
       });
 
-      const result = await availableTools.execute_code({
-        language: 'javascript',
-        code: 'while(true){}',
-      });
+      const result = await availableTools.execute_code(
+        {
+          language: 'javascript',
+          code: 'while(true){}',
+          justification: 'test',
+        },
+        fullPermissions,
+      );
       expect(result).toBe('Error: Execution timed out after 10 seconds.');
     });
 
@@ -173,10 +212,14 @@ describe('Tools', () => {
       fs.writeFileSync.mockImplementation(() => {});
       child_process.exec.mockImplementation((cmd, options, cb) => cb(null, 'Python Output', ''));
 
-      const result = await availableTools.execute_code({
-        language: 'python',
-        code: 'print("Hello")',
-      });
+      const result = await availableTools.execute_code(
+        {
+          language: 'python',
+          code: 'print("Hello")',
+          justification: 'test',
+        },
+        fullPermissions,
+      );
       expect(result).toBe('Python Output');
       expect(child_process.exec).toHaveBeenCalledWith(
         expect.stringContaining('python3'),
@@ -200,7 +243,7 @@ describe('Tools', () => {
         }),
       });
 
-      const result = await availableTools.web_search({ query: 'Anima AI' });
+      const result = await availableTools.web_search({ query: 'Anima AI' }, fullPermissions);
       expect(result).toContain('Summary: Anima is an AI project.');
       expect(result).toContain('Source: https://example.com/anima');
       expect(result).toContain('Related 1');
@@ -215,14 +258,14 @@ describe('Tools', () => {
         }),
       });
 
-      const result = await availableTools.web_search({ query: 'UnknownTerm123' });
+      const result = await availableTools.web_search({ query: 'UnknownTerm123' }, fullPermissions);
       expect(result).toBe('No direct answer found.');
     });
 
     it('handles fetch errors', async () => {
       global.fetch.mockRejectedValue(new Error('Network error'));
 
-      const result = await availableTools.web_search({ query: 'Anima AI' });
+      const result = await availableTools.web_search({ query: 'Anima AI' }, fullPermissions);
       expect(result).toContain('Error searching web: Network error');
     });
 
@@ -232,7 +275,7 @@ describe('Tools', () => {
         status: 500,
       });
 
-      const result = await availableTools.web_search({ query: 'error' });
+      const result = await availableTools.web_search({ query: 'error' }, fullPermissions);
       expect(result).toContain('Error: HTTP 500');
     });
   });
@@ -251,7 +294,7 @@ describe('Tools', () => {
       // Since we can't easily mock isPathAllowed (it's internal), we rely on default behavior.
       // Default behavior allows paths inside CWD.
 
-      const result = await availableTools.list_files({ path: '.' });
+      const result = await availableTools.list_files({ path: '.' }, fullPermissions);
       expect(result).toContain('file1.txt');
       expect(result).toContain('dir1/');
     });
@@ -263,7 +306,10 @@ describe('Tools', () => {
       fs.statSync.mockReturnValue({ isDirectory: () => false, isFile: () => true });
       fs.readFileSync.mockReturnValue('line1\ntarget\nline3');
 
-      const result = await availableTools.search_files({ path: 'f.txt', term: 'target' });
+      const result = await availableTools.search_files(
+        { path: 'f.txt', term: 'target' },
+        fullPermissions,
+      );
       expect(result).toContain('f.txt:2:target');
     });
 
@@ -272,13 +318,19 @@ describe('Tools', () => {
       fs.statSync.mockReturnValue({ isDirectory: () => false, isFile: () => true });
       fs.readFileSync.mockReturnValue('no match here');
 
-      const result = await availableTools.search_files({ path: 'f.txt', term: 'target' });
+      const result = await availableTools.search_files(
+        { path: 'f.txt', term: 'target' },
+        fullPermissions,
+      );
       expect(result).toBe('No matches found.');
     });
 
     it('handles invalid regex', async () => {
       fs.existsSync.mockReturnValue(true);
-      const result = await availableTools.search_files({ path: '.', term: '[' });
+      const result = await availableTools.search_files(
+        { path: '.', term: '[' },
+        fullPermissions,
+      );
       expect(result).toContain('Invalid regex pattern');
     });
   });
@@ -309,7 +361,7 @@ describe('Tools', () => {
       };
       fs.statSync.mockReturnValue(mockStats);
 
-      const result = await availableTools.file_info({ path: 'test.txt' });
+      const result = await availableTools.file_info({ path: 'test.txt' }, fullPermissions);
       expect(result).toContain('"size": 1024');
     });
   });
@@ -319,7 +371,10 @@ describe('Tools', () => {
       fs.existsSync.mockReturnValue(true);
       fs.unlinkSync.mockImplementation(() => {});
 
-      const result = await availableTools.delete_file({ path: 'test.txt' });
+      const result = await availableTools.delete_file(
+        { path: 'test.txt', justification: 'test' },
+        fullPermissions,
+      );
       expect(result).toContain('deleted successfully');
       expect(fs.unlinkSync).toHaveBeenCalled();
     });
@@ -329,32 +384,40 @@ describe('Tools', () => {
     it('installs plugin successfully', async () => {
       // We need to mock the internal fs calls in add_plugin
       // It uses __dirname, so path.join works relative to that.
-      // It writes to 'plugins' dir.
+      // It writes to '../Plugins' dir.
       fs.existsSync.mockReturnValue(false); // Plugin dir doesn't exist initially
       fs.mkdirSync.mockImplementation(() => {});
       fs.writeFileSync.mockImplementation(() => {});
 
-      const result = await availableTools.add_plugin({
-        name: 'test-plugin',
-        code: 'module.exports = {}',
-        manifest: JSON.stringify({ name: 'test' }),
-      });
+      const result = await availableTools.add_plugin(
+        {
+          name: 'test-plugin',
+          code: 'module.exports = {}',
+          manifest: JSON.stringify({ name: 'test' }),
+          justification: 'test',
+        },
+        fullPermissions,
+      );
 
       expect(result).toContain('installed successfully');
       expect(fs.writeFileSync).toHaveBeenCalledTimes(2); // Code and manifest
     });
 
     it('saves provenance information if provided', async () => {
-      fs.existsSync.mockReturnValue(true);
+      fs.existsSync.mockReturnValue(false); // Make sure plugin doesn't exist
       fs.writeFileSync.mockImplementation(() => {});
 
       const provenance = { source: 'http://example.com', hash: '123' };
-      await availableTools.add_plugin({
-        name: 'prov-test',
-        code: '...',
-        manifest: '{}',
-        provenance,
-      });
+      await availableTools.add_plugin(
+        {
+          name: 'prov-test',
+          code: '...',
+          manifest: '{}',
+          provenance,
+          justification: 'test',
+        },
+        fullPermissions,
+      );
 
       expect(fs.writeFileSync).toHaveBeenCalledTimes(3); // Code, manifest, AND provenance
       expect(fs.writeFileSync).toHaveBeenCalledWith(
@@ -365,11 +428,15 @@ describe('Tools', () => {
 
     it('refuses to overwrite existing plugin without isOverwrite flag', async () => {
       fs.existsSync.mockReturnValue(true); // Already exists
-      const result = await availableTools.add_plugin({
-        name: 'exists',
-        code: '...',
-        manifest: '{}',
-      });
+      const result = await availableTools.add_plugin(
+        {
+          name: 'exists',
+          code: '...',
+          manifest: '{}',
+          justification: 'test',
+        },
+        fullPermissions,
+      );
       expect(result).toContain('is already installed');
       expect(fs.writeFileSync).not.toHaveBeenCalled();
     });
@@ -377,22 +444,31 @@ describe('Tools', () => {
     it('allows overwrite if isOverwrite flag is set', async () => {
       fs.existsSync.mockReturnValue(true);
       fs.writeFileSync.mockImplementation(() => {});
-      const result = await availableTools.add_plugin({
-        name: 'exists',
-        code: '...',
-        manifest: '{}',
-        isOverwrite: true,
-      });
+      const result = await availableTools.add_plugin(
+        {
+          name: 'exists',
+          code: '...',
+          manifest: '{}',
+          isOverwrite: true,
+          justification: 'test',
+        },
+        fullPermissions,
+      );
       expect(result).toContain('installed successfully');
       expect(fs.writeFileSync).toHaveBeenCalled();
     });
 
     it('fails with invalid manifest', async () => {
-      const result = await availableTools.add_plugin({
-        name: 'test-plugin',
-        code: '...',
-        manifest: '{ invalid json',
-      });
+      fs.existsSync.mockReturnValue(false);
+      const result = await availableTools.add_plugin(
+        {
+          name: 'test-plugin-new',
+          code: '...',
+          manifest: '{ invalid json',
+          justification: 'test',
+        },
+        fullPermissions,
+      );
       expect(result).toContain('Error: Manifest is not valid JSON');
     });
   });

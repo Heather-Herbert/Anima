@@ -43,9 +43,17 @@ Plugin authors are expected to follow these standards:
 -   **Minimal Permissions**: Only request the specific tools and paths needed for the provider to function.
 -   **No Surprise Network Calls**: All external communication should be limited to the provider's primary API endpoint.
 -   **Structured Outputs**: Ensure `completion` results are normalized to match the expected OpenAI format to prevent parser-level exploits.
-- **Provenance**: Provide SHA-256 hashes for your plugin releases to allow users to verify integrity.
+-   **Provenance**: Provide SHA-256 hashes for your plugin releases to allow users to verify integrity.
+
+## Development Policy
+
+Every update must include:
+-   **Documentation Check**: Ensure README.md, SECURITY.md, and all in-app help strings are up to date.
+-   **Test Validation**: New features must include unit tests. Regression tests must pass before any merge.
+-   **Security Audit**: Every tool change or provider update must be evaluated against the current threat model.
 
 ## Supply Chain Security
+
 
 Anima treats plugin installation as a critical supply-chain event:
 -   **Zip-Slip Protection**: Zip extraction explicitly validates entry names to prevent directory traversal attacks.
