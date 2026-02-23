@@ -210,3 +210,4 @@ If `Personality/Soul.md` or `Personality/Identity.md` are missing, the system en
 - `Settings/`: Configuration and provider settings.
 - `Memory/`: Stores session logs and consolidated memory.
 - `Personality/`: Stores system prompts, identity files, and birth configuration.
+  - `Advisers/`: Markdown files containing prompts for the Advisory Council.

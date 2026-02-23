@@ -9,14 +9,12 @@ jest.mock('./Config', () => ({
   advisoryCouncil: {
     enabled: true,
     mode: 'always',
-    advisers: [
-      { name: 'TestAdviser', role: 'Tester', promptFile: 'p.md' }
-    ],
+    advisers: [{ name: 'TestAdviser', role: 'Tester', promptFile: 'p.md' }],
     maxAdvisersPerCall: 3,
     timeoutMs: 1000,
-    parallel: true
+    parallel: true,
   },
-  workspaceDir: '.'
+  workspaceDir: '.',
 }));
 jest.mock('node:fs');
 
@@ -28,41 +26,51 @@ describe('AdvisoryService', () => {
     service = new AdvisoryService();
   });
 
-  it('returns structured advice from advisers', async () => {
+  it('returns structured advice from advisers and caches prompts', async () => {
     fs.existsSync.mockReturnValue(true);
     fs.readFileSync.mockReturnValue('Adviser Prompt');
-    
+
     callAI.mockResolvedValue({
-      choices: [{
-        message: {
-          content: JSON.stringify({
-            sentiment: 'positive',
-            riskScore: 0.1,
-            feedback: 'Looks good'
-          })
-        }
-      }]
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              sentiment: 'positive',
+              riskScore: 0.1,
+              feedback: 'Looks good',
+            }),
+          },
+        },
+      ],
     });
 
-    const results = await service.getAdvice({
+    const context = {
       userMessage: 'hi',
       mainDraft: 'hello',
       managedHistorySummary: 'none',
       taintStatus: false,
-      availableToolsSummary: 'none'
-    });
+      availableToolsSummary: 'none',
+    };
+
+    const results = await service.getAdvice(context);
 
     expect(results).toHaveLength(1);
     expect(results[0].adviser).toBe('TestAdviser');
-    expect(results[0].sentiment).toBe('positive');
+    expect(fs.readFileSync).toHaveBeenCalledTimes(1);
+
+    // Call again, should use cache
+    await service.getAdvice(context);
+    expect(fs.readFileSync).toHaveBeenCalledTimes(1);
   });
 
   it('handles adviser failure gracefully', async () => {
+    fs.existsSync.mockReturnValue(true);
+    fs.readFileSync.mockReturnValue('Adviser Prompt');
     callAI.mockRejectedValue(new Error('API Failure'));
 
     const results = await service.getAdvice({
       userMessage: 'hi',
-      mainDraft: 'hello'
+      mainDraft: 'hello',
     });
 
     expect(results).toEqual([]);
@@ -76,15 +84,24 @@ describe('AdvisoryService', () => {
   });
 
   it('validates adviser response format', async () => {
+    fs.existsSync.mockReturnValue(true);
+    fs.readFileSync.mockReturnValue('Adviser Prompt');
     callAI.mockResolvedValue({
-      choices: [{
-        message: {
-          content: 'invalid json'
-        }
-      }]
+      choices: [
+        {
+          message: {
+            content: 'invalid json',
+          },
+        },
+      ],
     });
 
     const results = await service.getAdvice({});
     expect(results).toEqual([]);
+  });
+
+  it('throws error if prompt file is missing', () => {
+    fs.existsSync.mockReturnValue(false);
+    expect(() => service.loadPrompt('missing.md')).toThrow('Prompt file not found');
   });
 });

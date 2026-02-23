@@ -15,6 +15,7 @@ const adviceSchema = z.object({
 class AdvisoryService {
   constructor(auditService = null) {
     this.auditService = auditService;
+    this.promptCache = new Map();
   }
 
   async getAdvice({
@@ -137,22 +138,40 @@ Provide your structured advice now.`;
           output: errorMsg,
         });
       }
-      process.stderr.write(`${errorMsg}
-`);
+      process.stderr.write(`${errorMsg}\n`);
       return null;
     }
   }
 
   loadPrompt(promptFile) {
-    try {
-      const fullPath = path.resolve(config.workspaceDir, promptFile);
-      if (fs.existsSync(fullPath)) {
-        return fs.readFileSync(fullPath, 'utf8');
-      }
-    } catch (e) {
-      /* ignore */
+    if (this.promptCache.has(promptFile)) {
+      return this.promptCache.get(promptFile);
     }
-    return 'Provide general critical feedback.';
+
+    let fullPath;
+    if (path.isAbsolute(promptFile)) {
+      fullPath = promptFile;
+    } else {
+      // Try Personality/Advisers/ first, then relative to workspaceDir
+      const advisersPath = path.resolve(config.workspaceDir, 'Personality', 'Advisers', promptFile);
+      if (fs.existsSync(advisersPath)) {
+        fullPath = advisersPath;
+      } else {
+        fullPath = path.resolve(config.workspaceDir, promptFile);
+      }
+    }
+
+    if (fs.existsSync(fullPath)) {
+      const content = fs.readFileSync(fullPath, 'utf8');
+      this.promptCache.set(promptFile, content);
+      return content;
+    }
+
+    throw new Error(`Prompt file not found: ${promptFile} (tried ${fullPath})`);
+  }
+
+  clearCache() {
+    this.promptCache.clear();
   }
 }
 
