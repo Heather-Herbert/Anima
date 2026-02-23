@@ -251,6 +251,7 @@ const loadPersona = () => {
 
 let _heartbeatInterval = null;
 let isProcessing = false;
+let lastUsage = { total_tokens: 0, iterations: 0 };
 
 const _stopHeartbeat = () => {
   if (_heartbeatInterval) {
@@ -378,6 +379,16 @@ const runSetup = async () => {
   } finally {
     setupRl.close();
   }
+};
+
+const showStatusLine = () => {
+  const model = config.model || 'default';
+  const tokens = lastUsage.total_tokens || 0;
+  const iters = lastUsage.iterations || 0;
+  const contextSize = conversationHistory.length;
+  process.stdout.write(
+    `\x1b[90m[Model: ${model} | Tokens: ${tokens} | Iters: ${iters} | Context: ${contextSize} msgs]\x1b[0m\n`,
+  );
 };
 
 async function main() {
@@ -616,6 +627,7 @@ async function main() {
   startHeartbeat(agentName, activeTools, manifest);
 
   rl.setPrompt('You: ');
+  showStatusLine();
   rl.prompt();
 
   rl.on('line', async (input) => {
@@ -631,8 +643,10 @@ async function main() {
       historyPath = generateHistoryPath();
       conversationService.historyPath = historyPath;
       fs.writeFileSync(historyPath, JSON.stringify(conversationHistory, null, 2));
+      lastUsage = { total_tokens: 0, iterations: 0 };
       console.log('Session reset.');
       isProcessing = false;
+      showStatusLine();
       rl.prompt();
       return;
     }
@@ -640,6 +654,7 @@ async function main() {
     if (input.trim() === '/save') {
       await updateMemory();
       isProcessing = false;
+      showStatusLine();
       rl.prompt();
       return;
     }
@@ -706,13 +721,36 @@ async function main() {
         };
 
     try {
-      const reply = await conversationService.processInput(
+      const { reply, usage, iterations, resetRequested } = await conversationService.processInput(
         input,
         conversationHistory,
         confirmCallback,
       );
+      lastUsage = { ...usage, iterations };
       stopSpinner(spinner);
       console.log(`\x1b[36m${agentName}: ${reply}\x1b[0m`);
+
+      if (resetRequested) {
+        console.log(`\n\x1b[33m--- AUTOMATIC SESSION RESET --- \x1b[0m`);
+        console.log(`\x1b[90mReason:\x1b[0m ${resetRequested.reason}`);
+        if (resetRequested.carry_over) {
+          console.log(`\x1b[90mCarry over:\x1b[0m ${resetRequested.carry_over}`);
+        }
+
+        conversationHistory.length = 0;
+        loadPersona();
+        if (resetRequested.carry_over) {
+          conversationHistory.push({
+            role: 'system',
+            content: `Context carried over from previous session: ${resetRequested.carry_over}`,
+          });
+        }
+        historyPath = generateHistoryPath();
+        conversationService.historyPath = historyPath;
+        fs.writeFileSync(historyPath, JSON.stringify(conversationHistory, null, 2));
+        lastUsage = { total_tokens: 0, iterations: 0 };
+        console.log('New session initialized.\n');
+      }
     } catch (error) {
       stopSpinner(spinner);
       console.error(`\n\x1b[31mError: ${error.message}\x1b[0m`);
@@ -721,6 +759,7 @@ async function main() {
 
     process.stdout.write('\n');
     isProcessing = false;
+    showStatusLine();
     rl.prompt();
   });
 }

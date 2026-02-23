@@ -108,6 +108,7 @@ The agent has access to a variety of tools. Dangerous operations require user co
 - `list_files`: List directory contents.
 - `search_files`: Grep-style search within files.
 - `execute_code`: Run Python, JavaScript, or Bash code in a temporary environment.
+- `new_session`: Request to start a fresh session with optional context carry-over. Useful for task completion or major topic switches.
 - `web_search`: Search the web using DuckDuckGo.
 - `file_info`: Get metadata about a file.
 - `delete_file`: Remove a file.

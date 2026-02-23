@@ -273,6 +273,25 @@ const tools = [
   {
     type: 'function',
     function: {
+      name: 'new_session',
+      description:
+        'Request to start a new session. Use this when the current task is complete or the topic changes significantly.',
+      parameters: {
+        type: 'object',
+        properties: {
+          reason: { type: 'string', description: 'Why a new session is being started.' },
+          carry_over: {
+            type: 'string',
+            description: 'Important context or facts to preserve in the new session.',
+          },
+        },
+        required: ['reason'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'web_search',
       description: 'Search the web for information',
       parameters: {
@@ -645,6 +664,9 @@ const availableTools = {
     } catch (e) {
       return `Error installing plugin: ${e.message}`;
     }
+  },
+  new_session: async ({ reason, carry_over }, _permissions) => {
+    return `New session requested. Reason: ${reason}${carry_over ? '\nCarry over: ' + carry_over : ''}`;
   },
   web_search: async ({ query }, _permissions) => {
     try {

@@ -44,6 +44,8 @@ class ConversationService {
     let isTainted = false; // Reset taint per user input turn
     let iterations = 0;
     const MAX_ITERATIONS = 10;
+    let totalUsage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
+    let resetRequested = null;
 
     while (processing && iterations < MAX_ITERATIONS) {
       iterations++;
@@ -73,6 +75,13 @@ class ConversationService {
         }
       }
 
+      // Track usage
+      if (data.usage) {
+        totalUsage.prompt_tokens += data.usage.prompt_tokens || 0;
+        totalUsage.completion_tokens += data.usage.completion_tokens || 0;
+        totalUsage.total_tokens += data.usage.total_tokens || 0;
+      }
+
       const message = data.choices[0].message;
 
       if (message.tool_calls) {
@@ -91,6 +100,14 @@ class ConversationService {
             // Taint tracking
             if (functionName === 'web_search') {
               isTainted = true;
+            }
+
+            // Handle new_session special case
+            if (functionName === 'new_session') {
+              resetRequested = {
+                reason: functionArgs.reason,
+                carry_over: functionArgs.carry_over,
+              };
             }
 
             let toolResult;
@@ -178,10 +195,10 @@ class ConversationService {
       const limitMessage = 'Max iterations reached. Stopping to prevent infinite loop.';
       conversationHistory.push({ role: 'assistant', content: limitMessage });
       this.saveHistory(conversationHistory);
-      return limitMessage;
+      return { reply: limitMessage, usage: totalUsage, iterations, resetRequested };
     }
 
-    return lastReply;
+    return { reply: lastReply, usage: totalUsage, iterations, resetRequested };
   }
 
   getManagedHistory(history) {
