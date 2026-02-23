@@ -61,7 +61,18 @@ If you prefer to configure manually:
      "LLMProvider": "openrouter",
      "heartbeatInterval": 300,
      "workspaceDir": "./my-workspace",
-     "memoryMode": "session"
+     "memoryMode": "session",
+     "advisoryCouncil": {
+       "enabled": true,
+       "mode": "on_demand",
+       "advisers": [
+         {
+           "name": "Architect",
+           "role": "System Architect",
+           "promptFile": "Personality/Advisers/Architect.md"
+         }
+       ]
+     }
    }
    ```
 2. **Provider Settings**: Create a settings file named after your provider (e.g., `openai.json`, `anthropic.json`, `gemini.json`, `deepseek.json`, `openrouter.json`, `ollama.json`) in the `Settings/` directory.

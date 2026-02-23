@@ -343,6 +343,9 @@ const runSetup = async () => {
       'session';
     mainConfig.memoryMode = memMode;
 
+    const councilEnabled = (await question('Enable Advisory Council? (y/N): ')).toLowerCase() === 'y';
+    mainConfig.advisoryCouncil = { enabled: councilEnabled };
+
     fs.writeFileSync(configPath, JSON.stringify(mainConfig, null, 2));
 
     console.log(`\n\x1b[36mConfiguring ${provider}...\x1b[0m`);
@@ -727,13 +730,28 @@ async function main() {
     };
 
     try {
-      const { reply, usage, iterations, resetRequested } = await conversationService.processInput(
+      const { reply, usage, iterations, resetRequested, advice } = await conversationService.processInput(
         input,
         conversationHistory,
         confirmCallback,
       );
       lastUsage = { ...usage, iterations };
       stopSpinner(spinner);
+
+      if (advice && advice.length > 0) {
+        console.log(`\n\x1b[33m--- ADVISORY COUNCIL FEEDBACK --- \x1b[0m`);
+        advice.forEach((a) => {
+          const sentimentColor =
+            a.sentiment === 'positive' ? '\x1b[32m' : a.sentiment === 'negative' ? '\x1b[31m' : '\x1b[33m';
+          console.log(`[\x1b[36m${a.adviser}\x1b[0m] Sentiment: ${sentimentColor}${a.sentiment.toUpperCase()}\x1b[0m | Risk: \x1b[35m${(a.riskScore * 100).toFixed(0)}%\x1b[0m`);
+          console.log(`\x1b[90mFeedback:\x1b[0m ${a.feedback}`);
+          if (a.suggestedAction) {
+            console.log(`\x1b[90mSuggested Action:\x1b[0m \x1b[33m${a.suggestedAction}\x1b[0m`);
+          }
+        });
+        console.log('');
+      }
+
       console.log(`\x1b[36m${agentName}: ${reply}\x1b[0m`);
 
       if (resetRequested) {

@@ -3,6 +3,7 @@ const path = require('node:path');
 const { callAI, redact } = require('./Utils');
 const toolDispatcher = require('./ToolDispatcher');
 const config = require('./Config');
+const AdvisoryService = require('./AdvisoryService');
 
 class ConversationService {
   constructor(agentName, activeTools, manifest, historyPath, auditService = null) {
@@ -11,6 +12,7 @@ class ConversationService {
     this.manifest = manifest;
     this.historyPath = historyPath;
     this.auditService = auditService;
+    this.advisoryService = new AdvisoryService(auditService);
     this.dangerousTools = [
       'run_command',
       'execute_code',
@@ -46,6 +48,7 @@ class ConversationService {
     const MAX_ITERATIONS = 10;
     let totalUsage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
     let resetRequested = null;
+    let turnAdvice = [];
 
     while (processing && iterations < MAX_ITERATIONS) {
       iterations++;
@@ -184,6 +187,18 @@ class ConversationService {
         }
       } else {
         const reply = message.content || JSON.stringify(data, null, 2);
+
+        // Run Advisory Council if enabled
+        if (config.advisoryCouncil?.enabled) {
+          turnAdvice = await this.advisoryService.getAdvice({
+            userMessage: input,
+            mainDraft: reply,
+            managedHistorySummary: `Context window contains ${managedHistory.length} messages.`,
+            taintStatus: isTainted,
+            availableToolsSummary: this.activeTools.map((t) => t.function.name).join(', '),
+          });
+        }
+
         conversationHistory.push({ role: 'assistant', content: reply });
         this.saveHistory(conversationHistory);
         lastReply = reply;
@@ -195,10 +210,10 @@ class ConversationService {
       const limitMessage = 'Max iterations reached. Stopping to prevent infinite loop.';
       conversationHistory.push({ role: 'assistant', content: limitMessage });
       this.saveHistory(conversationHistory);
-      return { reply: limitMessage, usage: totalUsage, iterations, resetRequested };
+      return { reply: limitMessage, usage: totalUsage, iterations, resetRequested, advice: [] };
     }
 
-    return { reply: lastReply, usage: totalUsage, iterations, resetRequested };
+    return { reply: lastReply, usage: totalUsage, iterations, resetRequested, advice: turnAdvice };
   }
 
   getManagedHistory(history) {
@@ -206,9 +221,6 @@ class ConversationService {
     const systemPrompt = history.find((m) => m.role === 'system');
 
     // 2. Identify the boundary: the user message that started this turn.
-    // In our loop, conversationHistory.push({role: 'user', content: wrappedInput})
-    // happened at the very beginning of processInput.
-    // However, if the turn has multiple iterations, we want the LAST user message.
     const userMessages = history.filter((m) => m.role === 'user');
     const currentUserInput = userMessages[userMessages.length - 1];
 

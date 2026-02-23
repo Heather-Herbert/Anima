@@ -96,10 +96,16 @@ describe('Config', () => {
 
     // Test 'has'
     expect('LLMProvider' in config).toBe(true);
+    expect('advisoryCouncil' in config).toBe(true);
     expect('nonExistent' in config).toBe(false);
+
+    // Test defaults
+    expect(config.advisoryCouncil.enabled).toBe(false);
+    expect(config.advisoryCouncil.mode).toBe('on_demand');
 
     // Test 'ownKeys'
     expect(Object.keys(config)).toContain('LLMProvider');
+    expect(Object.keys(config)).toContain('advisoryCouncil');
 
     // Test 'getOwnPropertyDescriptor'
     const desc = Object.getOwnPropertyDescriptor(config, 'LLMProvider');

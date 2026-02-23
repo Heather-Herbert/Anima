@@ -40,9 +40,10 @@ describe('ConversationService', () => {
     });
 
     const history = [];
-    const { reply } = await service.processInput('Hi', history, jest.fn());
+    const { reply, advice } = await service.processInput('Hi', history, jest.fn());
 
     expect(reply).toBe('Hello!');
+    expect(advice).toEqual([]);
     expect(history).toHaveLength(2);
     expect(history[0]).toEqual({
       role: 'user',
@@ -80,9 +81,10 @@ describe('ConversationService', () => {
     toolDispatcher.dispatch.mockResolvedValue('actual file content');
 
     const history = [];
-    const { reply } = await service.processInput('Read file', history, jest.fn());
+    const { reply, advice } = await service.processInput('Read file', history, jest.fn());
 
     expect(reply).toBe('File content is here.');
+    expect(advice).toEqual([]);
     expect(history).toHaveLength(4); // User, Assistant(ToolCall), Tool, Assistant(Final)
     expect(history[2].role).toBe('tool');
     expect(history[2].content).toBe('actual file content');
@@ -285,9 +287,10 @@ describe('ConversationService', () => {
     toolDispatcher.dispatch.mockResolvedValue('output');
 
     const history = [];
-    const { reply } = await service.processInput('Loop me', history, jest.fn());
+    const { reply, advice } = await service.processInput('Loop me', history, jest.fn());
 
     expect(reply).toBe('Max iterations reached. Stopping to prevent infinite loop.');
+    expect(advice).toEqual([]);
     expect(callAI).toHaveBeenCalledTimes(10);
   });
 
@@ -371,8 +374,9 @@ describe('ConversationService', () => {
     toolDispatcher.dispatch.mockResolvedValue('Resetting...');
 
     const history = [];
-    const { resetRequested } = await service.processInput('Reset me', history, jest.fn());
+    const { resetRequested, advice } = await service.processInput('Reset me', history, jest.fn());
 
+    expect(advice).toEqual([]);
     expect(resetRequested).toEqual({
       reason: 'topic change',
       carry_over: 'keep this',

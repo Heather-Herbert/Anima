@@ -1,6 +1,7 @@
 {
   "LLMProvider": "openrouter",
   "heartbeatInterval": 300,
+  "workspaceDir": "./workspace",
   "memoryMode": "session",
   "advisoryCouncil": {
     "enabled": false,
@@ -11,7 +12,14 @@
         "role": "Security Auditor",
         "promptFile": "Personality/Advisers/Security.md",
         "weight": 1.0,
+        "temperature": 0.2,
         "model": "gpt-4-turbo-preview"
+      },
+      {
+        "name": "Architect",
+        "role": "System Architect",
+        "promptFile": "Personality/Advisers/Architect.md",
+        "weight": 0.8
       }
     ],
     "maxAdvisersPerCall": 3,
