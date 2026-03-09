@@ -7,6 +7,7 @@ const { tools, availableTools } = require('./app/Tools');
 const ParturitionService = require('./app/ParturitionService');
 const ConversationService = require('./app/ConversationService');
 const AuditService = require('./app/AuditService');
+const EvolutionService = require('./app/EvolutionService');
 const { callAI, getProviderManifest, redact, encrypt, decrypt } = require('./app/Utils');
 
 // Check for model override via command line argument
@@ -174,8 +175,44 @@ const updateMemory = async (auditService) => {
     } else {
       console.log('\nNo updates accepted.');
     }
+
+    // --- AGENT EVOLUTION ---
+    console.log('\n\x1b[36mChecking for agent evolution opportunities...\x1b[0m');
+    const evolutionService = new EvolutionService(__dirname, auditService);
+    const evolutionProposal = await evolutionService.proposeEvolution(conversationHistory);
+
+    if (evolutionProposal) {
+      if (evolutionProposal.newMilestones && evolutionProposal.newMilestones.length > 0) {
+        console.log(`\n\x1b[33m--- PROPOSED MILESTONES ---\x1b[0m`);
+        for (const m of evolutionProposal.newMilestones) {
+          console.log(`- [\x1b[36m${m.type}\x1b[0m] ${m.content}`);
+        }
+      }
+
+      if (evolutionProposal.proposedIdentityUpdate) {
+        console.log(`\n\x1b[33m--- PROPOSED IDENTITY EVOLUTION ---\x1b[0m`);
+        console.log(`\x1b[90mSummary:\x1b[0m ${evolutionProposal.evolutionSummary}`);
+        const oldIdentityPath = path.join(__dirname, 'Personality', 'Identity.md');
+        const oldIdentity = fs.existsSync(oldIdentityPath) ? fs.readFileSync(oldIdentityPath, 'utf8') : '';
+        console.log(`\n\x1b[36mPREVIEW OF IDENTITY CHANGE:\x1b[0m`);
+        console.log(generateDiff(oldIdentity, evolutionProposal.proposedIdentityUpdate, 'Identity.md'));
+
+        const answer = await question(`Accept this evolution? (y/N): `);
+        if (answer.toLowerCase() === 'y') {
+          await evolutionService.applyEvolution(evolutionProposal);
+          console.log(`\x1b[32mEvolution applied. I have grown.\x1b[0m`);
+          loadPersona(); // Reload system prompt with new identity
+        }
+      } else if (evolutionProposal.newMilestones && evolutionProposal.newMilestones.length > 0) {
+        const answer = await question(`Save these milestones? (y/N): `);
+        if (answer.toLowerCase() === 'y') {
+          await evolutionService.applyEvolution({ ...evolutionProposal, proposedIdentityUpdate: null });
+          console.log(`\x1b[32mMilestones saved.\x1b[0m`);
+        }
+      }
+    }
   } catch (error) {
-    console.error('Memory update failed:', error.message);
+    console.error('Memory/Evolution update failed:', error.message);
   }
 };
 
@@ -265,6 +302,31 @@ const loadPersona = () => {
       }
     } catch (e) {
       console.log(`\x1b[31mFailed to load memory.json: ${e.message}\x1b[0m`);
+    }
+  }
+
+  const milestonesFile = path.isAbsolute(config.workspaceDir || __dirname)
+    ? path.join(config.workspaceDir || __dirname, 'Memory', 'milestones.json')
+    : path.resolve(__dirname, config.workspaceDir || __dirname, 'Memory', 'milestones.json');
+  if (fs.existsSync(milestonesFile)) {
+    try {
+      const content = fs.readFileSync(milestonesFile, 'utf8');
+      const milestones = JSON.parse(content);
+      if (milestones.length > 0) {
+        systemPrompt += '\n\n# Milestones & Achievements\n';
+        const grouped = milestones.reduce((acc, m) => {
+          acc[m.type] = acc[m.type] || [];
+          acc[m.type].push(m.content);
+          return acc;
+        }, {});
+
+        for (const [type, contents] of Object.entries(grouped)) {
+          systemPrompt += `\n## ${type.replace(/_/g, ' ')}\n- ` + contents.join('\n- ') + '\n';
+        }
+        console.log(`Loaded ${milestones.length} milestones from ${milestonesFile}.`);
+      }
+    } catch (e) {
+      console.log(`\x1b[31mFailed to load milestones.json: ${e.message}\x1b[0m`);
     }
   }
 

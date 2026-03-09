@@ -130,7 +130,22 @@ Advisers provide feedback on the main agent's drafts.
 
 ---
 
-## 4. Testing
+## 4. Agent Evolution (Continuous Parturition)
+
+Anima can evolve its identity based on successful tasks and user feedback.
+
+1. **Identity.md**: Located in `Personality/`. This defines the agent's current name, role, and expertise.
+2. **milestones.json**: Located in `Memory/`. This tracks specific achievements and skills learned.
+
+### How it works:
+- When you use the `/save` command or exit the CLI, Anima analyzes the session's conversation history.
+- The `EvolutionService` proposes new milestones or refinements to `Identity.md`.
+- You will be asked to approve these changes.
+- Once approved, they are persisted and loaded into the system prompt for future sessions.
+
+---
+
+## 5. Testing
 
 Always add tests for new functionality!
 
