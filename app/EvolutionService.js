@@ -1,8 +1,7 @@
 const fs = require('node:fs').promises;
 const existsSync = require('node:fs').existsSync;
 const path = require('node:path');
-const { callAI, redact } = require('./Utils');
-const config = require('./Config');
+const { callAI } = require('./Utils');
 
 class EvolutionService {
   constructor(baseDir, auditService = null) {

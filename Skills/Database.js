@@ -22,7 +22,16 @@ const securityCheck = (sql, isTainted) => {
   const normalizedSql = sql.trim().toLowerCase();
 
   // Taint Mode Check: Prevent dangerous operations if session is tainted
-  const dangerousOps = ['insert', 'update', 'delete', 'drop', 'truncate', 'alter', 'grant', 'revoke'];
+  const dangerousOps = [
+    'insert',
+    'update',
+    'delete',
+    'drop',
+    'truncate',
+    'alter',
+    'grant',
+    'revoke',
+  ];
   if (isTainted) {
     if (dangerousOps.some((op) => normalizedSql.startsWith(op))) {
       throw new Error(
@@ -49,7 +58,7 @@ const getDBConfig = () => {
 };
 
 const implementations = {
-  query: async ({ profile, sql, params = [], justification, risk_assessment }, permissions) => {
+  query: async ({ profile, sql, params = [], _justification, _risk_assessment }, permissions) => {
     try {
       // 0. Permission Check
       if (!permissions?.capabilities?.database) {
@@ -71,7 +80,9 @@ const implementations = {
         return err.message;
       }
 
-      const isWriteOp = !finalSql.trim().toLowerCase().startsWith('select') && !finalSql.trim().toLowerCase().startsWith('explain');
+      const _isWriteOp =
+        !finalSql.trim().toLowerCase().startsWith('select') &&
+        !finalSql.trim().toLowerCase().startsWith('explain');
 
       // 2. Explain-Before-Execute: For dangerous operations, provide an explanation
       // In this tool, we log the justification and risk_assessment, and return it to the user
@@ -79,20 +90,21 @@ const implementations = {
       // Here we just proceed if it hasn't been denied by the user already.
 
       if (dbProfile.type === 'mysql') {
-        if (!mysql) return 'Error: Dependency "mysql2" is not installed. Please run "npm install mysql2".';
-        
+        if (!mysql)
+          return 'Error: Dependency "mysql2" is not installed. Please run "npm install mysql2".';
+
         const connection = await mysql.createConnection(dbProfile.config);
         try {
           // If it's a non-select query, we might want to run an EXPLAIN first if requested
           // but usually the agent's risk_assessment satisfies the requirement.
-          const [rows, fields] = await connection.execute(finalSql, params);
+          const [rows, _fields] = await connection.execute(finalSql, params);
           return JSON.stringify(rows, null, 2);
         } finally {
           await connection.end();
         }
       } else if (dbProfile.type === 'postgresql' || dbProfile.type === 'pg') {
         if (!pg) return 'Error: Dependency "pg" is not installed. Please run "npm install pg".';
-        
+
         const { Client } = pg;
         const client = new Client(dbProfile.config);
         await client.connect();

@@ -25,20 +25,22 @@ describe('EvolutionService', () => {
 
   it('proposes evolution based on conversation history', async () => {
     const history = [{ role: 'user', content: 'You did a great job fixing that PHP bug!' }];
-    
+
     // Mock file existence and content
     existsSync.mockReturnValue(true);
     fs.readFile.mockResolvedValueOnce('Current Identity'); // Identity.md
     fs.readFile.mockResolvedValueOnce('[]'); // milestones.json
 
     const mockProposal = {
-      newMilestones: [{ type: 'achievement', content: 'Fixed PHP bug', justification: 'User praised the fix' }],
+      newMilestones: [
+        { type: 'achievement', content: 'Fixed PHP bug', justification: 'User praised the fix' },
+      ],
       proposedIdentityUpdate: '# evolved identity',
-      evolutionSummary: 'Became a Junior PHP Developer'
+      evolutionSummary: 'Became a Junior PHP Developer',
     };
 
     callAI.mockResolvedValue({
-      choices: [{ message: { content: JSON.stringify(mockProposal) } }]
+      choices: [{ message: { content: JSON.stringify(mockProposal) } }],
     });
 
     const proposal = await service.proposeEvolution(history);
@@ -51,7 +53,7 @@ describe('EvolutionService', () => {
     const proposal = {
       newMilestones: [{ type: 'achievement', content: 'Fixed PHP bug' }],
       proposedIdentityUpdate: '# evolved identity',
-      evolutionSummary: 'Became a Junior PHP Developer'
+      evolutionSummary: 'Became a Junior PHP Developer',
     };
 
     existsSync.mockReturnValue(false); // No existing milestones
@@ -60,11 +62,11 @@ describe('EvolutionService', () => {
 
     expect(fs.writeFile).toHaveBeenCalledWith(
       path.join(baseDir, 'Memory', 'milestones.json'),
-      expect.stringContaining('Fixed PHP bug')
+      expect.stringContaining('Fixed PHP bug'),
     );
     expect(fs.writeFile).toHaveBeenCalledWith(
       path.join(baseDir, 'Personality', 'Identity.md'),
-      '# evolved identity'
+      '# evolved identity',
     );
   });
 });

@@ -193,9 +193,13 @@ const updateMemory = async (auditService) => {
         console.log(`\n\x1b[33m--- PROPOSED IDENTITY EVOLUTION ---\x1b[0m`);
         console.log(`\x1b[90mSummary:\x1b[0m ${evolutionProposal.evolutionSummary}`);
         const oldIdentityPath = path.join(__dirname, 'Personality', 'Identity.md');
-        const oldIdentity = fs.existsSync(oldIdentityPath) ? fs.readFileSync(oldIdentityPath, 'utf8') : '';
+        const oldIdentity = fs.existsSync(oldIdentityPath)
+          ? fs.readFileSync(oldIdentityPath, 'utf8')
+          : '';
         console.log(`\n\x1b[36mPREVIEW OF IDENTITY CHANGE:\x1b[0m`);
-        console.log(generateDiff(oldIdentity, evolutionProposal.proposedIdentityUpdate, 'Identity.md'));
+        console.log(
+          generateDiff(oldIdentity, evolutionProposal.proposedIdentityUpdate, 'Identity.md'),
+        );
 
         const answer = await question(`Accept this evolution? (y/N): `);
         if (answer.toLowerCase() === 'y') {
@@ -206,7 +210,10 @@ const updateMemory = async (auditService) => {
       } else if (evolutionProposal.newMilestones && evolutionProposal.newMilestones.length > 0) {
         const answer = await question(`Save these milestones? (y/N): `);
         if (answer.toLowerCase() === 'y') {
-          await evolutionService.applyEvolution({ ...evolutionProposal, proposedIdentityUpdate: null });
+          await evolutionService.applyEvolution({
+            ...evolutionProposal,
+            proposedIdentityUpdate: null,
+          });
           console.log(`\x1b[32mMilestones saved.\x1b[0m`);
         }
       }
