@@ -20,6 +20,7 @@ class ConversationService {
       'write_file',
       'delete_file',
       'replace_in_file',
+      'query',
     ];
   }
 

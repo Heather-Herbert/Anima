@@ -1,0 +1,38 @@
+{
+  "name": "Database",
+  "type": "skill",
+  "description": "Relational Database Access (MySQL, PostgreSQL)",
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "query",
+        "description": "Execute a SQL query against a configured database profile.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "profile": { "type": "string", "description": "Connection profile name (e.g., 'production', 'local')" },
+            "sql": { "type": "string", "description": "The SQL query to execute." },
+            "params": { "type": "array", "items": { "type": "any" }, "description": "Optional parameterized query values." },
+            "justification": { "type": "string", "description": "A short explanation of why this query is necessary." },
+            "risk_assessment": { "type": "string", "description": "An assessment of the risks associated with this query (e.g., impact on performance, data integrity)." }
+          },
+          "required": ["profile", "sql", "justification", "risk_assessment"]
+        }
+      }
+    }
+  ],
+  "requirements": {
+    "env": ["ANIMA_DB_CONFIG_PATH"],
+    "dependencies": ["mysql2", "pg"]
+  },
+  "permissions": {
+    "filesystem": {
+      "read": ["Settings/database.json"]
+    },
+    "capabilities": {
+      "database": true,
+      "allow_write_in_taint": false
+    }
+  }
+}

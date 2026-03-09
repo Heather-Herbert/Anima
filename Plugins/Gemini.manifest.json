@@ -2,7 +2,8 @@
   "name": "Gemini",
   "description": "Google Gemini API provider",
   "capabilities": {
-    "tools": ["*"]
+    "tools": ["*"],
+    "database": true
   },
   "permissions": {
     "filesystem": {

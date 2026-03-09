@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "description": "OpenRouter LLM Provider",
   "capabilities": {
-    "tools": ["*"]
+    "tools": ["*"],
+    "database": true
   },
   "permissions": {
     "filesystem": {

@@ -866,6 +866,12 @@ async function main() {
       } else if (functionName === 'add_plugin') {
         touches = `I will install a new plugin called: ${functionArgs.name}`;
         warning = `\x1b[33mPlugin Details:\n${functionArgs.manifest}\x1b[0m`;
+      } else if (functionName === 'query') {
+        touches = `I will run a database query on profile: ${functionArgs.profile}`;
+        warning = `\x1b[33mSQL:\x1b[0m ${functionArgs.sql}`;
+        if (functionArgs.risk_assessment) {
+          warning += `\n\x1b[31mRISK ASSESSMENT:\x1b[0m ${functionArgs.risk_assessment}`;
+        }
       } else {
         touches = 'Unknown action';
         warning = `\x1b[31mDetails: ${JSON.stringify(functionArgs)}\x1b[0m`;

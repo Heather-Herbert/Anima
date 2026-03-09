@@ -1,0 +1,22 @@
+{
+  "local_mysql": {
+    "type": "mysql",
+    "config": {
+      "host": "localhost",
+      "user": "root",
+      "password": "your_password",
+      "database": "your_database"
+    }
+  },
+  "production_pg": {
+    "type": "postgresql",
+    "config": {
+      "host": "db.example.com",
+      "user": "admin",
+      "password": "secure_password",
+      "database": "production_db",
+      "port": 5432,
+      "ssl": { "rejectUnauthorized": false }
+    }
+  }
+}
