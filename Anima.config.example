@@ -9,9 +9,28 @@
       {
         "name": "SecurityOfficer",
         "role": "Security Auditor",
-        "promptFile": "Personality/Advisers/Security.md",
+        "promptFile": "Personality/Advisers/SecurityOfficer.md",
         "weight": 1.0,
         "model": "gpt-4-turbo-preview"
+      },
+      {
+        "name": "SecurityAuditor",
+        "role": "Advanced Security Auditor (PHP/JS focus)",
+        "promptFile": "Personality/Advisers/SecurityAuditor.md",
+        "weight": 1.0,
+        "temperature": 0.1
+      },
+      {
+        "name": "UXCritic",
+        "role": "UX Critic & Usability Reviewer",
+        "promptFile": "Personality/Advisers/UXCritic.md",
+        "weight": 0.8
+      },
+      {
+        "name": "CostOptimizer",
+        "role": "Token & Cost Efficiency Optimizer",
+        "promptFile": "Personality/Advisers/CostOptimizer.md",
+        "weight": 0.9
       }
     ],
     "maxAdvisersPerCall": 3,

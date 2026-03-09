@@ -62,6 +62,25 @@
         "role": "Technical Writer",
         "promptFile": "TechnicalWriter.md",
         "weight": 0.5
+      },
+      {
+        "name": "SecurityAuditor",
+        "role": "Advanced Security Auditor",
+        "promptFile": "SecurityAuditor.md",
+        "weight": 1.0,
+        "temperature": 0.1
+      },
+      {
+        "name": "UXCritic",
+        "role": "UX Critic",
+        "promptFile": "UXCritic.md",
+        "weight": 0.8
+      },
+      {
+        "name": "CostOptimizer",
+        "role": "Token & Cost Efficiency Optimizer",
+        "promptFile": "CostOptimizer.md",
+        "weight": 0.9
       }
     ],
     "maxAdvisersPerCall": 3,
