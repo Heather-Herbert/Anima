@@ -440,7 +440,7 @@ const runSetup = async () => {
     const provider =
       (
         await question(
-          'Which LLM Provider would you like to use? (openrouter, ollama, openai, anthropic, gemini, deepseek) [openrouter]: ',
+          'Which LLM Provider would you like to use? (openrouter, ollama, openclaw, openai, anthropic, gemini, deepseek) [openrouter]: ',
         )
       ).toLowerCase() || 'openrouter';
 
@@ -485,6 +485,14 @@ const runSetup = async () => {
         'http://127.0.0.1:11434/api/chat';
       const model = (await question('Ollama model [llama3]: ')) || 'llama3';
       providerConfig = { endpoint, model };
+    } else if (provider === 'openclaw') {
+      console.log('\x1b[36mConnecting to an OpenClaw Agent Platform...\x1b[0m');
+      const endpoint =
+        (await question('OpenClaw Gateway endpoint [http://127.0.0.1:18789/v1/chat/completions]: ')) ||
+        'http://127.0.0.1:18789/v1/chat/completions';
+      const apiKey = await question('OpenClaw API Token (Bearer Token): ');
+      const model = (await question('Target OpenClaw Agent ID (e.g. openclaw:main) [openclaw:main]: ')) || 'openclaw:main';
+      providerConfig = { endpoint, apiKey, model };
     } else {
       const apiKey = await question(`Enter your ${provider} API Key: `);
       const model = await question(`Enter model name (press enter for default): `);
@@ -527,6 +535,16 @@ const showStatusLine = () => {
 
 async function main() {
   await runSetup();
+
+  // Start A2A server if skill is available
+  try {
+    const a2aSkill = require('./Skills/A2A');
+    if (a2aSkill && a2aSkill.startServer) {
+      a2aSkill.startServer(__dirname);
+    }
+  } catch (e) {
+    /* ignore if skill not loaded */
+  }
 
   const parturition = new ParturitionService(__dirname);
 

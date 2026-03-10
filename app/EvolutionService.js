@@ -17,6 +17,7 @@ class EvolutionService {
   async proposeEvolution(conversationHistory) {
     const identityFile = path.join(this.personalityDir, 'Identity.md');
     const milestonesFile = path.join(this.memoryDir, 'milestones.json');
+    const memosDir = path.join(this.memoryDir, 'memos');
 
     let currentIdentity = 'No identity established yet.';
     if (existsSync(identityFile)) {
@@ -33,13 +34,24 @@ class EvolutionService {
       }
     }
 
+    let memos = [];
+    if (existsSync(memosDir)) {
+      try {
+        const memoFiles = await fs.readdir(memosDir);
+        for (const file of memoFiles.slice(-3)) { // Only take the 3 most recent memos to save tokens
+          const content = await fs.readFile(path.join(memosDir, file), 'utf-8');
+          memos.push(content);
+        }
+      } catch (e) { /* ignore read errors */ }
+    }
+
     const sessionMessages = conversationHistory.filter((msg) => msg.role !== 'system');
     if (sessionMessages.length === 0) return null;
 
     const evolutionPrompt = {
       role: 'system',
       content: `You are an Agent Evolution System. 
-Analyze the recent conversation history and the agent's current identity.
+Analyze the recent conversation history, the agent's current identity, and external learned memos.
 Identify significant achievements, new skills demonstrated, or shifts in the agent's role/expertise.
 
 Current Identity:
@@ -48,9 +60,12 @@ ${currentIdentity}
 Recent Milestones:
 ${JSON.stringify(milestones.slice(-5))}
 
+External Memos (Knowledge learned from other agents):
+${memos.join('\n---\n')}
+
 Task:
 1. Identify any NEW milestones achieved in this session.
-2. If the achievements warrant a "level up" or a refinement in the agent's role (e.g., from 'Assistant' to 'Junior PHP Developer'), propose a new Identity.md content.
+2. If the achievements or external learning warrant a "level up" or a refinement in the agent's role, propose a new Identity.md content.
 
 Output strictly as a JSON object:
 {

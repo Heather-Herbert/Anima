@@ -1,0 +1,14 @@
+{
+  "name": "OpenClaw",
+  "description": "OpenClaw AI Agent Platform (A2A Bridge)",
+  "capabilities": {
+    "tools": ["*"],
+    "database": true
+  },
+  "permissions": {
+    "filesystem": {
+      "read": ["*"],
+      "write": ["*"]
+    }
+  }
+}

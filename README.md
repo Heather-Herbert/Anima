@@ -12,7 +12,8 @@ Anima is a command-line AI agent interface designed to evolve with you. It featu
 - **Persistent Memory**:
   - **Short-term**: Session history is saved automatically to JSON files in `Memory/`.
   - **Long-term**: Important facts and insights are consolidated into `Memory/memory.json` after a **User Review** step, where you can accept or reject individual items to prevent prompt injection persistence.
-- **Plugin-based LLM Providers**: Supports multiple AI providers (**OpenAI, Anthropic, Gemini, DeepSeek, OpenRouter, Ollama**) through a modular plugin system. **Providers run in isolated separate processes** with restricted environment access for maximum security.
+- **Plugin-based LLM Providers**: Supports multiple AI providers (**OpenAI, Anthropic, Gemini, DeepSeek, OpenRouter, Ollama**) and AI agent platforms (**OpenClaw**) through a modular plugin system. **Providers run in isolated separate processes** with restricted environment access for maximum security.
+- **A2A (Agent-to-Agent) Collaboration**: Anima instances can discover and collaborate with each other and with OpenClaw agents across the network. They can exchange "Soul" and "Identity" information to mutually evolve, and delegate specific sub-tasks to each other using a token-efficient protocol.
 - **Manifest-level Security**: Tools and filesystem access are governed by provider-specific manifests, ensuring safe execution environments.
 - **Core Directory Protection**: The agent's "spinal cord" (`Plugins/`, `Memory/`, `Personality/`) is **Read-Only by default**. Any attempt to modify these files requires an explicit justification and user confirmation, regardless of manifest settings.
 - **Explainable Confirmations**: All dangerous operations require the agent to provide a **Justification**, show exactly what will be **Touched**, and provide a **Diff Preview** for file changes before user approval.
@@ -77,7 +78,7 @@ If you prefer to configure manually:
      }
    }
    ```
-2. **Provider Settings**: Create a settings file named after your provider (e.g., `openai.json`, `anthropic.json`, `gemini.json`, `deepseek.json`, `openrouter.json`, `ollama.json`) in the `Settings/` directory.
+2. **Provider Settings**: Create a settings file named after your provider (e.g., `openai.json`, `anthropic.json`, `gemini.json`, `deepseek.json`, `openrouter.json`, `ollama.json`, `openclaw.json`) in the `Settings/` directory.
    ```json
    {
      "apiKey": "YOUR_API_KEY_HERE",
@@ -130,6 +131,9 @@ The agent has access to a variety of tools. Dangerous operations require user co
 - `delete_file`: Remove a file.
 - `add_plugin`: Install new plugins (agent-initiated).
 - `advisory_council`: Request on-demand structured feedback from the advisory council on a specific question or plan.
+- `discover_agents`: Scan local network interfaces and major private IP ranges (`192.168.0.0/16`, `172.16.0.0/12`, `10.0.0.0/8`) for active Anima or OpenClaw agents.
+- `learn_from_agent`: Fetch the Identity and Soul of another agent to assist in local evolution and knowledge sharing.
+- `delegate_task`: Send a specific sub-task or question to a remote agent. Uses a token-efficient "sub-agent" protocol to minimize conversational overhead.
 
 ### Plugin Security
 

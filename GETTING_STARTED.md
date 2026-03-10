@@ -39,7 +39,7 @@ node cli.js
 
 Anima will detect that it's the first run and start a **Setup Wizard**:
 
-1.  **Select Provider**: Choose your AI provider (e.g., `openrouter`).
+1.  **Select Provider**: Choose your AI provider (e.g., `openrouter`, `openclaw`).
 2.  **Enter API Key**: Paste the key you got from your provider.
 3.  **Memory Mode**: Choose `session` (saves history for the current chat) or `longterm` (learns over time). We recommend `session` to start.
 4.  **Advisory Council**: Type `y` if you want a second AI to check the first one's work for safety.
@@ -49,7 +49,7 @@ Anima will detect that it's the first run and start a **Setup Wizard**:
 After the wizard finishes, your key is saved in a "Config File" (a simple text file) so you don't have to type it every time.
 
 - **The Folder**: Open the `Settings` folder inside your Anima folder.
-- **The File**: You will see a file named after your provider (like `openrouter.json` or `openai.json`).
+- **The File**: You will see a file named after your provider (like `openrouter.json`, `openai.json`, or `openclaw.json`).
 - **How to edit it**: If you ever need to change your key, right-click that file and choose **"Open with..."** then select **Notepad** (on Windows) or **TextEdit** (on Mac).
 - **The Content**: You will see your key inside the quotes after `"apiKey"`. Just paste your new key there, save the file, and restart Anima!
 
@@ -68,7 +68,16 @@ Type these directly into the chat:
 - `/save`: Review and save important facts to long-term memory.
 - `Ctrl+C`: Press once to cancel, or twice quickly to exit.
 
-## 4. Safety Modes
+## 4. A2A Collaboration
+
+Anima can discover and talk to other Anima instances or OpenClaw agents on your network.
+
+- **Discovery**: Ask Anima to "discover agents" to find other AI peers.
+- **Learning**: Anima can "learn" from other agents to refine its personality and skills.
+- **Collaboration**: If one agent doesn't have a tool (e.g., Google Calendar) but another does, they can delegate tasks to each other to help you.
+- **Token Efficient**: Agents use a special "sub-agent" mode to talk to each other concisely, saving you tokens and credits.
+
+## 5. Safety Modes
 
 If you want to play it safe, you can start Anima in special modes:
 

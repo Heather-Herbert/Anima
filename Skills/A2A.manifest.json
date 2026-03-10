@@ -1,0 +1,55 @@
+{
+  "name": "A2A",
+  "description": "Agent-to-Agent learning and discovery skill",
+  "type": "skill",
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "learn_from_agent",
+        "description": "Connect to another Anima or OpenClaw instance to learn its identity and soul.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "endpoint": { "type": "string", "description": "The OpenAI-compatible chat completion URL (e.g. http://localhost:18701/v1/chat/completions)" },
+            "apiKey": { "type": "string", "description": "Optional API Key or Bearer Token" },
+            "agentId": { "type": "string", "description": "Optional agent identifier" }
+          },
+          "required": ["endpoint"]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "delegate_task",
+        "description": "Send a specific task or question to another Anima or OpenClaw instance for collaboration.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "endpoint": { "type": "string", "description": "The OpenAI-compatible chat completion URL of the target agent" },
+            "task": { "type": "string", "description": "The specific task or question to delegate" },
+            "apiKey": { "type": "string", "description": "Optional API Key or Bearer Token" },
+            "agentId": { "type": "string", "description": "Optional agent identifier" }
+          },
+          "required": ["endpoint", "task"]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "discover_agents",
+        "description": "Scan local network ports for active Anima or OpenClaw agents.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "startPort": { "type": "integer", "description": "Port to start scanning from (default 18700)" },
+            "endPort": { "type": "integer", "description": "Port to end scanning at (default 18790)" },
+            "scanSubnetOnly": { "type": "boolean", "description": "If true, only scan the local /24 subnet. If false, scan all private IP ranges (slow). Defaults to true." }
+          }
+        }
+      }
+    }
+  ]
+}

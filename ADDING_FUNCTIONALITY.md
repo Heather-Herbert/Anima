@@ -138,14 +138,25 @@ Anima can evolve its identity based on successful tasks and user feedback.
 2. **milestones.json**: Located in `Memory/`. This tracks specific achievements and skills learned.
 
 ### How it works:
-- When you use the `/save` command or exit the CLI, Anima analyzes the session's conversation history.
-- The `EvolutionService` proposes new milestones or refinements to `Identity.md`.
+- When you use the `/save` command or exit the CLI, Anima analyzes the session's conversation history and any **External Memos** (learned from other agents via `learn_from_agent`).
+- The `EvolutionService` proposes new milestones or refinements to `Identity.md` based on both internal achievements and external shared knowledge.
 - You will be asked to approve these changes.
 - Once approved, they are persisted and loaded into the system prompt for future sessions.
 
 ---
 
-## 5. Testing
+## 5. A2A (Agent-to-Agent) Communication
+
+Anima supports discovering and collaborating with other agents (including OpenClaw) via the `A2A.js` skill.
+- **Discovery**: Use `discover_agents` to scan local ports and private IP ranges for active agents.
+- **Learning**: Use `learn_from_agent` to fetch the Identity and Soul of another agent for mutual evolution.
+- **Collaboration**: Use `delegate_task` to send a specific sub-task to another agent.
+- **Efficiency**: The A2A server uses a strict "sub-agent" system prompt to ensure responses are concise and focused only on the result, minimizing token usage.
+- **Server**: When Anima starts, it opens an OpenAI-compatible endpoint on a port derived from its name, allowing other agents to safely query or collaborate with it.
+
+---
+
+## 6. Testing
 
 Always add tests for new functionality!
 
