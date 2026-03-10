@@ -54,7 +54,7 @@ describe('OpenClaw Plugin', () => {
 
       expect(result.choices[0].message.content).toBe('Hello from OpenClaw');
       expect(global.fetch).toHaveBeenCalledTimes(2);
-      
+
       const [url, options] = global.fetch.mock.calls[1];
       expect(url).toBe('http://localhost:18789/v1/chat/completions');
       expect(options.headers.Authorization).toBe('Bearer test-token');
@@ -88,20 +88,18 @@ describe('OpenClaw Plugin', () => {
     });
 
     it('handles authentication errors', async () => {
-        fs.existsSync.mockReturnValue(false);
-  
-        global.fetch
-          .mockResolvedValueOnce({ ok: true }) // Server check
-          .mockResolvedValueOnce({
-            ok: false,
-            status: 401,
-            statusText: 'Unauthorized',
-            text: async () => 'Invalid token',
-          });
-  
-        await expect(OpenClaw.completion([])).rejects.toThrow(
-          'Invalid or expired OpenClaw API Key',
-        );
-      });
+      fs.existsSync.mockReturnValue(false);
+
+      global.fetch
+        .mockResolvedValueOnce({ ok: true }) // Server check
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 401,
+          statusText: 'Unauthorized',
+          text: async () => 'Invalid token',
+        });
+
+      await expect(OpenClaw.completion([])).rejects.toThrow('Invalid or expired OpenClaw API Key');
+    });
   });
 });

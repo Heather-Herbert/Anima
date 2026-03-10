@@ -38,11 +38,14 @@ class EvolutionService {
     if (existsSync(memosDir)) {
       try {
         const memoFiles = await fs.readdir(memosDir);
-        for (const file of memoFiles.slice(-3)) { // Only take the 3 most recent memos to save tokens
+        for (const file of memoFiles.slice(-3)) {
+          // Only take the 3 most recent memos to save tokens
           const content = await fs.readFile(path.join(memosDir, file), 'utf-8');
           memos.push(content);
         }
-      } catch (e) { /* ignore read errors */ }
+      } catch (e) {
+        /* ignore read errors */
+      }
     }
 
     const sessionMessages = conversationHistory.filter((msg) => msg.role !== 'system');

@@ -23,7 +23,9 @@ const startServer = (baseDir) => {
   server = http.createServer((req, res) => {
     if (req.method === 'POST' && req.url === '/v1/chat/completions') {
       let body = '';
-      req.on('data', chunk => { body += chunk; });
+      req.on('data', (chunk) => {
+        body += chunk;
+      });
       req.on('end', async () => {
         try {
           const { messages, tools: requestedTools } = JSON.parse(body);
@@ -31,10 +33,14 @@ const startServer = (baseDir) => {
           const lastMsgLower = lastMsg.toLowerCase();
 
           // CASE 1: Identity/Soul Query (Learning)
-          if (lastMsgLower.includes('identity') || lastMsgLower.includes('soul') || lastMsgLower.includes('who are you')) {
+          if (
+            lastMsgLower.includes('identity') ||
+            lastMsgLower.includes('soul') ||
+            lastMsgLower.includes('who are you')
+          ) {
             const identityPath = path.join(baseDir, 'Personality', 'Identity.md');
             const soulPath = path.join(baseDir, 'Personality', 'Soul.md');
-            
+
             let content = '';
             if (fs.existsSync(identityPath)) {
               content += '## Identity\n' + fs.readFileSync(identityPath, 'utf8') + '\n\n';
@@ -44,12 +50,14 @@ const startServer = (baseDir) => {
             }
 
             const response = {
-              choices: [{
-                message: {
-                  role: 'assistant',
-                  content: content || 'I am a nascent Anima instance.'
-                }
-              }]
+              choices: [
+                {
+                  message: {
+                    role: 'assistant',
+                    content: content || 'I am a nascent Anima instance.',
+                  },
+                },
+              ],
             };
             res.writeHead(200, { 'Content-Type': 'application/json' });
             return res.end(JSON.stringify(response));
@@ -58,18 +66,18 @@ const startServer = (baseDir) => {
           // CASE 2: Task Delegation (Collaboration)
           // We use the main Anima logic to solve the task
           const { callAI } = require('../app/Utils');
-          
+
           // Inject a strict sub-agent instruction to keep it concise and token-efficient
           const subAgentPrompt = {
             role: 'system',
             content: `You are acting as a specialized sub-agent for another Anima instance. 
 Task: Solve the user's request using your local tools and knowledge.
 Constraint: Be extremely concise. Do not use conversational filler. Provide only the result or the answer.
-Your Identity: ${fs.existsSync(path.join(baseDir, 'Personality', 'Identity.md')) ? fs.readFileSync(path.join(baseDir, 'Personality', 'Identity.md'), 'utf8') : 'Anima Instance'}`
+Your Identity: ${fs.existsSync(path.join(baseDir, 'Personality', 'Identity.md')) ? fs.readFileSync(path.join(baseDir, 'Personality', 'Identity.md'), 'utf8') : 'Anima Instance'}`,
           };
 
           const delegatedMessages = [subAgentPrompt, ...messages];
-          
+
           try {
             // We call our own local AI provider to handle the task
             const result = await callAI(delegatedMessages, requestedTools);
@@ -79,7 +87,6 @@ Your Identity: ${fs.existsSync(path.join(baseDir, 'Personality', 'Identity.md'))
             res.writeHead(500, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: `Sub-agent error: ${e.message}` }));
           }
-
         } catch (e) {
           res.writeHead(400);
           res.end();
@@ -95,22 +102,28 @@ Your Identity: ${fs.existsSync(path.join(baseDir, 'Personality', 'Identity.md'))
     process.stdout.write(`\n\x1b[90m[A2A Service active on port ${port} (0.0.0.0)]\x1b[0m\n`);
   });
 
-  process.on('SIGINT', () => { if(server) server.close(); });
-  process.on('exit', () => { if(server) server.close(); });
+  process.on('SIGINT', () => {
+    if (server) server.close();
+  });
+  process.on('exit', () => {
+    if (server) server.close();
+  });
 };
 
 // Skill export
 module.exports = {
   startServer,
   implementations: {
-    delegate_task: async ({ endpoint, task, apiKey, agentId }, permissions) => {
+    delegate_task: async ({ endpoint, task, apiKey, agentId }, _permissions) => {
       try {
         const body = {
           model: agentId || 'anima',
-          messages: [{ 
-            role: 'user', 
-            content: `TASK DELEGATION: ${task}\n\nPlease perform this task and return ONLY the result. Avoid all conversational filler.` 
-          }]
+          messages: [
+            {
+              role: 'user',
+              content: `TASK DELEGATION: ${task}\n\nPlease perform this task and return ONLY the result. Avoid all conversational filler.`,
+            },
+          ],
         };
 
         const headers = { 'Content-Type': 'application/json' };
@@ -120,7 +133,7 @@ module.exports = {
           method: 'POST',
           headers: headers,
           body: JSON.stringify(body),
-          signal: AbortSignal.timeout(60000) // Longer timeout for actual tasks
+          signal: AbortSignal.timeout(60000), // Longer timeout for actual tasks
         });
 
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -132,11 +145,16 @@ module.exports = {
         return `Error delegating task: ${e.message}`;
       }
     },
-    learn_from_agent: async ({ endpoint, apiKey, agentId }, permissions) => {
+    learn_from_agent: async ({ endpoint, apiKey, agentId }, _permissions) => {
       try {
         const body = {
           model: agentId || 'anima',
-          messages: [{ role: 'user', content: 'IDENTITY_QUERY: Please share your Identity and Soul. Be concise.' }]
+          messages: [
+            {
+              role: 'user',
+              content: 'IDENTITY_QUERY: Please share your Identity and Soul. Be concise.',
+            },
+          ],
         };
 
         const headers = { 'Content-Type': 'application/json' };
@@ -146,7 +164,7 @@ module.exports = {
           method: 'POST',
           headers: headers,
           body: JSON.stringify(body),
-          signal: AbortSignal.timeout(10000)
+          signal: AbortSignal.timeout(10000),
         });
 
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -165,7 +183,10 @@ module.exports = {
         return `Error learning from agent: ${e.message}`;
       }
     },
-    discover_agents: async ({ startPort = 18700, endPort = 18790, scanSubnetOnly = true }, permissions) => {
+    discover_agents: async (
+      { startPort = 18700, endPort = 18790, scanSubnetOnly = true },
+      _permissions,
+    ) => {
       const active = [];
       const checked = new Set();
 
@@ -177,16 +198,18 @@ module.exports = {
         try {
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 150);
-          const response = await fetch(`http://${ip}:${port}/`, { 
+          const response = await fetch(`http://${ip}:${port}/`, {
             method: 'OPTIONS',
-            signal: controller.signal 
+            signal: controller.signal,
           }).catch(() => ({ ok: false, status: 404 }));
 
           if (response.status === 404 || response.status === 200 || response.status === 403) {
             active.push(url);
           }
           clearTimeout(timeoutId);
-        } catch (e) { /* ignore */ }
+        } catch (e) {
+          /* ignore */
+        }
       };
 
       const scanRange = async (ips, ports) => {
@@ -202,7 +225,10 @@ module.exports = {
         }
       };
 
-      await scanRange(['127.0.0.1'], [18789, ...Array.from({length: endPort - startPort + 1}, (_, i) => startPort + i)]);
+      await scanRange(
+        ['127.0.0.1'],
+        [18789, ...Array.from({ length: endPort - startPort + 1 }, (_, i) => startPort + i)],
+      );
 
       const interfaces = os.networkInterfaces();
       const localIps = [];
@@ -216,18 +242,20 @@ module.exports = {
 
       for (const localIp of localIps) {
         const subnet = localIp.split('.').slice(0, 3).join('.');
-        const ips = Array.from({length: 254}, (_, i) => `${subnet}.${i + 1}`);
+        const ips = Array.from({ length: 254 }, (_, i) => `${subnet}.${i + 1}`);
         await scanRange(ips, [18789, startPort]);
       }
 
       if (scanSubnetOnly) {
-         return active.length > 0 ? `Discovered active agent endpoints:\n${active.join('\n')}` : 'No other agents discovered on local subnets.';
+        return active.length > 0
+          ? `Discovered active agent endpoints:\n${active.join('\n')}`
+          : 'No other agents discovered on local subnets.';
       }
 
       const ranges = [
-        { base: '192.168', secondOctet: Array.from({length: 256}, (_, i) => i) },
-        { base: '172', secondOctet: Array.from({length: 16}, (_, i) => 16 + i) },
-        { base: '10', secondOctet: Array.from({length: 256}, (_, i) => i) }
+        { base: '192.168', secondOctet: Array.from({ length: 256 }, (_, i) => i) },
+        { base: '172', secondOctet: Array.from({ length: 16 }, (_, i) => 16 + i) },
+        { base: '10', secondOctet: Array.from({ length: 256 }, (_, i) => i) },
       ];
 
       for (const range of ranges) {
@@ -240,7 +268,9 @@ module.exports = {
         if (active.length > 15) break;
       }
 
-      return active.length > 0 ? `Discovered active agent endpoints:\n${active.join('\n')}` : 'No other agents discovered.';
-    }
-  }
+      return active.length > 0
+        ? `Discovered active agent endpoints:\n${active.join('\n')}`
+        : 'No other agents discovered.';
+    },
+  },
 };

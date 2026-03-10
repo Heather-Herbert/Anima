@@ -488,10 +488,13 @@ const runSetup = async () => {
     } else if (provider === 'openclaw') {
       console.log('\x1b[36mConnecting to an OpenClaw Agent Platform...\x1b[0m');
       const endpoint =
-        (await question('OpenClaw Gateway endpoint [http://127.0.0.1:18789/v1/chat/completions]: ')) ||
-        'http://127.0.0.1:18789/v1/chat/completions';
+        (await question(
+          'OpenClaw Gateway endpoint [http://127.0.0.1:18789/v1/chat/completions]: ',
+        )) || 'http://127.0.0.1:18789/v1/chat/completions';
       const apiKey = await question('OpenClaw API Token (Bearer Token): ');
-      const model = (await question('Target OpenClaw Agent ID (e.g. openclaw:main) [openclaw:main]: ')) || 'openclaw:main';
+      const model =
+        (await question('Target OpenClaw Agent ID (e.g. openclaw:main) [openclaw:main]: ')) ||
+        'openclaw:main';
       providerConfig = { endpoint, apiKey, model };
     } else {
       const apiKey = await question(`Enter your ${provider} API Key: `);
