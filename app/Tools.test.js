@@ -311,6 +311,17 @@ describe('Tools', () => {
     });
   });
 
+  describe('decontaminate', () => {
+    it('returns success message', async () => {
+      const result = await availableTools.decontaminate(
+        { justification: 'verified safe' },
+        fullPermissions,
+      );
+      expect(result).toContain('Decontamination successful');
+      expect(result).toContain('verified safe');
+    });
+  });
+
   describe('list_files', () => {
     it('lists files in directory', async () => {
       fs.existsSync.mockReturnValue(true);

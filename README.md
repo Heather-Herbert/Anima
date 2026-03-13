@@ -28,7 +28,7 @@ Anima is designed with a **Deny-by-Default** security posture to prevent common 
 Key protections include:
 - **Process Isolation**: LLM Providers run in separate, isolated processes.
 - **Workspace Root**: All filesystem operations are locked to a configurable `workspaceDir` (defaulting to the project root), preventing access to the host system even if the CLI is launched from a sensitive directory.
-- **Taint Mode**: If the agent performs a `web_search`, the current turn is marked as "tainted." In this state, command execution and code execution are strictly limited to explicit manifest allowlists to prevent remote prompt injection attacks.
+- **Taint Mode**: If the agent performs a `web_search`, the current turn is marked as "tainted." In this state, command execution and code execution are strictly limited to explicit manifest allowlists to prevent remote prompt injection attacks. Users can explicitly clear this state using the `decontaminate` tool after reviewing search results.
 - **Hardened Code Execution**: `execute_code` runs in a dedicated `.temp` directory within the workspace and features a 10s timeout and automatic cleanup.
 - **No Shell**: Commands run directly (spawn), avoiding shell injection attacks.
 - **Spinal Cord Protection**: Core files (`Plugins/`, `Memory/`, `Personality/`) are read-only by default.
@@ -127,6 +127,7 @@ The agent has access to a variety of tools. Dangerous operations require user co
 - `execute_code`: Run Python, JavaScript, or Bash code in a temporary environment.
 - `new_session`: Request to start a fresh session with optional context carry-over. Useful for task completion or major topic switches.
 - `web_search`: Search the web using DuckDuckGo.
+- `decontaminate`: Explicitly clear the "tainted" security state after manual review of search results.
 - `file_info`: Get metadata about a file.
 - `delete_file`: Remove a file.
 - `add_plugin`: Install new plugins (agent-initiated).

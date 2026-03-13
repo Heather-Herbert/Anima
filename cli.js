@@ -900,6 +900,10 @@ async function main() {
         if (functionArgs.risk_assessment) {
           warning += `\n\x1b[31mRISK ASSESSMENT:\x1b[0m ${functionArgs.risk_assessment}`;
         }
+      } else if (functionName === 'decontaminate') {
+        touches = 'I will clear the "tainted" security state.';
+        warning =
+          '\x1b[31mWARNING:\x1b[0m This will restore full system access, including unrestricted command and code execution. Only do this if you have manually verified the search results for prompt injection.';
       } else {
         touches = 'Unknown action';
         warning = `\x1b[31mDetails: ${JSON.stringify(functionArgs)}\x1b[0m`;

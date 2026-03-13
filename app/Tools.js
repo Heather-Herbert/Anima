@@ -314,6 +314,24 @@ const tools = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'decontaminate',
+      description:
+        'Explicitly clear the "tainted" security state after manual review of search results. Use this to restore full system access if a web search has locked down tools.',
+      parameters: {
+        type: 'object',
+        properties: {
+          justification: {
+            type: 'string',
+            description: 'A short explanation of why it is safe to decontaminate now.',
+          },
+        },
+        required: ['justification'],
+      },
+    },
+  },
 ];
 
 const availableTools = {
@@ -742,6 +760,9 @@ const availableTools = {
     } catch (e) {
       return `Error searching web: ${e.message}`;
     }
+  },
+  decontaminate: async ({ justification }, _permissions) => {
+    return `Decontamination successful. Tainted security state cleared. Reason provided: ${justification}`;
   },
 };
 

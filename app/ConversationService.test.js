@@ -266,6 +266,51 @@ describe('ConversationService', () => {
     expect(confirmMock).toHaveBeenCalledWith('write_file', expect.anything(), 'j', true);
   });
 
+  it('clears isTainted when decontaminate is used', async () => {
+    callAI.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            role: 'assistant',
+            tool_calls: [
+              { id: 't1', function: { name: 'web_search', arguments: '{"query":"?"}' } },
+              {
+                id: 't2',
+                function: { name: 'decontaminate', arguments: '{"justification":"it is safe"}' },
+              },
+              {
+                id: 't3',
+                function: {
+                  name: 'write_file',
+                  arguments: '{"path":"x","content":"y","justification":"j2"}',
+                },
+              },
+            ],
+          },
+        },
+      ],
+    });
+    callAI.mockResolvedValueOnce({
+      choices: [{ message: { role: 'assistant', content: 'Done' } }],
+    });
+
+    toolDispatcher.dispatch.mockResolvedValue('OK');
+
+    const confirmMock = jest.fn().mockResolvedValue('y');
+    await service.processInput('taint and clean me', [], confirmMock);
+
+    // Verify confirm was called for decontaminate (it's a dangerous tool)
+    expect(confirmMock).toHaveBeenCalledWith(
+      'decontaminate',
+      expect.objectContaining({ justification: 'it is safe' }),
+      'it is safe',
+      true,
+    );
+
+    // Verify confirm was called for write_file with isTainted = false
+    expect(confirmMock).toHaveBeenCalledWith('write_file', expect.anything(), 'j2', false);
+  });
+
   it('enforces MAX_ITERATIONS limit', async () => {
     // Mock callAI to always return a tool call
     callAI.mockResolvedValue({

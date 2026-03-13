@@ -21,6 +21,7 @@ class ConversationService {
       'delete_file',
       'replace_in_file',
       'query',
+      'decontaminate',
     ];
   }
 
@@ -177,6 +178,9 @@ class ConversationService {
               );
 
               if (confirmed === 'y') {
+                if (functionName === 'decontaminate') {
+                  isTainted = false;
+                }
                 const callPermissions = {
                   ...this.manifest.permissions,
                   _overrideProtected: isWritingToProtected,

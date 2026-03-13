@@ -13,6 +13,14 @@ describe('Database Skill', () => {
       type: 'mysql',
       config: { host: 'localhost' },
     },
+    test_pg: {
+      type: 'postgresql',
+      config: { host: 'localhost' },
+    },
+    unsupported: {
+      type: 'mongodb',
+      config: {},
+    },
   };
 
   beforeEach(() => {
@@ -71,5 +79,69 @@ describe('Database Skill', () => {
 
     const result = await implementations.query(args, { capabilities: { database: false } });
     expect(result).toContain('Database access is not permitted by your current manifest');
+  });
+
+  it('handles unsupported database types', async () => {
+    const args = {
+      profile: 'unsupported',
+      sql: 'SELECT 1',
+      justification: 'Test',
+      risk_assessment: 'None',
+    };
+
+    const result = await implementations.query(args, { capabilities: { database: true } });
+    expect(result).toContain("Error: Unsupported database type 'mongodb'");
+  });
+
+  it('handles missing configuration file', async () => {
+    fs.existsSync.mockReturnValue(false);
+    const args = {
+      profile: 'test_db',
+      sql: 'SELECT 1',
+      justification: 'Test',
+      risk_assessment: 'None',
+    };
+
+    const result = await implementations.query(args, { capabilities: { database: true } });
+    expect(result).toContain('Database configuration file not found');
+  });
+
+  it('reports missing pg dependency for postgresql', async () => {
+    const args = {
+      profile: 'test_pg',
+      sql: 'SELECT 1',
+      justification: 'Test',
+      risk_assessment: 'None',
+    };
+
+    const result = await implementations.query(args, { capabilities: { database: true } });
+    expect(result).toContain('Dependency "pg" is not installed');
+  });
+
+  it('respects ANIMA_DB_CONFIG_PATH environment variable', async () => {
+    process.env.ANIMA_DB_CONFIG_PATH = '/custom/path/db.json';
+    const args = {
+      profile: 'test_db',
+      sql: 'SELECT 1',
+      justification: 'Test',
+      risk_assessment: 'None',
+    };
+
+    await implementations.query(args, { capabilities: { database: true } });
+    expect(fs.existsSync).toHaveBeenCalledWith('/custom/path/db.json');
+    delete process.env.ANIMA_DB_CONFIG_PATH;
+  });
+
+  it('handles write operations (non-SELECT)', async () => {
+    const args = {
+      profile: 'test_db',
+      sql: 'INSERT INTO logs (msg) VALUES ("test")',
+      justification: 'Log something',
+      risk_assessment: 'Low',
+    };
+
+    const result = await implementations.query(args, { capabilities: { database: true } });
+    // Should pass security check and fail at mysql dependency check
+    expect(result).toContain('Dependency "mysql2" is not installed');
   });
 });
