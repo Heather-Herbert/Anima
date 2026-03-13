@@ -138,21 +138,24 @@ Anima can evolve its identity based on successful tasks and user feedback.
 2. **milestones.json**: Located in `Memory/`. This tracks specific achievements and skills learned.
 
 ### How it works:
-- When you use the `/save` command or exit the CLI, Anima analyzes the session's conversation history and any **External Memos** (learned from other agents via `learn_from_agent`).
-- The `EvolutionService` proposes new milestones or refinements to `Identity.md` based on both internal achievements and external shared knowledge.
-- You will be asked to approve these changes.
-- Once approved, they are persisted and loaded into the system prompt for future sessions.
+- When you use the `/save` command or exit the CLI, Anima analyzes the session's conversation history and any **External Memos**.
+- The `EvolutionService` proposes refinements to `Identity.md`.
+- **Shadow Testing**: Once you approve a proposal, Anima enters Shadow Mode. It applies the change temporarily and runs the full regression test suite (`npm test`).
+- **Safety Rollback**: If any tests fail, the evolution is rejected, and the system automatically rolls back to the last known stable state.
+- Once validated, changes are persisted for future sessions.
 
 ---
 
 ## 5. A2A (Agent-to-Agent) Communication
 
 Anima supports discovering and collaborating with other agents (including OpenClaw) via the `A2A.js` skill.
-- **Discovery**: Use `discover_agents` to scan local ports and private IP ranges for active agents.
+- **Discovery**: Use `discover_agents`. It uses **UDP Broadcast** for fast auto-discovery and port-scanning as a fallback.
+- **Authentication**: Connections require mutual consent via a **Pairing Flow**. Use `manage_peers` to approve or deny incoming requests. communication is secured via dynamic tokens.
+- **Tiered Disclosure**: Agents selectively share their personality. Use `manage_peers` to set a peer's level to `public` (shares `PublicIdentity.md`) or `full` (shares full `Identity.md`).
 - **Learning**: Use `learn_from_agent` to fetch the Identity and Soul of another agent for mutual evolution.
-- **Collaboration**: Use `delegate_task` to send a specific sub-task to another agent.
-- **Efficiency**: The A2A server uses a strict "sub-agent" system prompt to ensure responses are concise and focused only on the result, minimizing token usage.
-- **Server**: When Anima starts, it opens an OpenAI-compatible endpoint on a port derived from its name, allowing other agents to safely query or collaborate with it.
+- **Collaboration**: Use `delegate_task` to another Anima agent, or `openclaw_delegate` for OpenClaw agents (supports sync/async modes).
+- **Efficiency**: The A2A server uses a strict "sub-agent" system prompt to ensure responses are concise, minimizing token usage.
+- **Server**: When Anima starts, it opens an OpenAI-compatible endpoint and a UDP discovery beacon.
 
 ---
 

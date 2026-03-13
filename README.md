@@ -13,7 +13,12 @@ Anima is a command-line AI agent interface designed to evolve with you. It featu
   - **Short-term**: Session history is saved automatically to JSON files in `Memory/`.
   - **Long-term**: Important facts and insights are consolidated into `Memory/memory.json` after a **User Review** step, where you can accept or reject individual items to prevent prompt injection persistence.
 - **Plugin-based LLM Providers**: Supports multiple AI providers (**OpenAI, Anthropic, Gemini, DeepSeek, OpenRouter, Ollama**) and AI agent platforms (**OpenClaw**) through a modular plugin system. **Providers run in isolated separate processes** with restricted environment access for maximum security.
-- **A2A (Agent-to-Agent) Collaboration**: Anima instances can discover and collaborate with each other and with OpenClaw agents across the network. They can exchange "Soul" and "Identity" information to mutually evolve, and delegate specific sub-tasks to each other using a token-efficient protocol.
+- **A2A (Agent-to-Agent) Collaboration**: Anima instances can discover and collaborate with each other and with OpenClaw agents across the network.
+  - **UDP Auto-Discovery**: Instances automatically announce themselves via UDP broadcast for fast, zero-config pairing.
+  - **Auth & Consent**: Peer connections require a secure token exchange and explicit user approval (Pairing Flow).
+  - **Tiered Disclosure**: Selectively share "Public" vs "Full" Identity and Soul information based on the peer's trust level.
+  - **Task Delegation**: Offload sub-tasks to remote agents using a token-efficient protocol or the **OpenClaw Bridge**.
+- **Shadow Testing & Rollback**: When the agent evolves its own Identity, changes are automatically validated against the full regression test suite. If tests fail, the system performs an instant rollback to the last known stable state.
 - **Manifest-level Security**: Tools and filesystem access are governed by provider-specific manifests, ensuring safe execution environments.
 - **Core Directory Protection**: The agent's "spinal cord" (`Plugins/`, `Memory/`, `Personality/`) is **Read-Only by default**. Any attempt to modify these files requires an explicit justification and user confirmation, regardless of manifest settings.
 - **Explainable Confirmations**: All dangerous operations require the agent to provide a **Justification**, show exactly what will be **Touched**, and provide a **Diff Preview** for file changes before user approval.
@@ -32,6 +37,7 @@ Key protections include:
 - **Hardened Code Execution**: `execute_code` runs in a dedicated `.temp` directory within the workspace and features a 10s timeout and automatic cleanup.
 - **No Shell**: Commands run directly (spawn), avoiding shell injection attacks.
 - **Spinal Cord Protection**: Core files (`Plugins/`, `Memory/`, `Personality/`) are read-only by default.
+- **Evolution Safety**: Proposed updates to the agent's identity are shadow-tested against regression suites before being committed.
 - **Human-in-the-loop**: Structured memory and tool justifications require explicit approval.
 
 For full details on our security architecture, reporting instructions, and sandboxing recommendations, see **[SECURITY.md](SECURITY.md)**.
@@ -132,9 +138,12 @@ The agent has access to a variety of tools. Dangerous operations require user co
 - `delete_file`: Remove a file.
 - `add_plugin`: Install new plugins (agent-initiated).
 - `advisory_council`: Request on-demand structured feedback from the advisory council on a specific question or plan.
-- `discover_agents`: Scan local network interfaces and major private IP ranges (`192.168.0.0/16`, `172.16.0.0/12`, `10.0.0.0/8`) for active Anima or OpenClaw agents.
-- `learn_from_agent`: Fetch the Identity and Soul of another agent to assist in local evolution and knowledge sharing.
-- `delegate_task`: Send a specific sub-task or question to a remote agent. Uses a token-efficient "sub-agent" protocol to minimize conversational overhead.
+- `discover_agents`: Scan local network interfaces and major private IP ranges (`192.168.0.0/16`, `172.16.0.0/12`, `10.0.0.0/8`) for active Anima or OpenClaw agents. Uses fast UDP broadcast auto-discovery with port-scan fallback.
+- `manage_peers`: List, approve, or deny agent-to-agent pairing requests and manage trusted peers and disclosure levels.
+- `get_local_endpoint`: Get your own A2A endpoint and Agent ID to share with other agents for pairing.
+- `learn_from_agent`: Fetch the Identity and Soul of another agent to assist in local evolution and knowledge sharing. Supports tiered disclosure (Public vs Full).
+- `delegate_task`: Send a specific sub-task or question to another Anima agent. Uses a token-efficient "sub-agent" protocol.
+- `openclaw_delegate`: Delegate high-level or long-running tasks to a remote OpenClaw agent (e.g., Jennifer). Supports sync/async modes and context snippets.
 
 ### Plugin Security
 
@@ -145,6 +154,10 @@ To ensure system integrity, Anima provides multiple layers of plugin security:
 - **Audit Logging**: An append-only log (`Memory/audit.log`) records every tool execution, including redacted arguments, user confirmation results, and cryptographic hashes of tool outputs for forensics.
 - **XML Input Delimiters**: All untrusted user input is wrapped in `<user_input>` tags. The system prompt instructs the agent to treat content within these tags strictly as data, providing a robust defense against prompt injection and instruction hijacking.
 - **Verification**: Remote plugins can be verified against a known SHA-256 hash using the `--hash` argument.
+- **A2A Security**: 
+  - **Auth & Consent**: Peer connections require a cryptographically secure token exchange and explicit user approval via the `manage_peers` tool.
+  - **Tiered Disclosure**: Personality sharing is tiered (Public vs Full) based on peer trust levels.
+- **Evolution Safety**: Proposed updates to the agent's identity are **Shadow Tested** against regression suites before being committed, with automatic rollback on test failure.
 - **Security-First Development**: We follow a strict policy of keeping all documentation and tests up to date with every change, with a continuous focus on system hardening.
 
 ## Architecture

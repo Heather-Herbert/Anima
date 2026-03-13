@@ -73,8 +73,13 @@ Type these directly into the chat:
 Anima can discover and talk to other Anima instances or OpenClaw agents on your network.
 
 - **Discovery**: Ask Anima to "discover agents" to find other AI peers.
-- **Learning**: Anima can "learn" from other agents to refine its personality and skills.
-- **Collaboration**: If one agent doesn't have a tool (e.g., Google Calendar) but another does, they can delegate tasks to each other to help you.
+- **Pairing Flow**: For security, connections require mutual consent.
+  - If a peer tries to connect, you will see a **Pairing Request**.
+  - Use the tool `manage_peers` with the `list` action to see requests.
+  - Use `manage_peers` with `approve` and the `id` to establish trust.
+- **Tiered Disclosure**: Once paired, you can set a peer's disclosure level to `public` (shared safe info) or `full` (shares your full Identity and Soul).
+- **Learning**: Anima can "learn" from trusted agents to refine its personality and skills.
+- **Collaboration**: Agents can delegate tasks to each other to help you.
 - **Token Efficient**: Agents use a special "sub-agent" mode to talk to each other concisely, saving you tokens and credits.
 
 ## 5. Safety Modes

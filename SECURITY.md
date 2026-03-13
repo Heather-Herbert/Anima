@@ -22,6 +22,9 @@ Anima is built on a strict **Deny-by-Default** architecture. The agent's capabil
 3.  **Path Traversal Protection**: All filesystem tools are restricted to the project root and subject to manifest-level allowlists.
 4.  **No Shell by Default**: `run_command` executes files directly without a shell to prevent injection attacks.
 5.  **Human-in-the-loop**: All "dangerous" operations (including writes to core system directories) require explicit justification and human confirmation with a diff preview.
+6.  **A2A Authentication**: Agent-to-Agent connections are governed by a **Consent Flow**. Peers must be manually approved, and subsequent communication is secured by dynamic, 32-byte hex tokens in the headers.
+7.  **Tiered Personality Disclosure**: Agents can selectively share public personality snippets (`PublicIdentity.md`) while keeping internal cores (`Identity.md`) private from untrusted peers.
+8.  **Evolution Shadow Testing**: Any self-modification of the agent's identity is automatically validated against full regression suites before being committed, with automatic rollback on failure.
 
 ## Threat Model & User Guidance
 
