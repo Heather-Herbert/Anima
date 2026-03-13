@@ -81,7 +81,30 @@ const startServer = (baseDir) => {
       return;
     }
 
-    // 2. Authenticated AI Endpoint
+    // 2. Webhook Endpoint (for async tasks)
+    if (req.method === 'POST' && req.url === '/v1/webhook') {
+      let body = '';
+      req.on('data', (chunk) => {
+        body += chunk;
+      });
+      req.on('end', () => {
+        try {
+          const data = JSON.parse(body);
+          process.stdout.write(
+            `\n\x1b[35m[OPENCLAW NOTIFICATION]\x1b[0m Task "${data.taskId || 'unknown'}" completed.\n` +
+              `Result: ${data.result || 'No result provided.'}\n`,
+          );
+          res.writeHead(200);
+          res.end('OK');
+        } catch (e) {
+          res.writeHead(400);
+          res.end();
+        }
+      });
+      return;
+    }
+
+    // 3. Authenticated AI Endpoint
     if (req.method === 'POST' && req.url === '/v1/chat/completions') {
       // AUTH CHECK
       const auth = req.headers['authorization'];

@@ -1,0 +1,24 @@
+{
+  "name": "OpenClawBridge",
+  "description": "Bridge for delegating tasks to OpenClaw agents.",
+  "type": "skill",
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "openclaw_delegate",
+        "description": "Delegate a high-level or long-running task to a remote OpenClaw agent.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "task": { "type": "string", "description": "The description of the task to perform." },
+            "mode": { "type": "string", "enum": ["sync", "async"], "description": "Sync mode waits for a response. Async mode provides a webhook for later notification. Defaults to sync." },
+            "agentId": { "type": "string", "description": "The identifier of the remote agent (e.g., 'jennifer'). Defaults to 'jennifer'." },
+            "context_snippets": { "type": "array", "items": { "type": "string" }, "description": "Optional snippets from local memory or files to help the remote agent." }
+          },
+          "required": ["task"]
+        }
+      }
+    }
+  ]
+}
