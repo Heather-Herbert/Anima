@@ -103,6 +103,8 @@ describe('A2A Skill', () => {
       mockUdpSocket.send = jest.fn();
       mockUdpSocket.close = jest.fn();
       dgram.createSocket.mockReturnValue(mockUdpSocket);
+      // Ensure global fetch is always a mock within these tests
+      global.fetch = jest.fn();
     });
 
     it('discovers agents via UDP broadcast', async () => {
@@ -146,6 +148,32 @@ describe('A2A Skill', () => {
       });
 
       expect(result).toBe('No other agents discovered on local subnets.');
+      networkSpy.mockRestore();
+    });
+
+    it('handles fetch rejection in checkIp catch block', async () => {
+      // Use a fresh mock that ALWAYS rejects
+      const originalFetch = global.fetch;
+      global.fetch = jest
+        .fn()
+        .mockImplementation(() => Promise.reject(new Error('Fetch Fatal Error')));
+
+      const os = require('node:os');
+      const networkSpy = jest.spyOn(os, 'networkInterfaces').mockReturnValue({});
+
+      // We pass a port range that doesn't include common defaults
+      const result = await A2A.implementations.discover_agents({
+        useUdp: false,
+        startPort: 18799,
+        endPort: 18799,
+        scanSubnetOnly: true,
+      });
+
+      // Because checkIp treats any 'error' or 'catch' as potential hit (legacy logic),
+      // we expect it to find the IP we scanned.
+      expect(result).toContain('http://127.0.0.1:18799/v1/chat/completions');
+
+      global.fetch = originalFetch;
       networkSpy.mockRestore();
     });
   });

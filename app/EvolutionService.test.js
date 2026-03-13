@@ -51,6 +51,20 @@ describe('EvolutionService', () => {
     expect(callAI).toHaveBeenCalled();
   });
 
+  it('handles errors in proposeEvolution', async () => {
+    callAI.mockRejectedValueOnce(new Error('AI failure'));
+    const history = [{ role: 'user', content: 'test' }];
+
+    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation(() => {});
+    const proposal = await service.proposeEvolution(history);
+
+    expect(proposal).toBeNull();
+    expect(stderrSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Evolution Proposal Error: AI failure'),
+    );
+    stderrSpy.mockRestore();
+  });
+
   describe('Shadow Testing & Rollback', () => {
     let mockChild;
 

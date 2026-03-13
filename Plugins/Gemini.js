@@ -62,6 +62,12 @@ const completion = async (messages, tools = null) => {
     body: JSON.stringify(body),
   });
 
+  if (response.status === 401 || response.status === 403) {
+    throw new Error(
+      `Invalid or expired Gemini API Key (HTTP ${response.status}). Please check settings/gemini.json.`,
+    );
+  }
+
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(
