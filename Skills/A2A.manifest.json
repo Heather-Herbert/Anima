@@ -40,12 +40,13 @@
       "type": "function",
       "function": {
         "name": "discover_agents",
-        "description": "Scan local network ports for active Anima or OpenClaw agents.",
+        "description": "Discover active Anima or OpenClaw agents on the local network using UDP broadcast and port scanning.",
         "parameters": {
           "type": "object",
           "properties": {
-            "startPort": { "type": "integer", "description": "Port to start scanning from (default 18700)" },
-            "endPort": { "type": "integer", "description": "Port to end scanning at (default 18790)" },
+            "useUdp": { "type": "boolean", "description": "Use UDP broadcast for fast discovery. Defaults to true." },
+            "startPort": { "type": "integer", "description": "Fallback port to start scanning from (default 18700)" },
+            "endPort": { "type": "integer", "description": "Fallback port to end scanning at (default 18790)" },
             "scanSubnetOnly": { "type": "boolean", "description": "If true, only scan the local /24 subnet. If false, scan all private IP ranges (slow). Defaults to true." }
           }
         }

@@ -2,12 +2,15 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
+const dgram = require('node:dgram');
 const config = require('../app/Config');
 
 // This skill provides an OpenAI-compatible endpoint for other Anima/OpenClaw agents.
 // It supports identity queries for learning and task delegation for collaboration.
 
 let server = null;
+let udpSocket = null;
+const DISCOVERY_PORT = 18789;
 
 const startServer = (baseDir) => {
   if (server) return;
@@ -20,6 +23,7 @@ const startServer = (baseDir) => {
   }
   const port = 18700 + (Math.abs(hash) % 89);
 
+  // --- HTTP Server ---
   server = http.createServer((req, res) => {
     if (req.method === 'POST' && req.url === '/v1/chat/completions') {
       let body = '';
@@ -64,10 +68,8 @@ const startServer = (baseDir) => {
           }
 
           // CASE 2: Task Delegation (Collaboration)
-          // We use the main Anima logic to solve the task
           const { callAI } = require('../app/Utils');
 
-          // Inject a strict sub-agent instruction to keep it concise and token-efficient
           const subAgentPrompt = {
             role: 'system',
             content: `You are acting as a specialized sub-agent for another Anima instance. 
@@ -79,7 +81,6 @@ Your Identity: ${fs.existsSync(path.join(baseDir, 'Personality', 'Identity.md'))
           const delegatedMessages = [subAgentPrompt, ...messages];
 
           try {
-            // We call our own local AI provider to handle the task
             const result = await callAI(delegatedMessages, requestedTools);
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify(result));
@@ -102,12 +103,43 @@ Your Identity: ${fs.existsSync(path.join(baseDir, 'Personality', 'Identity.md'))
     process.stdout.write(`\n\x1b[90m[A2A Service active on port ${port} (0.0.0.0)]\x1b[0m\n`);
   });
 
-  process.on('SIGINT', () => {
+  // --- UDP Discovery Beacon ---
+  try {
+    udpSocket = dgram.createSocket({ type: 'udp4', reuseAddr: true });
+
+    udpSocket.on('message', (msg, rinfo) => {
+      if (msg.toString() === 'ANIMA_DISCOVER') {
+        const response = JSON.stringify({
+          type: 'anima_agent',
+          name: agentName,
+          port: port,
+        });
+        udpSocket.send(response, rinfo.port, rinfo.address);
+      }
+    });
+
+    udpSocket.on('error', (err) => {
+      process.stderr.write(`UDP Discovery Error: ${err.message}\n`);
+    });
+
+    udpSocket.bind(DISCOVERY_PORT);
+  } catch (e) {
+    process.stderr.write(`Failed to start UDP Discovery: ${e.message}\n`);
+  }
+
+  const cleanup = () => {
     if (server) server.close();
-  });
-  process.on('exit', () => {
-    if (server) server.close();
-  });
+    if (udpSocket) {
+      try {
+        udpSocket.close();
+      } catch (e) {
+        /* ignore */
+      }
+    }
+  };
+
+  process.on('SIGINT', cleanup);
+  process.on('exit', cleanup);
 };
 
 // Skill export
@@ -133,7 +165,7 @@ module.exports = {
           method: 'POST',
           headers: headers,
           body: JSON.stringify(body),
-          signal: AbortSignal.timeout(60000), // Longer timeout for actual tasks
+          signal: AbortSignal.timeout(60000),
         });
 
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -184,92 +216,145 @@ module.exports = {
       }
     },
     discover_agents: async (
-      { startPort = 18700, endPort = 18790, scanSubnetOnly = true },
+      { startPort = 18700, endPort = 18790, scanSubnetOnly = true, useUdp = true },
       _permissions,
     ) => {
-      const active = [];
-      const checked = new Set();
+      const active = new Set();
 
-      const checkIp = async (ip, port) => {
-        const url = `http://${ip}:${port}/v1/chat/completions`;
-        if (checked.has(url)) return;
-        checked.add(url);
-
+      // 1. UDP Broadcast Discovery (Fast)
+      if (useUdp) {
         try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 150);
-          const response = await fetch(`http://${ip}:${port}/`, {
-            method: 'OPTIONS',
-            signal: controller.signal,
-          }).catch(() => ({ ok: false, status: 404 }));
+          const discovered = await new Promise((resolve) => {
+            const client = dgram.createSocket('udp4');
+            const found = [];
+            client.on('message', (msg, rinfo) => {
+              try {
+                const data = JSON.parse(msg.toString());
+                if (data.type === 'anima_agent') {
+                  found.push(`http://${rinfo.address}:${data.port}/v1/chat/completions`);
+                }
+              } catch (e) {
+                /* ignore malformed */
+              }
+            });
 
-          if (response.status === 404 || response.status === 200 || response.status === 403) {
-            active.push(url);
-          }
-          clearTimeout(timeoutId);
+            client.bind(0, () => {
+              client.setBroadcast(true);
+              const message = Buffer.from('ANIMA_DISCOVER');
+              client.send(message, DISCOVERY_PORT, '255.255.255.255');
+
+              // Also send to local broadcast addresses
+              const interfaces = os.networkInterfaces();
+              for (const name of Object.keys(interfaces)) {
+                for (const iface of interfaces[name]) {
+                  if (iface.family === 'IPv4' && !iface.internal) {
+                    const parts = iface.address.split('.');
+                    parts[3] = '255';
+                    client.send(message, DISCOVERY_PORT, parts.join('.'));
+                  }
+                }
+              }
+            });
+
+            setTimeout(() => {
+              client.close();
+              resolve(found);
+            }, 1500); // Wait 1.5s for responses
+          });
+
+          discovered.forEach((url) => active.add(url));
         } catch (e) {
-          /* ignore */
+          /* ignore UDP errors */
         }
-      };
+      }
 
-      const scanRange = async (ips, ports) => {
-        const batchSize = 50;
-        for (let i = 0; i < ips.length; i += batchSize) {
-          const batch = [];
-          for (let j = i; j < Math.min(i + batchSize, ips.length); j++) {
-            for (const port of ports) {
-              batch.push(checkIp(ips[j], port));
+      // 2. Legacy Port Scanning Fallback (Slow)
+      if (active.size === 0) {
+        const checked = new Set();
+        const checkIp = async (ip, port) => {
+          const url = `http://${ip}:${port}/v1/chat/completions`;
+          if (checked.has(url)) return;
+          checked.add(url);
+
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 150);
+            const response = await fetch(`http://${ip}:${port}/`, {
+              method: 'OPTIONS',
+              signal: controller.signal,
+            }).catch(() => ({ ok: false, status: 404 }));
+
+            if (response.status === 404 || response.status === 200 || response.status === 403) {
+              active.add(url);
+            }
+            clearTimeout(timeoutId);
+          } catch (e) {
+            /* ignore */
+          }
+        };
+
+        const scanRange = async (ips, ports) => {
+          const batchSize = 50;
+          for (let i = 0; i < ips.length; i += batchSize) {
+            const batch = [];
+            for (let j = i; j < Math.min(i + batchSize, ips.length); j++) {
+              for (const port of ports) {
+                batch.push(checkIp(ips[j], port));
+              }
+            }
+            await Promise.all(batch);
+          }
+        };
+
+        await scanRange(
+          ['127.0.0.1'],
+          [18789, ...Array.from({ length: endPort - startPort + 1 }, (_, i) => startPort + i)],
+        );
+
+        const interfaces = os.networkInterfaces();
+        const localIps = [];
+        for (const name of Object.keys(interfaces)) {
+          for (const iface of interfaces[name]) {
+            if (iface.family === 'IPv4' && !iface.internal) {
+              localIps.push(iface.address);
             }
           }
-          await Promise.all(batch);
         }
-      };
 
-      await scanRange(
-        ['127.0.0.1'],
-        [18789, ...Array.from({ length: endPort - startPort + 1 }, (_, i) => startPort + i)],
-      );
+        for (const localIp of localIps) {
+          const subnet = localIp.split('.').slice(0, 3).join('.');
+          const ips = Array.from({ length: 254 }, (_, i) => `${subnet}.${i + 1}`);
+          await scanRange(ips, [18789, startPort]);
+        }
 
-      const interfaces = os.networkInterfaces();
-      const localIps = [];
-      for (const name of Object.keys(interfaces)) {
-        for (const iface of interfaces[name]) {
-          if (iface.family === 'IPv4' && !iface.internal) {
-            localIps.push(iface.address);
+        if (!scanSubnetOnly && active.size < 1) {
+          const ranges = [
+            { base: '192.168', secondOctet: Array.from({ length: 256 }, (_, i) => i) },
+            { base: '172', secondOctet: Array.from({ length: 16 }, (_, i) => 16 + i) },
+            { base: '10', secondOctet: Array.from({ length: 256 }, (_, i) => i) },
+          ];
+
+          for (const range of ranges) {
+            for (const octet of range.secondOctet) {
+              const prefix = range.base === '10' ? `10.${octet}` : `${range.base}.${octet}`;
+              const ips = [`${prefix}.1`, `${prefix}.100`, `${prefix}.254`];
+              await scanRange(ips, [18789, startPort]);
+              if (active.size > 15) break;
+            }
+            if (active.size > 15) break;
           }
         }
       }
 
-      for (const localIp of localIps) {
-        const subnet = localIp.split('.').slice(0, 3).join('.');
-        const ips = Array.from({ length: 254 }, (_, i) => `${subnet}.${i + 1}`);
-        await scanRange(ips, [18789, startPort]);
-      }
-
+      const activeArray = Array.from(active);
       if (scanSubnetOnly) {
-        return active.length > 0
-          ? `Discovered active agent endpoints:\n${active.join('\n')}`
+        return activeArray.length > 0
+          ? `Discovered active agent endpoints:\n${activeArray.join('\n')}`
           : 'No other agents discovered on local subnets.';
       }
 
-      const ranges = [
-        { base: '192.168', secondOctet: Array.from({ length: 256 }, (_, i) => i) },
-        { base: '172', secondOctet: Array.from({ length: 16 }, (_, i) => 16 + i) },
-        { base: '10', secondOctet: Array.from({ length: 256 }, (_, i) => i) },
-      ];
-
-      for (const range of ranges) {
-        for (const octet of range.secondOctet) {
-          const prefix = range.base === '10' ? `10.${octet}` : `${range.base}.${octet}`;
-          const ips = [`${prefix}.1`, `${prefix}.100`, `${prefix}.254`];
-          await scanRange(ips, [18789, startPort]);
-          if (active.length > 15) break;
-        }
-        if (active.length > 15) break;
-      }
-
-      return active.length > 0
-        ? `Discovered active agent endpoints:\n${active.join('\n')}`
+      return activeArray.length > 0
+        ? `Discovered active agent endpoints:\n${activeArray.join('\n')}`
         : 'No other agents discovered.';
     },
   },
