@@ -60,8 +60,9 @@
         "parameters": {
           "type": "object",
           "properties": {
-            "action": { "type": "string", "enum": ["list", "approve", "deny", "remove"], "description": "Action to perform." },
-            "id": { "type": "string", "description": "Agent identifier for approve/deny/remove actions." }
+            "action": { "type": "string", "enum": ["list", "approve", "set_disclosure", "deny", "remove"], "description": "Action to perform." },
+            "id": { "type": "string", "description": "Agent identifier for approve/deny/remove/set_disclosure actions." },
+            "disclosure": { "type": "string", "enum": ["public", "full"], "description": "Disclosure level for approve or set_disclosure. Defaults to 'public'." }
           },
           "required": ["action"]
         }

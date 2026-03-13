@@ -347,6 +347,72 @@ describe('A2A Skill', () => {
       serverHandler(mockReq, mockRes);
       expect(mockRes.writeHead).toHaveBeenCalledWith(404);
     });
+
+    it('serves Public identity for peers with public disclosure', async () => {
+      A2A.startServer('/test/base');
+      mockReq.method = 'POST';
+      mockReq.url = '/v1/chat/completions';
+      mockReq.headers = { authorization: 'Bearer pub-token' };
+
+      fs.existsSync.mockImplementation((p) => {
+        if (p.endsWith('peers.json')) return true;
+        if (p.endsWith('PublicIdentity.md')) return true;
+        return false;
+      });
+
+      fs.readFileSync.mockImplementation((p) => {
+        if (p.endsWith('peers.json')) {
+          return JSON.stringify({
+            trusted: { p1: { token: 'pub-token', disclosure: 'public' } },
+            pending: {},
+          });
+        }
+        if (p.endsWith('PublicIdentity.md')) return 'Public Identity Content';
+        return '';
+      });
+
+      const promise = serverHandler(mockReq, mockRes);
+      mockReq.emit(
+        'data',
+        Buffer.from(JSON.stringify({ messages: [{ role: 'user', content: 'who are you?' }] })),
+      );
+      mockReq.emit('end');
+      await promise;
+
+      expect(mockRes.end).toHaveBeenCalledWith(expect.stringContaining('Public Identity Content'));
+      expect(mockRes.end).not.toHaveBeenCalledWith(expect.stringContaining('Full Soul'));
+    });
+
+    it('serves Full identity for peers with full disclosure', async () => {
+      A2A.startServer('/test/base');
+      mockReq.method = 'POST';
+      mockReq.url = '/v1/chat/completions';
+      mockReq.headers = { authorization: 'Bearer full-token' };
+
+      fs.existsSync.mockImplementation(() => true);
+      fs.readFileSync.mockImplementation((p) => {
+        if (p.endsWith('peers.json')) {
+          return JSON.stringify({
+            trusted: { p1: { token: 'full-token', disclosure: 'full' } },
+            pending: {},
+          });
+        }
+        if (p.endsWith('Identity.md')) return 'Full Identity';
+        if (p.endsWith('Soul.md')) return 'Full Soul';
+        return '';
+      });
+
+      const promise = serverHandler(mockReq, mockRes);
+      mockReq.emit(
+        'data',
+        Buffer.from(JSON.stringify({ messages: [{ role: 'user', content: 'who are you?' }] })),
+      );
+      mockReq.emit('end');
+      await promise;
+
+      expect(mockRes.end).toHaveBeenCalledWith(expect.stringContaining('Full Identity'));
+      expect(mockRes.end).toHaveBeenCalledWith(expect.stringContaining('Full Soul'));
+    });
   });
 
   describe('delegate_task', () => {
@@ -486,6 +552,25 @@ describe('A2A Skill', () => {
 
       const result = await A2A.implementations.manage_peers({ action: 'deny', id: 'p1' }, {});
       expect(result).toContain('Pending request from "p1" denied');
+    });
+
+    it('sets disclosure level for a trusted peer', async () => {
+      fs.readFileSync.mockReturnValue(
+        JSON.stringify({
+          trusted: { t1: { name: 'Trusted 1', id: 't1', token: 'tok' } },
+          pending: {},
+        }),
+      );
+
+      const result = await A2A.implementations.manage_peers(
+        { action: 'set_disclosure', id: 't1', disclosure: 'full' },
+        {},
+      );
+      expect(result).toContain('Disclosure level for "Trusted 1" set to "full"');
+      expect(fs.writeFileSync).toHaveBeenCalledWith(
+        expect.stringContaining('peers.json'),
+        expect.stringContaining('"disclosure": "full"'),
+      );
     });
 
     it('removes a trusted peer', async () => {

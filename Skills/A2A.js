@@ -110,8 +110,16 @@ const startServer = (baseDir) => {
             lastMsgLower.includes('soul') ||
             lastMsgLower.includes('who are you')
           ) {
-            const identityPath = path.join(baseDir, 'Personality', 'Identity.md');
-            const soulPath = path.join(baseDir, 'Personality', 'Soul.md');
+            let identityPath, soulPath;
+            const disclosure = trustedPeer?.disclosure || 'public';
+
+            if (disclosure === 'full') {
+              identityPath = path.join(baseDir, 'Personality', 'Identity.md');
+              soulPath = path.join(baseDir, 'Personality', 'Soul.md');
+            } else {
+              identityPath = path.join(baseDir, 'Personality', 'PublicIdentity.md');
+              soulPath = path.join(baseDir, 'Personality', 'PublicSoul.md');
+            }
 
             let content = '';
             if (fs.existsSync(identityPath)) {
@@ -121,12 +129,16 @@ const startServer = (baseDir) => {
               content += '## Soul\n' + fs.readFileSync(soulPath, 'utf8') + '\n';
             }
 
+            if (!content) {
+              content = `I am ${config.agentName || 'Anima'}. I share a public identity after pairing, or a full identity with highly trusted peers.`;
+            }
+
             const response = {
               choices: [
                 {
                   message: {
                     role: 'assistant',
-                    content: content || 'I am a nascent Anima instance.',
+                    content: content,
                   },
                 },
               ],
@@ -492,14 +504,18 @@ module.exports = {
         ? `Discovered active agent endpoints:\n${activeArray.join('\n')}`
         : 'No other agents discovered.';
     },
-    manage_peers: async ({ action, id }, _permissions) => {
+    manage_peers: async ({ action, id, disclosure = 'public' }, _permissions) => {
       const peers = getPeers();
 
       if (action === 'list') {
         let out = '--- TRUSTED PEERS ---\n';
         const trusted = Object.values(peers.trusted);
         if (trusted.length === 0) out += '(None)\n';
-        else trusted.forEach((p) => (out += `- ${p.name} (${p.id}) at ${p.endpoint}\n`));
+        else
+          trusted.forEach(
+            (p) =>
+              (out += `- ${p.name} (${p.id}) [Disclosure: ${p.disclosure || 'public'}] at ${p.endpoint}\n`),
+          );
 
         out += '\n--- PENDING REQUESTS ---\n';
         const pending = Object.values(peers.pending);
@@ -517,10 +533,18 @@ module.exports = {
 
         // Generate dynamic token
         peer.token = crypto.randomBytes(32).toString('hex');
+        peer.disclosure = disclosure;
         peers.trusted[id] = peer;
         savePeers(peers);
 
-        return `Peer "${peer.name}" approved. Token generated and stored.`;
+        return `Peer "${peer.name}" approved with disclosure level "${disclosure}". Token generated and stored.`;
+      }
+
+      if (action === 'set_disclosure') {
+        if (!id || !peers.trusted[id]) return `Error: Trusted peer ID "${id}" not found.`;
+        peers.trusted[id].disclosure = disclosure;
+        savePeers(peers);
+        return `Disclosure level for "${peers.trusted[id].name}" set to "${disclosure}".`;
       }
 
       if (action === 'deny' || action === 'remove') {
@@ -537,7 +561,7 @@ module.exports = {
         return `Error: Peer ID "${id}" not found in pending or trusted.`;
       }
 
-      return `Error: Unknown action "${action}". Use: list, approve, deny, remove.`;
+      return `Error: Unknown action "${action}". Use: list, approve, set_disclosure, deny, remove.`;
     },
     get_local_endpoint: async (_args, _permissions) => {
       // Helper to give the user their own endpoint to share with others
