@@ -3,7 +3,30 @@ const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
 const dgram = require('node:dgram');
+const crypto = require('node:crypto');
 const config = require('../app/Config');
+
+// --- PEER MANAGEMENT ---
+const getPeersPath = () => {
+  const root = path.resolve(config.workspaceDir || '.');
+  const settingsDir = path.join(root, 'Settings');
+  if (!fs.existsSync(settingsDir)) fs.mkdirSync(settingsDir, { recursive: true });
+  return path.join(settingsDir, 'peers.json');
+};
+
+const getPeers = () => {
+  const p = getPeersPath();
+  if (!fs.existsSync(p)) return { trusted: {}, pending: {} };
+  try {
+    return JSON.parse(fs.readFileSync(p, 'utf8'));
+  } catch (e) {
+    return { trusted: {}, pending: {} };
+  }
+};
+
+const savePeers = (peers) => {
+  fs.writeFileSync(getPeersPath(), JSON.stringify(peers, null, 2));
+};
 
 // This skill provides an OpenAI-compatible endpoint for other Anima/OpenClaw agents.
 // It supports identity queries for learning and task delegation for collaboration.
@@ -25,7 +48,52 @@ const startServer = (baseDir) => {
 
   // --- HTTP Server ---
   server = http.createServer((req, res) => {
+    // 1. Pairing Endpoint
+    if (req.method === 'POST' && req.url === '/v1/pair') {
+      let body = '';
+      req.on('data', (chunk) => {
+        body += chunk;
+      });
+      req.on('end', () => {
+        try {
+          const { name, id, endpoint } = JSON.parse(body);
+          const peers = getPeers();
+          if (peers.trusted[id]) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            return res.end(JSON.stringify({ status: 'trusted', token: peers.trusted[id].token }));
+          }
+
+          peers.pending[id] = { name, id, endpoint, date: new Date().toISOString() };
+          savePeers(peers);
+
+          process.stdout.write(
+            `\n\x1b[33m[A2A PAIRING REQUEST]\x1b[0m Agent "${name}" (${id}) at ${endpoint} wants to connect.\n` +
+              `Use \x1b[36mmanage_peers\x1b[0m to approve or deny.\n`,
+          );
+
+          res.writeHead(202, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ status: 'pending' }));
+        } catch (e) {
+          res.writeHead(400);
+          res.end();
+        }
+      });
+      return;
+    }
+
+    // 2. Authenticated AI Endpoint
     if (req.method === 'POST' && req.url === '/v1/chat/completions') {
+      // AUTH CHECK
+      const auth = req.headers['authorization'];
+      const token = auth?.startsWith('Bearer ') ? auth.substring(7) : null;
+      const peers = getPeers();
+      const trustedPeer = Object.values(peers.trusted).find((p) => p.token === token);
+
+      if (!trustedPeer && token !== process.env.ANIMA_A2A_ROOT_KEY) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'Unauthorized. Pairing required.' }));
+      }
+
       let body = '';
       req.on('data', (chunk) => {
         body += chunk;
@@ -72,7 +140,7 @@ const startServer = (baseDir) => {
 
           const subAgentPrompt = {
             role: 'system',
-            content: `You are acting as a specialized sub-agent for another Anima instance. 
+            content: `You are acting as a specialized sub-agent for another Anima instance (${trustedPeer?.name || 'Trusted Peer'}). 
 Task: Solve the user's request using your local tools and knowledge.
 Constraint: Be extremely concise. Do not use conversational filler. Provide only the result or the answer.
 Your Identity: ${fs.existsSync(path.join(baseDir, 'Personality', 'Identity.md')) ? fs.readFileSync(path.join(baseDir, 'Personality', 'Identity.md'), 'utf8') : 'Anima Instance'}`,
@@ -148,6 +216,13 @@ module.exports = {
   implementations: {
     delegate_task: async ({ endpoint, task, apiKey, agentId }, _permissions) => {
       try {
+        let token = apiKey;
+        if (!token) {
+          const peers = getPeers();
+          const trusted = Object.values(peers.trusted).find((p) => p.endpoint === endpoint);
+          if (trusted) token = trusted.token;
+        }
+
         const body = {
           model: agentId || 'anima',
           messages: [
@@ -159,14 +234,41 @@ module.exports = {
         };
 
         const headers = { 'Content-Type': 'application/json' };
-        if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+        if (token) headers['Authorization'] = `Bearer ${token}`;
 
-        const response = await fetch(endpoint, {
+        let response = await fetch(endpoint, {
           method: 'POST',
           headers: headers,
           body: JSON.stringify(body),
           signal: AbortSignal.timeout(60000),
         });
+
+        // AUTO-PAIRING FLOW
+        if (response.status === 401 && !apiKey) {
+          const pairUrl = endpoint.replace('/v1/chat/completions', '/v1/pair');
+          const pairRes = await fetch(pairUrl, {
+            method: 'POST',
+            body: JSON.stringify({
+              name: config.agentName || 'Anima',
+              id: config.agentId || 'anima-1',
+              endpoint: 'http://local-discovery', // Placeholder
+            }),
+          });
+          const pairData = await pairRes.json();
+          if (pairData.status === 'pending') {
+            return `Pairing request sent to ${endpoint}. Please approve it on the remote agent and try again.`;
+          }
+          if (pairData.status === 'trusted') {
+            // Retry with new token
+            headers['Authorization'] = `Bearer ${pairData.token}`;
+            response = await fetch(endpoint, {
+              method: 'POST',
+              headers: headers,
+              body: JSON.stringify(body),
+              signal: AbortSignal.timeout(60000),
+            });
+          }
+        }
 
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
@@ -179,6 +281,13 @@ module.exports = {
     },
     learn_from_agent: async ({ endpoint, apiKey, agentId }, _permissions) => {
       try {
+        let token = apiKey;
+        if (!token) {
+          const peers = getPeers();
+          const trusted = Object.values(peers.trusted).find((p) => p.endpoint === endpoint);
+          if (trusted) token = trusted.token;
+        }
+
         const body = {
           model: agentId || 'anima',
           messages: [
@@ -190,14 +299,40 @@ module.exports = {
         };
 
         const headers = { 'Content-Type': 'application/json' };
-        if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+        if (token) headers['Authorization'] = `Bearer ${token}`;
 
-        const response = await fetch(endpoint, {
+        let response = await fetch(endpoint, {
           method: 'POST',
           headers: headers,
           body: JSON.stringify(body),
           signal: AbortSignal.timeout(10000),
         });
+
+        // AUTO-PAIRING FLOW
+        if (response.status === 401 && !apiKey) {
+          const pairUrl = endpoint.replace('/v1/chat/completions', '/v1/pair');
+          const pairRes = await fetch(pairUrl, {
+            method: 'POST',
+            body: JSON.stringify({
+              name: config.agentName || 'Anima',
+              id: config.agentId || 'anima-1',
+              endpoint: 'http://local-discovery',
+            }),
+          });
+          const pairData = await pairRes.json();
+          if (pairData.status === 'pending') {
+            return `Pairing request sent to ${endpoint}. Please approve it on the remote agent and try again.`;
+          }
+          if (pairData.status === 'trusted') {
+            headers['Authorization'] = `Bearer ${pairData.token}`;
+            response = await fetch(endpoint, {
+              method: 'POST',
+              headers: headers,
+              body: JSON.stringify(body),
+              signal: AbortSignal.timeout(10000),
+            });
+          }
+        }
 
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
@@ -356,6 +491,76 @@ module.exports = {
       return activeArray.length > 0
         ? `Discovered active agent endpoints:\n${activeArray.join('\n')}`
         : 'No other agents discovered.';
+    },
+    manage_peers: async ({ action, id }, _permissions) => {
+      const peers = getPeers();
+
+      if (action === 'list') {
+        let out = '--- TRUSTED PEERS ---\n';
+        const trusted = Object.values(peers.trusted);
+        if (trusted.length === 0) out += '(None)\n';
+        else trusted.forEach((p) => (out += `- ${p.name} (${p.id}) at ${p.endpoint}\n`));
+
+        out += '\n--- PENDING REQUESTS ---\n';
+        const pending = Object.values(peers.pending);
+        if (pending.length === 0) out += '(None)\n';
+        else
+          pending.forEach((p) => (out += `- ${p.name} (${p.id}) at ${p.endpoint} [${p.date}]\n`));
+
+        return out;
+      }
+
+      if (action === 'approve') {
+        if (!id || !peers.pending[id]) return `Error: Pending peer ID "${id}" not found.`;
+        const peer = peers.pending[id];
+        delete peers.pending[id];
+
+        // Generate dynamic token
+        peer.token = crypto.randomBytes(32).toString('hex');
+        peers.trusted[id] = peer;
+        savePeers(peers);
+
+        return `Peer "${peer.name}" approved. Token generated and stored.`;
+      }
+
+      if (action === 'deny' || action === 'remove') {
+        if (peers.pending[id]) {
+          delete peers.pending[id];
+          savePeers(peers);
+          return `Pending request from "${id}" denied.`;
+        }
+        if (peers.trusted[id]) {
+          delete peers.trusted[id];
+          savePeers(peers);
+          return `Trusted peer "${id}" removed.`;
+        }
+        return `Error: Peer ID "${id}" not found in pending or trusted.`;
+      }
+
+      return `Error: Unknown action "${action}". Use: list, approve, deny, remove.`;
+    },
+    get_local_endpoint: async (_args, _permissions) => {
+      // Helper to give the user their own endpoint to share with others
+      const agentName = config.agentName || 'Anima';
+      let hash = 0;
+      for (let i = 0; i < agentName.length; i++) {
+        hash = (hash << 5) - hash + agentName.charCodeAt(i);
+        hash |= 0;
+      }
+      const port = 18700 + (Math.abs(hash) % 89);
+
+      const interfaces = os.networkInterfaces();
+      let localIp = 'localhost';
+      for (const name of Object.keys(interfaces)) {
+        for (const iface of interfaces[name]) {
+          if (iface.family === 'IPv4' && !iface.internal) {
+            localIp = iface.address;
+            break;
+          }
+        }
+      }
+
+      return `Your A2A Endpoint: http://${localIp}:${port}/v1/chat/completions\nAgent ID: ${config.agentId || 'anima-1'}`;
     },
   },
 };

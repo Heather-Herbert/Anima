@@ -51,6 +51,32 @@
           }
         }
       }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "manage_peers",
+        "description": "List, approve, or deny agent-to-agent pairing requests and manage trusted peers.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "action": { "type": "string", "enum": ["list", "approve", "deny", "remove"], "description": "Action to perform." },
+            "id": { "type": "string", "description": "Agent identifier for approve/deny/remove actions." }
+          },
+          "required": ["action"]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "get_local_endpoint",
+        "description": "Get your own A2A endpoint and Agent ID to share with other agents for pairing.",
+        "parameters": {
+          "type": "object",
+          "properties": {}
+        }
+      }
     }
   ]
 }

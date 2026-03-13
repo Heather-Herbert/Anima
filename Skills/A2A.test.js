@@ -64,6 +64,33 @@ describe('A2A Skill', () => {
         'I am a Test Agent. Identity: Senior Dev. Soul: Helpful.',
       );
     });
+
+    it('handles auto-pairing flow in learn_from_agent', async () => {
+      global.fetch.mockResolvedValueOnce({ status: 401, ok: false }); // Auth fail
+      global.fetch.mockResolvedValueOnce({
+        status: 200,
+        ok: true,
+        json: async () => ({ status: 'trusted', token: 'new-tok' }),
+      }); // Pair success
+      global.fetch.mockResolvedValueOnce({
+        status: 200,
+        ok: true,
+        json: async () => ({ choices: [{ message: { content: 'Identity info' } }] }),
+      }); // Identity success
+
+      const result = await A2A.implementations.learn_from_agent(
+        { endpoint: 'http://remote/v1/chat/completions' },
+        {},
+      );
+
+      expect(result).toContain('Successfully learned');
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          headers: expect.objectContaining({ Authorization: 'Bearer new-tok' }),
+        }),
+      );
+    });
   });
 
   describe('discover_agents', () => {
@@ -166,14 +193,24 @@ describe('A2A Skill', () => {
       );
     });
 
-    it('handles Identity queries via HTTP', async () => {
+    it('handles Identity queries via HTTP with authentication', async () => {
       A2A.startServer('/test/base');
 
       mockReq.method = 'POST';
       mockReq.url = '/v1/chat/completions';
+      mockReq.headers = { authorization: 'Bearer test-token' };
 
+      // Mock peers to allow this token
       fs.existsSync.mockReturnValue(true);
-      fs.readFileSync.mockReturnValue('Mock Identity Content');
+      fs.readFileSync.mockImplementation((p) => {
+        if (p.endsWith('peers.json')) {
+          return JSON.stringify({
+            trusted: { 'peer-1': { token: 'test-token', name: 'Peer 1' } },
+            pending: {},
+          });
+        }
+        return 'Mock Identity Content';
+      });
 
       const promise = serverHandler(mockReq, mockRes);
 
@@ -193,11 +230,91 @@ describe('A2A Skill', () => {
       expect(mockRes.end).toHaveBeenCalledWith(expect.stringContaining('Mock Identity Content'));
     });
 
+    it('rejects unauthenticated Identity queries', async () => {
+      A2A.startServer('/test/base');
+
+      mockReq.method = 'POST';
+      mockReq.url = '/v1/chat/completions';
+      mockReq.headers = {}; // No auth
+
+      fs.readFileSync.mockReturnValue(JSON.stringify({ trusted: {}, pending: {} }));
+
+      const promise = serverHandler(mockReq, mockRes);
+      mockReq.emit('end');
+      await promise;
+
+      expect(mockRes.writeHead).toHaveBeenCalledWith(401, expect.anything());
+    });
+
+    it('allows access with ANIMA_A2A_ROOT_KEY', async () => {
+      A2A.startServer('/test/base');
+      process.env.ANIMA_A2A_ROOT_KEY = 'root-secret';
+
+      mockReq.method = 'POST';
+      mockReq.url = '/v1/chat/completions';
+      mockReq.headers = { authorization: 'Bearer root-secret' };
+
+      fs.readFileSync.mockReturnValue(JSON.stringify({ trusted: {}, pending: {} }));
+
+      const promise = serverHandler(mockReq, mockRes);
+      mockReq.emit(
+        'data',
+        Buffer.from(JSON.stringify({ messages: [{ role: 'user', content: 'soul' }] })),
+      );
+      mockReq.emit('end');
+      await promise;
+
+      expect(mockRes.writeHead).toHaveBeenCalledWith(200, expect.anything());
+      delete process.env.ANIMA_A2A_ROOT_KEY;
+    });
+
+    it('handles Pairing requests', async () => {
+      A2A.startServer('/test/base');
+
+      mockReq.method = 'POST';
+      mockReq.url = '/v1/pair';
+
+      fs.readFileSync.mockReturnValue(JSON.stringify({ trusted: {}, pending: {} }));
+
+      const promise = serverHandler(mockReq, mockRes);
+
+      mockReq.emit(
+        'data',
+        Buffer.from(
+          JSON.stringify({
+            name: 'New Agent',
+            id: 'agent-99',
+            endpoint: 'http://remote:18701',
+          }),
+        ),
+      );
+      mockReq.emit('end');
+
+      await promise;
+
+      expect(mockRes.writeHead).toHaveBeenCalledWith(202, expect.anything());
+      expect(fs.writeFileSync).toHaveBeenCalledWith(
+        expect.stringContaining('peers.json'),
+        expect.stringContaining('agent-99'),
+      );
+    });
+
     it('handles Task Delegation queries via HTTP', async () => {
       A2A.startServer('/test/base');
 
       mockReq.method = 'POST';
       mockReq.url = '/v1/chat/completions';
+      mockReq.headers = { authorization: 'Bearer test-token' };
+
+      fs.readFileSync.mockImplementation((p) => {
+        if (p.endsWith('peers.json')) {
+          return JSON.stringify({
+            trusted: { 'peer-1': { token: 'test-token', name: 'Peer 1' } },
+            pending: {},
+          });
+        }
+        return '{}';
+      });
 
       callAI.mockResolvedValueOnce({
         choices: [{ message: { content: 'Sub-agent result' } }],
@@ -266,6 +383,142 @@ describe('A2A Skill', () => {
       );
 
       expect(result).toContain('Error delegating task: Fetch failed');
+    });
+
+    it('handles auto-pairing flow when unauthorized', async () => {
+      // 1. Initial call returns 401
+      global.fetch.mockResolvedValueOnce({
+        status: 401,
+        ok: false,
+      });
+      // 2. Pairing request returns 202 (pending)
+      global.fetch.mockResolvedValueOnce({
+        status: 202,
+        ok: true,
+        json: async () => ({ status: 'pending' }),
+      });
+
+      const result = await A2A.implementations.delegate_task(
+        {
+          endpoint: 'http://remote/v1/chat/completions',
+          task: 'test',
+        },
+        {},
+      );
+
+      expect(result).toContain('Pairing request sent');
+    });
+
+    it('retries request after successful auto-pairing', async () => {
+      // 1. Initial call returns 401
+      global.fetch.mockResolvedValueOnce({
+        status: 401,
+        ok: false,
+      });
+      // 2. Pairing request returns 200 (trusted) with token
+      global.fetch.mockResolvedValueOnce({
+        status: 200,
+        ok: true,
+        json: async () => ({ status: 'trusted', token: 'new-token' }),
+      });
+      // 3. Retry call returns 200
+      global.fetch.mockResolvedValueOnce({
+        status: 200,
+        ok: true,
+        json: async () => ({ choices: [{ message: { content: 'Success after pairing' } }] }),
+      });
+
+      const result = await A2A.implementations.delegate_task(
+        {
+          endpoint: 'http://remote/v1/chat/completions',
+          task: 'test',
+        },
+        {},
+      );
+
+      expect(result).toContain('Success after pairing');
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          headers: expect.objectContaining({ Authorization: 'Bearer new-token' }),
+        }),
+      );
+    });
+  });
+
+  describe('manage_peers', () => {
+    it('lists peers', async () => {
+      fs.readFileSync.mockReturnValue(
+        JSON.stringify({
+          trusted: { t1: { name: 'Trusted 1', id: 't1', endpoint: 'http://t1' } },
+          pending: { p1: { name: 'Pending 1', id: 'p1', endpoint: 'http://p1', date: 'now' } },
+        }),
+      );
+
+      const result = await A2A.implementations.manage_peers({ action: 'list' }, {});
+      expect(result).toContain('Trusted 1');
+      expect(result).toContain('Pending 1');
+    });
+
+    it('approves a peer', async () => {
+      fs.readFileSync.mockReturnValue(
+        JSON.stringify({
+          trusted: {},
+          pending: { p1: { name: 'Pending 1', id: 'p1', endpoint: 'http://p1' } },
+        }),
+      );
+
+      const result = await A2A.implementations.manage_peers({ action: 'approve', id: 'p1' }, {});
+      expect(result).toContain('Peer "Pending 1" approved');
+      expect(fs.writeFileSync).toHaveBeenCalledWith(
+        expect.stringContaining('peers.json'),
+        expect.stringContaining('"token":'),
+      );
+    });
+
+    it('denies a peer', async () => {
+      fs.readFileSync.mockReturnValue(
+        JSON.stringify({
+          trusted: {},
+          pending: { p1: { name: 'Pending 1', id: 'p1', endpoint: 'http://p1' } },
+        }),
+      );
+
+      const result = await A2A.implementations.manage_peers({ action: 'deny', id: 'p1' }, {});
+      expect(result).toContain('Pending request from "p1" denied');
+    });
+
+    it('removes a trusted peer', async () => {
+      fs.readFileSync.mockReturnValue(
+        JSON.stringify({
+          trusted: { t1: { name: 'Trusted 1', id: 't1', token: 'tok' } },
+          pending: {},
+        }),
+      );
+
+      const result = await A2A.implementations.manage_peers({ action: 'remove', id: 't1' }, {});
+      expect(result).toContain('Trusted peer "t1" removed');
+    });
+
+    it('handles non-existent peer for deny/remove', async () => {
+      fs.readFileSync.mockReturnValue(JSON.stringify({ trusted: {}, pending: {} }));
+      const result = await A2A.implementations.manage_peers({ action: 'deny', id: 'none' }, {});
+      expect(result).toContain('Error: Peer ID "none" not found');
+    });
+
+    it('handles invalid JSON in peers.json', async () => {
+      fs.existsSync.mockReturnValue(true);
+      fs.readFileSync.mockReturnValue('invalid json');
+      const result = await A2A.implementations.manage_peers({ action: 'list' }, {});
+      expect(result).toContain('--- TRUSTED PEERS ---'); // Should return default empty peers
+    });
+  });
+
+  describe('get_local_endpoint', () => {
+    it('returns own endpoint info', async () => {
+      const result = await A2A.implementations.get_local_endpoint({}, {});
+      expect(result).toContain('Your A2A Endpoint:');
+      expect(result).toContain('Agent ID:');
     });
   });
 });
