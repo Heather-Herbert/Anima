@@ -2,10 +2,15 @@ const { availableTools, tools } = require('./Tools');
 
 class ToolDispatcher {
   constructor() {
+    this.auditService = null;
     this.toolsRegistry = tools.reduce((acc, t) => {
       acc[t.function.name] = t.function;
       return acc;
     }, {});
+  }
+
+  initialize(auditService) {
+    this.auditService = auditService;
   }
 
   async dispatch(toolCall, permissions) {
@@ -34,8 +39,15 @@ class ToolDispatcher {
       if (!toolFn) {
         return `Error: Tool '${name}' is defined but its implementation is missing.`;
       }
-      return await toolFn(args, permissions);
+      const toolPermissions = {
+        ...permissions,
+        auditService: this.auditService,
+      };
+      return await toolFn(args, toolPermissions);
     } catch (error) {
+      if (this.auditService) {
+        this.auditService.logFailure(`Tool Execution: ${name}`, error, { args });
+      }
       return `Error: Execution of tool '${name}' failed: ${error.message}`;
     }
   }

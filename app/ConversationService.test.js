@@ -24,7 +24,16 @@ jest.mock('./AnalysisService', () => {
     };
   });
 });
+jest.mock('./ReflectionService', () => {
+  return jest.fn().mockImplementation(() => {
+    return {
+      isReflectionDue: jest.fn().mockResolvedValue(false),
+      performReflection: jest.fn().mockResolvedValue(null),
+    };
+  });
+});
 jest.mock('node:fs');
+
 jest.mock('./Config', () => ({
   memoryMode: 'session',
   workspaceDir: '.',

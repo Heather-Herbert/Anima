@@ -4,8 +4,9 @@ const path = require('node:path');
 const { spawn } = require('node:child_process');
 
 class PatchService {
-  constructor(baseDir) {
+  constructor(baseDir, auditService = null) {
     this.baseDir = baseDir;
+    this.auditService = auditService;
     this.tempDir = path.join(baseDir, '.temp');
     this.memoryDir = path.join(baseDir, 'Memory');
     this.personalityDir = path.join(baseDir, 'Personality');
@@ -108,6 +109,12 @@ class PatchService {
    * Step 5: Recovery. Log failure to patch_failures.log.
    */
   async recover(filePath, tempFilePath, errorOutput) {
+    if (this.auditService) {
+      this.auditService.logFailure('Patch Failure', `Failed to apply patch to ${filePath}`, {
+        testOutput: errorOutput,
+      });
+    }
+
     const logEntry =
       `[${new Date().toISOString()}] PATCH FAILURE: ${filePath}\n` +
       `Error Output:\n${errorOutput}\n` +

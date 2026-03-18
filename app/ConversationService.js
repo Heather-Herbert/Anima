@@ -5,6 +5,7 @@ const toolDispatcher = require('./ToolDispatcher');
 const config = require('./Config');
 const AdvisoryService = require('./AdvisoryService');
 const AnalysisService = require('./AnalysisService');
+const ReflectionService = require('./ReflectionService');
 
 class ConversationService {
   constructor(agentName, activeTools, manifest, historyPath, auditService = null) {
@@ -15,6 +16,10 @@ class ConversationService {
     this.auditService = auditService;
     this.advisoryService = new AdvisoryService(auditService);
     this.analysisService = new AnalysisService(config.workspaceDir || path.join(__dirname, '..'));
+    this.reflectionService = new ReflectionService(
+      config.workspaceDir || path.join(__dirname, '..'),
+      auditService,
+    );
     this.turnCounter = 0;
     this.lastHealthReport = null;
     this.dangerousTools = [
@@ -43,8 +48,9 @@ class ConversationService {
   }
 
   async processInput(input, conversationHistory, confirmCallback) {
+    // --- PHASE 0: PERIODIC MAINTENANCE (Analysis & Reflection) ---
     this.turnCounter++;
-    // Run periodic analysis every 5 turns (or on the first turn if not yet analyzed)
+    let reflectionProposal = null;
     if (this.turnCounter === 1 || this.turnCounter % 5 === 0) {
       try {
         process.stdout.write('\x1b[36m[Analysis] Running periodic code debt analysis...\x1b[0m\n');
@@ -56,8 +62,15 @@ class ConversationService {
             output: this.lastHealthReport,
           });
         }
+
+        // Check for daily self-reflection
+        if (await this.reflectionService.isReflectionDue()) {
+          reflectionProposal = await this.reflectionService.performReflection(
+            this.lastHealthReport,
+          );
+        }
       } catch (e) {
-        process.stderr.write(`[Analysis] Periodic analysis failed: ${e.message}\n`);
+        process.stderr.write(`[Maintenance] Periodic task failed: ${e.message}\n`);
       }
     }
 
@@ -307,10 +320,24 @@ class ConversationService {
       const limitMessage = 'Max iterations reached. Stopping to prevent infinite loop.';
       conversationHistory.push({ role: 'assistant', content: limitMessage });
       this.saveHistory(conversationHistory);
-      return { reply: limitMessage, usage: totalUsage, iterations, resetRequested, advice: [] };
+      return {
+        reply: limitMessage,
+        usage: totalUsage,
+        iterations,
+        resetRequested,
+        advice: [],
+        reflectionProposal,
+      };
     }
 
-    return { reply: lastReply, usage: totalUsage, iterations, resetRequested, advice: turnAdvice };
+    return {
+      reply: lastReply,
+      usage: totalUsage,
+      iterations,
+      resetRequested,
+      advice: turnAdvice,
+      reflectionProposal,
+    };
   }
 
   getManagedHistory(history) {

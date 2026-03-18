@@ -6,6 +6,7 @@ const config = require('./app/Config');
 const { tools, availableTools } = require('./app/Tools');
 const ParturitionService = require('./app/ParturitionService');
 const ConversationService = require('./app/ConversationService');
+const toolDispatcher = require('./app/ToolDispatcher');
 const AuditService = require('./app/AuditService');
 const EvolutionService = require('./app/EvolutionService');
 const AdvisoryService = require('./app/AdvisoryService');
@@ -726,6 +727,7 @@ async function main() {
     ? path.join(workspace, 'Memory', 'audit.log')
     : path.resolve(__dirname, workspace, 'Memory', 'audit.log');
   const auditService = new AuditService(auditLogPath);
+  toolDispatcher.initialize(auditService);
 
   rl = readline.createInterface({
     input: process.stdin,
@@ -944,10 +946,60 @@ async function main() {
     };
 
     try {
-      const { reply, usage, iterations, resetRequested, advice } =
+      const { reply, usage, iterations, resetRequested, advice, reflectionProposal } =
         await conversationService.processInput(input, conversationHistory, confirmCallback);
       lastUsage = { ...usage, iterations };
       stopSpinner(spinner);
+
+      // --- SELF-REFLECTION HANDLING ---
+      if (reflectionProposal) {
+        console.log(`\n\x1b[35m--- DAILY SELF-REFLECTION ---\x1b[0m`);
+        console.log(`\x1b[90mSummary:\x1b[0m ${reflectionProposal.evolutionSummary}`);
+
+        if (reflectionProposal.newMilestones && reflectionProposal.newMilestones.length > 0) {
+          console.log(`\x1b[36mLESONS LEARNED:\x1b[0m`);
+          for (const m of reflectionProposal.newMilestones) {
+            console.log(`- ${m.content}`);
+          }
+        }
+
+        const hasIdentityUpdate = !!reflectionProposal.proposedIdentityUpdate;
+        if (hasIdentityUpdate) {
+          const oldIdentityPath = path.join(__dirname, 'Personality', 'Identity.md');
+          const oldIdentity = fs.existsSync(oldIdentityPath)
+            ? fs.readFileSync(oldIdentityPath, 'utf8')
+            : '';
+          console.log(`\n\x1b[36mPROPOSED IDENTITY REFINEMENT:\x1b[0m`);
+          console.log(
+            generateDiff(oldIdentity, reflectionProposal.proposedIdentityUpdate, 'Identity.md'),
+          );
+        }
+
+        const question = (q) =>
+          new Promise((resolve) => {
+            const tempRl = readline.createInterface({
+              input: process.stdin,
+              output: process.stdout,
+            });
+            tempRl.question(q, (ans) => {
+              tempRl.close();
+              resolve(ans);
+            });
+          });
+
+        const answer = await question(`Accept these self-improvement proposals? (y/N): `);
+        if (answer.toLowerCase() === 'y') {
+          try {
+            const advSvc = new AdvisoryService(auditService);
+            const evolutionService = new EvolutionService(__dirname, auditService, advSvc);
+            await evolutionService.applyEvolution(reflectionProposal);
+            console.log(`\x1b[32mReflection applied. I have improved.\x1b[0m`);
+            if (hasIdentityUpdate) loadPersona(); // Reload system prompt with new identity
+          } catch (err) {
+            console.error(`\x1b[31mReflection update failed: ${err.message}\x1b[0m`);
+          }
+        }
+      }
 
       if (advice && advice.length > 0) {
         console.log(`\n\x1b[33m--- ADVISORY COUNCIL FEEDBACK --- \x1b[0m`);

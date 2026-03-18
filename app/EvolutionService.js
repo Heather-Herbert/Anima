@@ -95,6 +95,13 @@ class EvolutionService {
         process.stdout.write(`[Evolution] Tests FAILED post-evolution. Rolling back.\n`);
         await this.performRollback(backups, newFiles);
 
+        if (this.auditService) {
+          this.auditService.logFailure('Evolution Regression', 'Tests failed after evolution', {
+            proposal,
+            testOutput: testResult.output,
+          });
+        }
+
         // 5. Alert User/Council
         if (this.advisoryService) {
           await this.advisoryService.getAdvice({
@@ -120,6 +127,9 @@ class EvolutionService {
     } catch (e) {
       // Rollback on unexpected error
       await this.performRollback(backups, newFiles);
+      if (this.auditService) {
+        this.auditService.logFailure('Evolution Validation', e, { proposal });
+      }
       return { success: false, error: e.message };
     }
   }

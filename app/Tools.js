@@ -787,7 +787,7 @@ const availableTools = {
 
       const PatchService = require('./PatchService');
       const root = path.resolve(config.workspaceDir);
-      const service = new PatchService(root);
+      const service = new PatchService(root, permissions?.auditService);
 
       process.stdout.write(`\n[Patch] Applying automated patch to ${filePath}...\n`);
       const result = await service.applyAutomatedPatch(filePath, content);
