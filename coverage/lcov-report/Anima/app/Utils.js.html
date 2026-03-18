@@ -1,63 +1,68 @@
+
 <!doctype html>
 <html lang="en">
-  <head>
+
+<head>
     <title>Code coverage report for Anima/app/Utils.js</title>
     <meta charset="utf-8" />
     <link rel="stylesheet" href="../../prettify.css" />
     <link rel="stylesheet" href="../../base.css" />
     <link rel="shortcut icon" type="image/x-icon" href="../../favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <style type="text/css">
-      .coverage-summary .sorter {
-        background-image: url(../../sort-arrow-sprite.png);
-      }
+    <style type='text/css'>
+        .coverage-summary .sorter {
+            background-image: url(../../sort-arrow-sprite.png);
+        }
     </style>
-  </head>
-
-  <body>
-    <div class="wrapper">
-      <div class="pad1">
-        <h1>
-          <a href="../../index.html">All files</a> / <a href="index.html">Anima/app</a> Utils.js
-        </h1>
-        <div class="clearfix">
-          <div class="fl pad1y space-right2">
-            <span class="strong">100% </span>
-            <span class="quiet">Statements</span>
-            <span class="fraction">26/26</span>
-          </div>
-
-          <div class="fl pad1y space-right2">
-            <span class="strong">84.61% </span>
-            <span class="quiet">Branches</span>
-            <span class="fraction">11/13</span>
-          </div>
-
-          <div class="fl pad1y space-right2">
-            <span class="strong">100% </span>
-            <span class="quiet">Functions</span>
-            <span class="fraction">2/2</span>
-          </div>
-
-          <div class="fl pad1y space-right2">
-            <span class="strong">100% </span>
-            <span class="quiet">Lines</span>
-            <span class="fraction">26/26</span>
-          </div>
+</head>
+    
+<body>
+<div class='wrapper'>
+    <div class='pad1'>
+        <h1><a href="../../index.html">All files</a> / <a href="index.html">Anima/app</a> Utils.js</h1>
+        <div class='clearfix'>
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">95.65% </span>
+                <span class="quiet">Statements</span>
+                <span class='fraction'>88/92</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">81.81% </span>
+                <span class="quiet">Branches</span>
+                <span class='fraction'>27/33</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">100% </span>
+                <span class="quiet">Functions</span>
+                <span class='fraction'>12/12</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">97.64% </span>
+                <span class="quiet">Lines</span>
+                <span class='fraction'>83/85</span>
+            </div>
+        
+            
         </div>
         <p class="quiet">
-          Press <em>n</em> or <em>j</em> to go to the next uncovered block, <em>b</em>,
-          <em>p</em> or <em>k</em> for the previous block.
+            Press <em>n</em> or <em>j</em> to go to the next uncovered block, <em>b</em>, <em>p</em> or <em>k</em> for the previous block.
         </p>
         <template id="filterTemplate">
-          <div class="quiet">
-            Filter:
-            <input type="search" id="fileSearch" />
-          </div>
+            <div class="quiet">
+                Filter:
+                <input type="search" id="fileSearch">
+            </div>
         </template>
-      </div>
-      <div class="status-line high"></div>
-      <pre><table class="coverage">
+    </div>
+    <div class='status-line high'></div>
+    <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
 <a name='L3'></a><a href='#L3'>3</a>
@@ -109,126 +114,446 @@
 <a name='L49'></a><a href='#L49'>49</a>
 <a name='L50'></a><a href='#L50'>50</a>
 <a name='L51'></a><a href='#L51'>51</a>
-<a name='L52'></a><a href='#L52'>52</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">2x</span>
+<a name='L52'></a><a href='#L52'>52</a>
+<a name='L53'></a><a href='#L53'>53</a>
+<a name='L54'></a><a href='#L54'>54</a>
+<a name='L55'></a><a href='#L55'>55</a>
+<a name='L56'></a><a href='#L56'>56</a>
+<a name='L57'></a><a href='#L57'>57</a>
+<a name='L58'></a><a href='#L58'>58</a>
+<a name='L59'></a><a href='#L59'>59</a>
+<a name='L60'></a><a href='#L60'>60</a>
+<a name='L61'></a><a href='#L61'>61</a>
+<a name='L62'></a><a href='#L62'>62</a>
+<a name='L63'></a><a href='#L63'>63</a>
+<a name='L64'></a><a href='#L64'>64</a>
+<a name='L65'></a><a href='#L65'>65</a>
+<a name='L66'></a><a href='#L66'>66</a>
+<a name='L67'></a><a href='#L67'>67</a>
+<a name='L68'></a><a href='#L68'>68</a>
+<a name='L69'></a><a href='#L69'>69</a>
+<a name='L70'></a><a href='#L70'>70</a>
+<a name='L71'></a><a href='#L71'>71</a>
+<a name='L72'></a><a href='#L72'>72</a>
+<a name='L73'></a><a href='#L73'>73</a>
+<a name='L74'></a><a href='#L74'>74</a>
+<a name='L75'></a><a href='#L75'>75</a>
+<a name='L76'></a><a href='#L76'>76</a>
+<a name='L77'></a><a href='#L77'>77</a>
+<a name='L78'></a><a href='#L78'>78</a>
+<a name='L79'></a><a href='#L79'>79</a>
+<a name='L80'></a><a href='#L80'>80</a>
+<a name='L81'></a><a href='#L81'>81</a>
+<a name='L82'></a><a href='#L82'>82</a>
+<a name='L83'></a><a href='#L83'>83</a>
+<a name='L84'></a><a href='#L84'>84</a>
+<a name='L85'></a><a href='#L85'>85</a>
+<a name='L86'></a><a href='#L86'>86</a>
+<a name='L87'></a><a href='#L87'>87</a>
+<a name='L88'></a><a href='#L88'>88</a>
+<a name='L89'></a><a href='#L89'>89</a>
+<a name='L90'></a><a href='#L90'>90</a>
+<a name='L91'></a><a href='#L91'>91</a>
+<a name='L92'></a><a href='#L92'>92</a>
+<a name='L93'></a><a href='#L93'>93</a>
+<a name='L94'></a><a href='#L94'>94</a>
+<a name='L95'></a><a href='#L95'>95</a>
+<a name='L96'></a><a href='#L96'>96</a>
+<a name='L97'></a><a href='#L97'>97</a>
+<a name='L98'></a><a href='#L98'>98</a>
+<a name='L99'></a><a href='#L99'>99</a>
+<a name='L100'></a><a href='#L100'>100</a>
+<a name='L101'></a><a href='#L101'>101</a>
+<a name='L102'></a><a href='#L102'>102</a>
+<a name='L103'></a><a href='#L103'>103</a>
+<a name='L104'></a><a href='#L104'>104</a>
+<a name='L105'></a><a href='#L105'>105</a>
+<a name='L106'></a><a href='#L106'>106</a>
+<a name='L107'></a><a href='#L107'>107</a>
+<a name='L108'></a><a href='#L108'>108</a>
+<a name='L109'></a><a href='#L109'>109</a>
+<a name='L110'></a><a href='#L110'>110</a>
+<a name='L111'></a><a href='#L111'>111</a>
+<a name='L112'></a><a href='#L112'>112</a>
+<a name='L113'></a><a href='#L113'>113</a>
+<a name='L114'></a><a href='#L114'>114</a>
+<a name='L115'></a><a href='#L115'>115</a>
+<a name='L116'></a><a href='#L116'>116</a>
+<a name='L117'></a><a href='#L117'>117</a>
+<a name='L118'></a><a href='#L118'>118</a>
+<a name='L119'></a><a href='#L119'>119</a>
+<a name='L120'></a><a href='#L120'>120</a>
+<a name='L121'></a><a href='#L121'>121</a>
+<a name='L122'></a><a href='#L122'>122</a>
+<a name='L123'></a><a href='#L123'>123</a>
+<a name='L124'></a><a href='#L124'>124</a>
+<a name='L125'></a><a href='#L125'>125</a>
+<a name='L126'></a><a href='#L126'>126</a>
+<a name='L127'></a><a href='#L127'>127</a>
+<a name='L128'></a><a href='#L128'>128</a>
+<a name='L129'></a><a href='#L129'>129</a>
+<a name='L130'></a><a href='#L130'>130</a>
+<a name='L131'></a><a href='#L131'>131</a>
+<a name='L132'></a><a href='#L132'>132</a>
+<a name='L133'></a><a href='#L133'>133</a>
+<a name='L134'></a><a href='#L134'>134</a>
+<a name='L135'></a><a href='#L135'>135</a>
+<a name='L136'></a><a href='#L136'>136</a>
+<a name='L137'></a><a href='#L137'>137</a>
+<a name='L138'></a><a href='#L138'>138</a>
+<a name='L139'></a><a href='#L139'>139</a>
+<a name='L140'></a><a href='#L140'>140</a>
+<a name='L141'></a><a href='#L141'>141</a>
+<a name='L142'></a><a href='#L142'>142</a>
+<a name='L143'></a><a href='#L143'>143</a>
+<a name='L144'></a><a href='#L144'>144</a>
+<a name='L145'></a><a href='#L145'>145</a>
+<a name='L146'></a><a href='#L146'>146</a>
+<a name='L147'></a><a href='#L147'>147</a>
+<a name='L148'></a><a href='#L148'>148</a>
+<a name='L149'></a><a href='#L149'>149</a>
+<a name='L150'></a><a href='#L150'>150</a>
+<a name='L151'></a><a href='#L151'>151</a>
+<a name='L152'></a><a href='#L152'>152</a>
+<a name='L153'></a><a href='#L153'>153</a>
+<a name='L154'></a><a href='#L154'>154</a>
+<a name='L155'></a><a href='#L155'>155</a>
+<a name='L156'></a><a href='#L156'>156</a>
+<a name='L157'></a><a href='#L157'>157</a>
+<a name='L158'></a><a href='#L158'>158</a>
+<a name='L159'></a><a href='#L159'>159</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">const config = require('./Config');
 const fs = require('fs');
 const path = require('path');
 &nbsp;
+const { spawn } = require('node:child_process');
+const crypto = require('node:crypto');
+&nbsp;
+const ALGORITHM = 'aes-256-gcm';
+const IV_LENGTH = 12;
+&nbsp;
+const encrypt = (text, key) =&gt; {
+  if (!key) throw new Error('Encryption key is required');
+  const hashedKey = crypto.createHash('sha256').update(key).digest();
+  const iv = crypto.randomBytes(IV_LENGTH);
+  const cipher = crypto.createCipheriv(ALGORITHM, hashedKey, iv);
+  let encrypted = cipher.update(text, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  const tag = cipher.getAuthTag().toString('hex');
+  return `${iv.toString('hex')}:${tag}:${encrypted}`;
+};
+&nbsp;
+const decrypt = (encryptedText, key) =&gt; {
+  if (!key) throw new Error('Encryption key is required');
+  try {
+    const hashedKey = crypto.createHash('sha256').update(key).digest();
+    const [ivHex, tagHex, encrypted] = encryptedText.split(':');
+    if (!ivHex || !tagHex || !encrypted) throw new Error('Invalid encrypted format');
+    const iv = Buffer.from(ivHex, 'hex');
+    const tag = Buffer.from(tagHex, 'hex');
+    const decipher = crypto.createDecipheriv(ALGORITHM, hashedKey, iv);
+    decipher.setAuthTag(tag);
+    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+  } catch (e) {
+    throw new Error(`Decryption failed: ${e.message}`);
+  }
+};
+&nbsp;
+const resolvePluginFile = (name, suffix) =&gt; {
+  const pluginsDir = path.join(__dirname, '..', 'Plugins');
+  if (!fs.existsSync(pluginsDir)) return null;
+&nbsp;
+  const target = (name + suffix).toLowerCase();
+  const files = fs.readdirSync(pluginsDir);
+  const match = files.find((f) =&gt; f.toLowerCase() === target);
+&nbsp;
+  return match ? path.join(pluginsDir, match) : <span class="branch-1 cbranch-no" title="branch not covered" >null;</span>
+};
+&nbsp;
 const callAI = async (messages, tools = null) =&gt; {
   const providerName = config.LLMProvider || <span class="branch-1 cbranch-no" title="branch not covered" >'openrouter';</span>
 &nbsp;
-  // Dynamic provider loading from plugins directory
-  // Try to find the provider in ../Plugins, handling capitalization
-  let providerFilename = `${providerName}.js`;
-  let providerPath = path.join(__dirname, '..', 'Plugins', providerFilename);
+  // Dynamic provider loading from plugins directory (case-insensitive)
+  const providerPath = resolvePluginFile(providerName, '.js');
 &nbsp;
-  if (!fs.existsSync(providerPath)) {
-    // Try capitalized version (e.g. openrouter -&gt; OpenRouter.js)
-    const capitalized = providerName.charAt(0).toUpperCase() + providerName.slice(1);
-    providerPath = path.join(__dirname, '..', 'Plugins', `${capitalized}.js`);
-&nbsp;
-    if (!fs.existsSync(providerPath)) {
-      throw new Error(
-        `Unknown provider: ${providerName}. Plugin file not found at ${providerPath}`,
-      );
-    }
+  if (!providerPath) {
+    throw new Error(`Unknown provider: ${providerName}. Plugin file not found in Plugins/`);
   }
 &nbsp;
-  const provider = require(providerPath);
-  return await provider.completion(messages, tools);
+  // Run provider out-of-process for isolation
+  return new Promise((resolve, reject) =&gt; {
+    const runnerPath = path.join(__dirname, 'ProviderRunner.js');
+&nbsp;
+    // Whitelist environment variables if needed (e.g. PATH for node/python)
+    const env = {
+      PATH: process.env.PATH,
+      NODE_PATH: process.env.NODE_PATH,
+    };
+&nbsp;
+    const child = spawn(process.execPath, [runnerPath, providerPath], {
+      env: env,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+&nbsp;
+    let stdout = '';
+    let stderr = '';
+&nbsp;
+    child.stdout.on('data', (data) =&gt; {
+      stdout += data;
+    });
+    child.stderr.on('data', (data) =&gt; {
+      stderr += data;
+    });
+&nbsp;
+    child.on('close', (code) =&gt; {
+      if (code !== 0) {
+        try {
+          const errObj = JSON.parse(stderr);
+          reject(new Error(`Provider Process Error: ${errObj.error}`));
+        } catch (e) {
+<span class="cstat-no" title="statement not covered" >          reject(new Error(`Provider Process exited with code ${code}. Stderr: ${stderr}`));</span>
+        }
+        return;
+      }
+&nbsp;
+      try {
+        const result = JSON.parse(stdout);
+        resolve(result);
+      } catch (e) {
+<span class="cstat-no" title="statement not covered" >        reject(new Error(`Failed to parse provider output: ${e.message}. Raw: ${stdout}`));</span>
+      }
+    });
+&nbsp;
+    child.stdin.write(JSON.stringify({ messages, tools }));
+    child.stdin.end();
+  });
 };
 &nbsp;
 const getProviderManifest = () =&gt; {
   const providerName = config.LLMProvider || <span class="branch-1 cbranch-no" title="branch not covered" >'openrouter';</span>
   try {
-    // Assumes manifest is named {provider}.manifest.json in the Plugins directory
-    let manifestFilename = `${providerName}.manifest.json`;
-    let manifestPath = path.join(__dirname, '..', 'Plugins', manifestFilename);
+    const manifestPath = resolvePluginFile(providerName, '.manifest.json');
 &nbsp;
-    if (!fs.existsSync(manifestPath)) {
-      // Try capitalized version
-      const capitalized = providerName.charAt(0).toUpperCase() + providerName.slice(1);
-      manifestPath = path.join(__dirname, '..', 'Plugins', `${capitalized}.manifest.json`);
-    }
-&nbsp;
-    if (fs.existsSync(manifestPath)) {
+    if (manifestPath &amp;&amp; fs.existsSync(manifestPath)) {
       return JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
     }
   } catch (e) {
     /* ignore missing manifest */
   }
-  return { capabilities: { tools: ['*'] } };
+  // Secure by default: If no manifest is found, only allow read-only tools and read-only filesystem access.
+  return {
+    capabilities: {
+      tools: ['read_file', 'list_files', 'search_files', 'file_info', 'web_search'],
+    },
+    permissions: {
+      filesystem: {
+        read: ['*'],
+        write: [],
+      },
+    },
+  };
 };
 &nbsp;
-module.exports = { callAI, getProviderManifest };
+const redact = (text, secrets = []) =&gt; {
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (!text) <span class="cstat-no" title="statement not covered" >return text;</span>
+  let redacted = typeof text === 'string' ? text : <span class="branch-1 cbranch-no" title="branch not covered" >JSON.stringify(text);</span>
+&nbsp;
+  // Redact known secrets
+  secrets.forEach((secret) =&gt; {
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (!secret) <span class="cstat-no" title="statement not covered" >return;</span>
+    const escaped = secret.replace(/[.*+?^${}()|[\]\\]/g, '\\$&amp;');
+    const re = new RegExp(escaped, 'g');
+    redacted = redacted.replace(re, '[REDACTED]');
+  });
+&nbsp;
+  // Pattern-based redaction (generic API keys, tokens, high-entropy strings)
+  redacted = redacted.replace(
+    /(api[_-]?key|token|auth|password|secret(?:\s+key|[_-]?key)?|key)["']?\s*(?:[:=]|\bis\b)\s*["']?([a-zA-Z0-9_-]{8,})["']?/gi,
+    '$1: [REDACTED]',
+  );
+  redacted = redacted.replace(/Bearer\s+([a-zA-Z0-9_-]{10,})/gi, 'Bearer [REDACTED]');
+  redacted = redacted.replace(/sk-[a-zA-Z0-9]{20,}/g, '[REDACTED]'); // OpenAI style keys
+&nbsp;
+  return redacted;
+};
+&nbsp;
+module.exports = { callAI, getProviderManifest, redact, encrypt, decrypt };
 &nbsp;</pre></td></tr></table></pre>
 
-      <div class="push"></div>
-      <!-- for sticky footer -->
-    </div>
-    <!-- /wrapper -->
-    <div class="footer quiet pad2 space-top1 center small">
-      Code coverage generated by
-      <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-      at 2026-02-22T09:38:58.315Z
-    </div>
-    <script src="../../prettify.js"></script>
-    <script>
-      window.onload = function () {
-        prettyPrint();
-      };
-    </script>
-    <script src="../../sorter.js"></script>
-    <script src="../../block-navigation.js"></script>
-  </body>
+                <div class='push'></div><!-- for sticky footer -->
+            </div><!-- /wrapper -->
+            <div class='footer quiet pad2 space-top1 center small'>
+                Code coverage generated by
+                <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
+                at 2026-03-13T22:53:23.579Z
+            </div>
+        <script src="../../prettify.js"></script>
+        <script>
+            window.onload = function () {
+                prettyPrint();
+            };
+        </script>
+        <script src="../../sorter.js"></script>
+        <script src="../../block-navigation.js"></script>
+    </body>
 </html>
+    

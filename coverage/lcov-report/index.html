@@ -1,161 +1,161 @@
+
 <!doctype html>
 <html lang="en">
-  <head>
+
+<head>
     <title>Code coverage report for All files</title>
     <meta charset="utf-8" />
     <link rel="stylesheet" href="prettify.css" />
     <link rel="stylesheet" href="base.css" />
     <link rel="shortcut icon" type="image/x-icon" href="favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <style type="text/css">
-      .coverage-summary .sorter {
-        background-image: url(sort-arrow-sprite.png);
-      }
+    <style type='text/css'>
+        .coverage-summary .sorter {
+            background-image: url(sort-arrow-sprite.png);
+        }
     </style>
-  </head>
-
-  <body>
-    <div class="wrapper">
-      <div class="pad1">
+</head>
+    
+<body>
+<div class='wrapper'>
+    <div class='pad1'>
         <h1>All files</h1>
-        <div class="clearfix">
-          <div class="fl pad1y space-right2">
-            <span class="strong">87.19% </span>
-            <span class="quiet">Statements</span>
-            <span class="fraction">497/570</span>
-          </div>
-
-          <div class="fl pad1y space-right2">
-            <span class="strong">68.47% </span>
-            <span class="quiet">Branches</span>
-            <span class="fraction">202/295</span>
-          </div>
-
-          <div class="fl pad1y space-right2">
-            <span class="strong">87.67% </span>
-            <span class="quiet">Functions</span>
-            <span class="fraction">64/73</span>
-          </div>
-
-          <div class="fl pad1y space-right2">
-            <span class="strong">89.42% </span>
-            <span class="quiet">Lines</span>
-            <span class="fraction">482/539</span>
-          </div>
+        <div class='clearfix'>
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">85.1% </span>
+                <span class="quiet">Statements</span>
+                <span class='fraction'>1411/1658</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">71.44% </span>
+                <span class="quiet">Branches</span>
+                <span class='fraction'>698/977</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">83.93% </span>
+                <span class="quiet">Functions</span>
+                <span class='fraction'>162/193</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">87.57% </span>
+                <span class="quiet">Lines</span>
+                <span class='fraction'>1346/1537</span>
+            </div>
+        
+            
         </div>
         <p class="quiet">
-          Press <em>n</em> or <em>j</em> to go to the next uncovered block, <em>b</em>,
-          <em>p</em> or <em>k</em> for the previous block.
+            Press <em>n</em> or <em>j</em> to go to the next uncovered block, <em>b</em>, <em>p</em> or <em>k</em> for the previous block.
         </p>
         <template id="filterTemplate">
-          <div class="quiet">
-            Filter:
-            <input type="search" id="fileSearch" />
-          </div>
+            <div class="quiet">
+                Filter:
+                <input type="search" id="fileSearch">
+            </div>
         </template>
-      </div>
-      <div class="status-line high"></div>
-      <div class="pad1">
-        <table class="coverage-summary">
-          <thead>
-            <tr>
-              <th data-col="file" data-fmt="html" data-html="true" class="file">File</th>
-              <th
-                data-col="pic"
-                data-type="number"
-                data-fmt="html"
-                data-html="true"
-                class="pic"
-              ></th>
-              <th data-col="statements" data-type="number" data-fmt="pct" class="pct">
-                Statements
-              </th>
-              <th data-col="statements_raw" data-type="number" data-fmt="html" class="abs"></th>
-              <th data-col="branches" data-type="number" data-fmt="pct" class="pct">Branches</th>
-              <th data-col="branches_raw" data-type="number" data-fmt="html" class="abs"></th>
-              <th data-col="functions" data-type="number" data-fmt="pct" class="pct">Functions</th>
-              <th data-col="functions_raw" data-type="number" data-fmt="html" class="abs"></th>
-              <th data-col="lines" data-type="number" data-fmt="pct" class="pct">Lines</th>
-              <th data-col="lines_raw" data-type="number" data-fmt="html" class="abs"></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td class="file high" data-value="Anima"><a href="Anima/index.html">Anima</a></td>
-              <td data-value="100" class="pic high">
-                <div class="chart">
-                  <div class="cover-fill cover-full" style="width: 100%"></div>
-                  <div class="cover-empty" style="width: 0%"></div>
-                </div>
-              </td>
-              <td data-value="100" class="pct high">100%</td>
-              <td data-value="20" class="abs high">20/20</td>
-              <td data-value="75" class="pct medium">75%</td>
-              <td data-value="8" class="abs medium">6/8</td>
-              <td data-value="100" class="pct high">100%</td>
-              <td data-value="2" class="abs high">2/2</td>
-              <td data-value="100" class="pct high">100%</td>
-              <td data-value="20" class="abs high">20/20</td>
-            </tr>
-
-            <tr>
-              <td class="file high" data-value="Anima/Plugins">
-                <a href="Anima/Plugins/index.html">Anima/Plugins</a>
-              </td>
-              <td data-value="80.45" class="pic high">
-                <div class="chart">
-                  <div class="cover-fill" style="width: 80%"></div>
-                  <div class="cover-empty" style="width: 20%"></div>
-                </div>
-              </td>
-              <td data-value="80.45" class="pct high">80.45%</td>
-              <td data-value="174" class="abs high">140/174</td>
-              <td data-value="56.6" class="pct medium">56.6%</td>
-              <td data-value="106" class="abs medium">60/106</td>
-              <td data-value="69.23" class="pct medium">69.23%</td>
-              <td data-value="26" class="abs medium">18/26</td>
-              <td data-value="82.42" class="pct high">82.42%</td>
-              <td data-value="165" class="abs high">136/165</td>
-            </tr>
-
-            <tr>
-              <td class="file high" data-value="Anima/app">
-                <a href="Anima/app/index.html">Anima/app</a>
-              </td>
-              <td data-value="89.62" class="pic high">
-                <div class="chart">
-                  <div class="cover-fill" style="width: 89%"></div>
-                  <div class="cover-empty" style="width: 11%"></div>
-                </div>
-              </td>
-              <td data-value="89.62" class="pct high">89.62%</td>
-              <td data-value="376" class="abs high">337/376</td>
-              <td data-value="75.13" class="pct medium">75.13%</td>
-              <td data-value="181" class="abs medium">136/181</td>
-              <td data-value="97.77" class="pct high">97.77%</td>
-              <td data-value="45" class="abs high">44/45</td>
-              <td data-value="92.09" class="pct high">92.09%</td>
-              <td data-value="354" class="abs high">326/354</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="push"></div>
-      <!-- for sticky footer -->
     </div>
-    <!-- /wrapper -->
-    <div class="footer quiet pad2 space-top1 center small">
-      Code coverage generated by
-      <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-      at 2026-02-22T09:38:58.315Z
-    </div>
-    <script src="prettify.js"></script>
-    <script>
-      window.onload = function () {
-        prettyPrint();
-      };
-    </script>
-    <script src="sorter.js"></script>
-    <script src="block-navigation.js"></script>
-  </body>
+    <div class='status-line high'></div>
+    <div class="pad1">
+<table class="coverage-summary">
+<thead>
+<tr>
+   <th data-col="file" data-fmt="html" data-html="true" class="file">File</th>
+   <th data-col="pic" data-type="number" data-fmt="html" data-html="true" class="pic"></th>
+   <th data-col="statements" data-type="number" data-fmt="pct" class="pct">Statements</th>
+   <th data-col="statements_raw" data-type="number" data-fmt="html" class="abs"></th>
+   <th data-col="branches" data-type="number" data-fmt="pct" class="pct">Branches</th>
+   <th data-col="branches_raw" data-type="number" data-fmt="html" class="abs"></th>
+   <th data-col="functions" data-type="number" data-fmt="pct" class="pct">Functions</th>
+   <th data-col="functions_raw" data-type="number" data-fmt="html" class="abs"></th>
+   <th data-col="lines" data-type="number" data-fmt="pct" class="pct">Lines</th>
+   <th data-col="lines_raw" data-type="number" data-fmt="html" class="abs"></th>
+</tr>
+</thead>
+<tbody><tr>
+	<td class="file high" data-value="Anima"><a href="Anima/index.html">Anima</a></td>
+	<td data-value="100" class="pic high">
+	<div class="chart"><div class="cover-fill cover-full" style="width: 100%"></div><div class="cover-empty" style="width: 0%"></div></div>
+	</td>
+	<td data-value="100" class="pct high">100%</td>
+	<td data-value="29" class="abs high">29/29</td>
+	<td data-value="75" class="pct medium">75%</td>
+	<td data-value="16" class="abs medium">12/16</td>
+	<td data-value="100" class="pct high">100%</td>
+	<td data-value="3" class="abs high">3/3</td>
+	<td data-value="100" class="pct high">100%</td>
+	<td data-value="29" class="abs high">29/29</td>
+	</tr>
+
+<tr>
+	<td class="file high" data-value="Anima/Plugins"><a href="Anima/Plugins/index.html">Anima/Plugins</a></td>
+	<td data-value="87.74" class="pic high">
+	<div class="chart"><div class="cover-fill" style="width: 87%"></div><div class="cover-empty" style="width: 13%"></div></div>
+	</td>
+	<td data-value="87.74" class="pct high">87.74%</td>
+	<td data-value="204" class="abs high">179/204</td>
+	<td data-value="66.41" class="pct medium">66.41%</td>
+	<td data-value="131" class="abs medium">87/131</td>
+	<td data-value="71.42" class="pct medium">71.42%</td>
+	<td data-value="28" class="abs medium">20/28</td>
+	<td data-value="89.74" class="pct high">89.74%</td>
+	<td data-value="195" class="abs high">175/195</td>
+	</tr>
+
+<tr>
+	<td class="file high" data-value="Anima/Skills"><a href="Anima/Skills/index.html">Anima/Skills</a></td>
+	<td data-value="82.52" class="pic high">
+	<div class="chart"><div class="cover-fill" style="width: 82%"></div><div class="cover-empty" style="width: 18%"></div></div>
+	</td>
+	<td data-value="82.52" class="pct high">82.52%</td>
+	<td data-value="492" class="abs high">406/492</td>
+	<td data-value="74.65" class="pct medium">74.65%</td>
+	<td data-value="288" class="abs medium">215/288</td>
+	<td data-value="80" class="pct high">80%</td>
+	<td data-value="50" class="abs high">40/50</td>
+	<td data-value="85.46" class="pct high">85.46%</td>
+	<td data-value="454" class="abs high">388/454</td>
+	</tr>
+
+<tr>
+	<td class="file high" data-value="Anima/app"><a href="Anima/app/index.html">Anima/app</a></td>
+	<td data-value="85.42" class="pic high">
+	<div class="chart"><div class="cover-fill" style="width: 85%"></div><div class="cover-empty" style="width: 15%"></div></div>
+	</td>
+	<td data-value="85.42" class="pct high">85.42%</td>
+	<td data-value="933" class="abs high">797/933</td>
+	<td data-value="70.84" class="pct medium">70.84%</td>
+	<td data-value="542" class="abs medium">384/542</td>
+	<td data-value="88.39" class="pct high">88.39%</td>
+	<td data-value="112" class="abs high">99/112</td>
+	<td data-value="87.77" class="pct high">87.77%</td>
+	<td data-value="859" class="abs high">754/859</td>
+	</tr>
+
+</tbody>
+</table>
+</div>
+                <div class='push'></div><!-- for sticky footer -->
+            </div><!-- /wrapper -->
+            <div class='footer quiet pad2 space-top1 center small'>
+                Code coverage generated by
+                <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
+                at 2026-03-13T22:53:23.579Z
+            </div>
+        <script src="prettify.js"></script>
+        <script>
+            window.onload = function () {
+                prettyPrint();
+            };
+        </script>
+        <script src="sorter.js"></script>
+        <script src="block-navigation.js"></script>
+    </body>
 </html>
+    
