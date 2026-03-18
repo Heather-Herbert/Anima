@@ -34,6 +34,7 @@ class AdvisoryService {
     managedHistorySummary,
     taintStatus,
     availableToolsSummary,
+    healthReport,
   }) {
     const councilConfig = config.advisoryCouncil;
     if (!councilConfig?.enabled || !councilConfig.advisers || councilConfig.advisers.length === 0) {
@@ -47,6 +48,7 @@ class AdvisoryService {
       managedHistorySummary,
       taintStatus,
       availableToolsSummary,
+      healthReport,
     };
 
     if (councilConfig.parallel) {
@@ -102,6 +104,7 @@ ${promptTemplate}`;
 - Managed History Summary: ${context.managedHistorySummary}
 - Taint Status: ${context.taintStatus ? 'TAINTED (Web search used)' : 'CLEAN'}
 - Available Tools: ${context.availableToolsSummary}
+- Health Report: ${context.healthReport ? JSON.stringify(context.healthReport, null, 2) : 'No recent health report available.'}
 
 # PROPOSED RESPONSE (Main Draft)
 "${context.mainDraft}"

@@ -17,6 +17,13 @@ jest.mock('./ToolDispatcher', () => ({
   dispatch: jest.fn(),
 }));
 jest.mock('./Tools');
+jest.mock('./AnalysisService', () => {
+  return jest.fn().mockImplementation(() => {
+    return {
+      runLintAnalysis: jest.fn().mockResolvedValue({ status: 'HEALTHY', summary: 'Mock Report' })
+    };
+  });
+});
 jest.mock('node:fs');
 jest.mock('./Config', () => ({
   memoryMode: 'session',
@@ -53,6 +60,38 @@ describe('ConversationService', () => {
     });
     expect(history[1]).toEqual({ role: 'assistant', content: 'Hello!' });
     expect(fs.writeFileSync).toHaveBeenCalled();
+  });
+
+  it('triggers periodic analysis on turn 1 and turn 6', async () => {
+    callAI.mockResolvedValue({
+      choices: [{ message: { role: 'assistant', content: 'Reply' } }],
+    });
+
+    const mockAnalysis = service.analysisService.runLintAnalysis;
+
+    // Turn 1
+    await service.processInput('Turn 1', [], jest.fn());
+    expect(mockAnalysis).toHaveBeenCalledTimes(1);
+
+    // Turn 2-4
+    for (let i = 2; i <= 4; i++) {
+      await service.processInput(`Turn ${i}`, [], jest.fn());
+    }
+    expect(mockAnalysis).toHaveBeenCalledTimes(1); // Still 1
+
+    // Turn 5
+    await service.processInput('Turn 5', [], jest.fn());
+    expect(mockAnalysis).toHaveBeenCalledTimes(2);
+
+    // Turn 6-9
+    for (let i = 6; i <= 9; i++) {
+        await service.processInput(`Turn ${i}`, [], jest.fn());
+    }
+    expect(mockAnalysis).toHaveBeenCalledTimes(2);
+
+    // Turn 10
+    await service.processInput('Turn 10', [], jest.fn());
+    expect(mockAnalysis).toHaveBeenCalledTimes(3);
   });
 
   it('handles tool calls and continues loop', async () => {

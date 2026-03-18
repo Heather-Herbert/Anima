@@ -4,6 +4,7 @@ const { callAI, redact, encrypt } = require('./Utils');
 const toolDispatcher = require('./ToolDispatcher');
 const config = require('./Config');
 const AdvisoryService = require('./AdvisoryService');
+const AnalysisService = require('./AnalysisService');
 
 class ConversationService {
   constructor(agentName, activeTools, manifest, historyPath, auditService = null) {
@@ -13,6 +14,9 @@ class ConversationService {
     this.historyPath = historyPath;
     this.auditService = auditService;
     this.advisoryService = new AdvisoryService(auditService);
+    this.analysisService = new AnalysisService(config.workspaceDir || path.join(__dirname, '..'));
+    this.turnCounter = 0;
+    this.lastHealthReport = null;
     this.dangerousTools = [
       'run_command',
       'execute_code',
@@ -39,6 +43,24 @@ class ConversationService {
   }
 
   async processInput(input, conversationHistory, confirmCallback) {
+    this.turnCounter++;
+    // Run periodic analysis every 5 turns (or on the first turn if not yet analyzed)
+    if (this.turnCounter === 1 || this.turnCounter % 5 === 0) {
+      try {
+        process.stdout.write('\x1b[36m[Analysis] Running periodic code debt analysis...\x1b[0m\n');
+        this.lastHealthReport = await this.analysisService.runLintAnalysis();
+        if (this.auditService) {
+          this.auditService.log({
+            event: 'periodic_analysis',
+            result: 'success',
+            output: this.lastHealthReport,
+          });
+        }
+      } catch (e) {
+        process.stderr.write(`[Analysis] Periodic analysis failed: ${e.message}\n`);
+      }
+    }
+
     const wrappedInput = `<user_input>\n${input}\n</user_input>`;
     conversationHistory.push({ role: 'user', content: wrappedInput });
 
@@ -77,6 +99,7 @@ class ConversationService {
             managedHistorySummary: `Draft phase. Context window contains ${managedHistory.length} messages.`,
             taintStatus: isTainted,
             availableToolsSummary: this.activeTools.map((t) => t.function.name).join(', '),
+            healthReport: this.lastHealthReport,
           });
 
           if (advice && advice.length > 0) {
@@ -267,6 +290,7 @@ class ConversationService {
               managedHistorySummary: `Post-execution phase. Context window contains ${managedHistory.length} messages.`,
               taintStatus: isTainted,
               availableToolsSummary: this.activeTools.map((t) => t.function.name).join(', '),
+              healthReport: this.lastHealthReport,
             });
             if (advice) turnAdvice = advice;
           }
