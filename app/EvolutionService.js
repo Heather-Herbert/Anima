@@ -98,7 +98,8 @@ class EvolutionService {
         // 5. Alert User/Council
         if (this.advisoryService) {
           await this.advisoryService.getAdvice({
-            userMessage: 'CRITICAL: Evolution regression tests failed. System has performed an instant rollback.',
+            userMessage:
+              'CRITICAL: Evolution regression tests failed. System has performed an instant rollback.',
             mainDraft: `The following evolution proposal caused a regression:\n\n${JSON.stringify(proposal, null, 2)}\n\nTest Output:\n${testResult.output}`,
             managedHistorySummary: 'Evolution failure alert.',
             focus: ['security', 'quality'],
@@ -132,7 +133,9 @@ class EvolutionService {
           await fs.unlink(backup.backupPath);
         }
       } catch (err) {
-        process.stderr.write(`Critical error during rollback of ${backup.originalPath}: ${err.message}\n`);
+        process.stderr.write(
+          `Critical error during rollback of ${backup.originalPath}: ${err.message}\n`,
+        );
       }
     }
     // Delete newly created files
@@ -258,7 +261,10 @@ If no evolution is needed, set proposedIdentityUpdate to null and newMilestones 
     }
 
     // 2. Identity and File Updates with Shadow Testing
-    if (proposal.proposedIdentityUpdate || (proposal.proposedFileChanges && proposal.proposedFileChanges.length > 0)) {
+    if (
+      proposal.proposedIdentityUpdate ||
+      (proposal.proposedFileChanges && proposal.proposedFileChanges.length > 0)
+    ) {
       const validation = await this.validateEvolution(proposal);
       if (!validation.success) {
         throw new Error(

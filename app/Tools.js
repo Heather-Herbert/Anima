@@ -304,7 +304,8 @@ const tools = [
     type: 'function',
     function: {
       name: 'apply_patch',
-      description: 'Propose, test, and apply a patch to a file using an automated loop with mandatory verification.',
+      description:
+        'Propose, test, and apply a patch to a file using an automated loop with mandatory verification.',
       parameters: {
         type: 'object',
         properties: {
@@ -742,7 +743,9 @@ const availableTools = {
       const advisoryService = new AdvisoryService();
       const evolutionService = new EvolutionService(rootDir, null, advisoryService);
 
-      process.stdout.write(`\n[Tools] Validating new ${type} '${safeName}' via Shadow Testing...\n`);
+      process.stdout.write(
+        `\n[Tools] Validating new ${type} '${safeName}' via Shadow Testing...\n`,
+      );
       const validation = await evolutionService.validateEvolution(proposal);
 
       if (!validation.success) {
@@ -781,7 +784,7 @@ const availableTools = {
     try {
       if (!permissions?._overrideProtected && !isPathAllowed(filePath, 'write', permissions))
         return `Error: Access to ${filePath} is restricted by system policy or manifest.`;
-      
+
       const PatchService = require('./PatchService');
       const root = path.resolve(config.workspaceDir);
       const service = new PatchService(root);

@@ -1,6 +1,6 @@
 const { spawn } = require('node:child_process');
 const path = require('node:path');
-const fs = require('node:fs');
+const _fs = require('node:fs');
 
 class AnalysisService {
   constructor(baseDir) {
@@ -22,9 +22,9 @@ class AnalysisService {
       child.stdout.on('data', (data) => (output += data));
       child.stderr.on('data', (data) => (output += data));
 
-      child.on('close', (code) => {
+      child.on('close', (_code) => {
         try {
-          // ESLint returns non-zero code if it finds any errors/warnings, 
+          // ESLint returns non-zero code if it finds any errors/warnings,
           // so we parse the output regardless of the exit code as long as it's valid JSON.
           const results = JSON.parse(output);
           const report = this.generateHealthReport(results);
@@ -34,7 +34,7 @@ class AnalysisService {
           resolve({
             summary: 'Failed to run lint analysis.',
             error: e.message,
-            rawOutput: output.slice(0, 500)
+            rawOutput: output.slice(0, 500),
           });
         }
       });
@@ -62,7 +62,7 @@ class AnalysisService {
           line: msg.line,
           rule: msg.ruleId,
           severity: msg.severity === 2 ? 'Error' : 'Warning',
-          message: msg.message
+          message: msg.message,
         };
 
         if (msg.ruleId === 'complexity' || msg.ruleId === 'max-statements') {
@@ -74,12 +74,12 @@ class AnalysisService {
     }
 
     return {
-      status: totalErrors > 0 ? 'CRITICAL' : (totalWarnings > 0 ? 'WARNING' : 'HEALTHY'),
+      status: totalErrors > 0 ? 'CRITICAL' : totalWarnings > 0 ? 'WARNING' : 'HEALTHY',
       summary: `Found ${totalErrors} errors and ${totalWarnings} warnings across ${results.length} files.`,
       complexityIssues: complexityIssues.slice(0, 10), // Limit to top 10 for context efficiency
       debtItems: debtItems.slice(0, 10), // Limit to top 10 for context efficiency
       totalIssues: totalErrors + totalWarnings,
-      analyzedFiles: results.length
+      analyzedFiles: results.length,
     };
   }
 }

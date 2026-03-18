@@ -4,7 +4,7 @@ const fs = require('node:fs').promises;
 const { existsSync } = require('node:fs');
 const { spawn } = require('node:child_process');
 const EventEmitter = require('node:events');
-const path = require('node:path');
+const _path = require('node:path');
 
 jest.mock('node:fs', () => ({
   promises: {
@@ -47,9 +47,15 @@ describe('PatchService', () => {
 
     expect(result.success).toBe(true);
     // Should have created a checkpoint
-    expect(fs.writeFile).toHaveBeenCalledWith(expect.stringContaining('.Utils.js.bak'), 'original content');
+    expect(fs.writeFile).toHaveBeenCalledWith(
+      expect.stringContaining('.Utils.js.bak'),
+      'original content',
+    );
     // Should have written to temp
-    expect(fs.writeFile).toHaveBeenCalledWith(expect.stringContaining('.temp/app/Utils.js'), newContent);
+    expect(fs.writeFile).toHaveBeenCalledWith(
+      expect.stringContaining('.temp/app/Utils.js'),
+      newContent,
+    );
     // Should have synced to original
     expect(fs.writeFile).toHaveBeenCalledWith(expect.stringContaining('app/Utils.js'), newContent);
     // Should have cleaned up backup and temp
@@ -80,13 +86,13 @@ describe('PatchService', () => {
 
     expect(result.success).toBe(false);
     expect(result.error).toContain('Tests failed');
-    
+
     // Should have logged failure
     expect(fs.appendFile).toHaveBeenCalledWith(
-        expect.stringContaining('patch_failures.log'),
-        expect.stringContaining('Test failed: Syntax error')
+      expect.stringContaining('patch_failures.log'),
+      expect.stringContaining('Test failed: Syntax error'),
     );
-    
+
     // Should have cleaned up temp but kept backup
     expect(fs.unlink).toHaveBeenCalledWith(expect.stringContaining('.temp/app/Utils.js'));
     expect(fs.unlink).not.toHaveBeenCalledWith(expect.stringContaining('.Utils.js.bak'));

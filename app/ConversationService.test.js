@@ -20,7 +20,7 @@ jest.mock('./Tools');
 jest.mock('./AnalysisService', () => {
   return jest.fn().mockImplementation(() => {
     return {
-      runLintAnalysis: jest.fn().mockResolvedValue({ status: 'HEALTHY', summary: 'Mock Report' })
+      runLintAnalysis: jest.fn().mockResolvedValue({ status: 'HEALTHY', summary: 'Mock Report' }),
     };
   });
 });
@@ -85,7 +85,7 @@ describe('ConversationService', () => {
 
     // Turn 6-9
     for (let i = 6; i <= 9; i++) {
-        await service.processInput(`Turn ${i}`, [], jest.fn());
+      await service.processInput(`Turn ${i}`, [], jest.fn());
     }
     expect(mockAnalysis).toHaveBeenCalledTimes(2);
 

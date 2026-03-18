@@ -192,7 +192,8 @@ const updateMemory = async (auditService) => {
       }
 
       const hasIdentityUpdate = !!evolutionProposal.proposedIdentityUpdate;
-      const hasFileChanges = evolutionProposal.proposedFileChanges && evolutionProposal.proposedFileChanges.length > 0;
+      const hasFileChanges =
+        evolutionProposal.proposedFileChanges && evolutionProposal.proposedFileChanges.length > 0;
 
       if (hasIdentityUpdate || hasFileChanges) {
         console.log(`\n\x1b[33m--- PROPOSED EVOLUTION ---\x1b[0m`);

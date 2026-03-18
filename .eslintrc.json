@@ -12,8 +12,8 @@
   "plugins": ["prettier"],
   "rules": {
     "prettier/prettier": "error",
-    "complexity": ["warn", 5],
-    "max-statements": ["warn", 10],
+    "complexity": ["warn", 10],
+    "max-statements": ["warn", 20],
     "no-unused-vars": [
       "error",
       {

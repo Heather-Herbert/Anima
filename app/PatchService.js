@@ -73,10 +73,10 @@ class PatchService {
         child.stderr.on('data', (data) => (output += data));
 
         child.on('close', async (code) => {
-          // Restore original regardless of test result for now, 
+          // Restore original regardless of test result for now,
           // sync will do the final swap if successful.
           await fs.writeFile(absolutePath, originalContent);
-          
+
           resolve({
             success: code === 0,
             output: output,
@@ -99,17 +99,20 @@ class PatchService {
     // Cleanup temp
     try {
       await fs.unlink(tempFilePath);
-    } catch (e) { /* ignore cleanup errors */ }
+    } catch (e) {
+      /* ignore cleanup errors */
+    }
   }
 
   /**
    * Step 5: Recovery. Log failure to patch_failures.log.
    */
   async recover(filePath, tempFilePath, errorOutput) {
-    const logEntry = `[${new Date().toISOString()}] PATCH FAILURE: ${filePath}\n` +
-                     `Error Output:\n${errorOutput}\n` +
-                     `------------------------------------------\n`;
-    
+    const logEntry =
+      `[${new Date().toISOString()}] PATCH FAILURE: ${filePath}\n` +
+      `Error Output:\n${errorOutput}\n` +
+      `------------------------------------------\n`;
+
     const dir = path.dirname(this.failureLog);
     if (!existsSync(dir)) {
       await fs.mkdir(dir, { recursive: true });
@@ -121,7 +124,9 @@ class PatchService {
     if (existsSync(tempFilePath)) {
       try {
         await fs.unlink(tempFilePath);
-      } catch (e) { /* ignore cleanup errors */ }
+      } catch (e) {
+        /* ignore cleanup errors */
+      }
     }
 
     // Backup cleanup is optional, but usually good to keep until user confirms.
@@ -149,17 +154,21 @@ class PatchService {
       if (testResult.success) {
         // 4. Atomic Sync
         await this.atomicSync(filePath, tempFilePath);
-        
+
         // Cleanup hidden backup on success
         if (backupPath && existsSync(backupPath)) {
-            await fs.unlink(backupPath);
+          await fs.unlink(backupPath);
         }
-        
+
         return { success: true, message: 'Patch applied successfully.' };
       } else {
         // 5. Recovery
         await this.recover(filePath, tempFilePath, testResult.output);
-        return { success: false, error: 'Tests failed. Patch rolled back.', details: testResult.output };
+        return {
+          success: false,
+          error: 'Tests failed. Patch rolled back.',
+          details: testResult.output,
+        };
       }
     } catch (e) {
       if (tempFilePath) {

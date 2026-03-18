@@ -101,9 +101,9 @@ describe('EvolutionService', () => {
     });
 
     it('rolls back automatically if tests fail and alerts council', async () => {
-      const proposal = { 
+      const proposal = {
         proposedIdentityUpdate: '# broken',
-        proposedFileChanges: [{ path: 'Plugins/New.js', content: '...' }]
+        proposedFileChanges: [{ path: 'Plugins/New.js', content: '...' }],
       };
 
       const existingFiles = new Set(['/mock/dir/Personality/Identity.md']);

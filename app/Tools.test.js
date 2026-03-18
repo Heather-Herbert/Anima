@@ -510,7 +510,9 @@ describe('Tools', () => {
         fullPermissions,
       );
 
-      expect(result).toContain("Skill 'test-skill' installed successfully after passing shadow tests");
+      expect(result).toContain(
+        "Skill 'test-skill' installed successfully after passing shadow tests",
+      );
       expect(EvolutionService.prototype.validateEvolution).toHaveBeenCalledWith(
         expect.objectContaining({
           proposedFileChanges: expect.arrayContaining([

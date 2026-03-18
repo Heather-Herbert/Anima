@@ -25,11 +25,11 @@ describe('AnalysisService', () => {
         filePath: '/mock/dir/app/ConversationService.js',
         messages: [
           { ruleId: 'complexity', message: 'Complexity is too high', line: 10, severity: 1 },
-          { ruleId: 'no-unused-vars', message: 'Unused variable', line: 5, severity: 2 }
+          { ruleId: 'no-unused-vars', message: 'Unused variable', line: 5, severity: 2 },
         ],
         errorCount: 1,
-        warningCount: 1
-      }
+        warningCount: 1,
+      },
     ];
 
     const promise = service.runLintAnalysis();
@@ -51,32 +51,32 @@ describe('AnalysisService', () => {
   });
 
   it('handles empty results as healthy', async () => {
-      const mockChild = new EventEmitter();
-      mockChild.stdout = new EventEmitter();
-      mockChild.stderr = new EventEmitter();
-      spawn.mockReturnValue(mockChild);
-  
-      const mockResults = [
-        {
-          filePath: '/mock/dir/clean.js',
-          messages: [],
-          errorCount: 0,
-          warningCount: 0
-        }
-      ];
-  
-      const promise = service.runLintAnalysis();
-  
-      process.nextTick(() => {
-        mockChild.stdout.emit('data', JSON.stringify(mockResults));
-        mockChild.emit('close', 0);
-      });
-  
-      const report = await promise;
-  
-      expect(report.status).toBe('HEALTHY');
-      expect(report.totalIssues).toBe(0);
+    const mockChild = new EventEmitter();
+    mockChild.stdout = new EventEmitter();
+    mockChild.stderr = new EventEmitter();
+    spawn.mockReturnValue(mockChild);
+
+    const mockResults = [
+      {
+        filePath: '/mock/dir/clean.js',
+        messages: [],
+        errorCount: 0,
+        warningCount: 0,
+      },
+    ];
+
+    const promise = service.runLintAnalysis();
+
+    process.nextTick(() => {
+      mockChild.stdout.emit('data', JSON.stringify(mockResults));
+      mockChild.emit('close', 0);
     });
+
+    const report = await promise;
+
+    expect(report.status).toBe('HEALTHY');
+    expect(report.totalIssues).toBe(0);
+  });
 
   it('handles errors gracefully', async () => {
     const mockChild = new EventEmitter();
