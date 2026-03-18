@@ -7,6 +7,7 @@ jest.mock('node:fs');
 jest.mock('node:child_process');
 jest.mock('./EvolutionService');
 jest.mock('./AdvisoryService');
+jest.mock('./PatchService');
 jest.mock('./Config', () => ({
   workspaceDir: '.',
 }));
@@ -531,6 +532,35 @@ describe('Tools', () => {
         fullPermissions,
       );
       expect(result).toContain('Error: Manifest is not valid JSON');
+    });
+  });
+
+  describe('apply_patch', () => {
+    it('calls PatchService to apply an automated patch', async () => {
+      const PatchService = require('./PatchService');
+      const mockApply = jest.fn().mockResolvedValue({ success: true, message: 'Applied' });
+      PatchService.prototype.applyAutomatedPatch = mockApply;
+
+      const result = await availableTools.apply_patch(
+        { path: 'test.js', content: 'new code', justification: 'test' },
+        fullPermissions,
+      );
+
+      expect(result).toContain('Success: Applied');
+      expect(mockApply).toHaveBeenCalledWith('test.js', 'new code');
+    });
+
+    it('handles failure', async () => {
+      const PatchService = require('./PatchService');
+      const mockApply = jest.fn().mockResolvedValue({ success: false, error: 'Failed' });
+      PatchService.prototype.applyAutomatedPatch = mockApply;
+
+      const result = await availableTools.apply_patch(
+        { path: 'test.js', content: 'new code', justification: 'test' },
+        fullPermissions,
+      );
+
+      expect(result).toContain('Failure: Failed');
     });
   });
 });

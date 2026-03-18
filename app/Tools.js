@@ -303,6 +303,25 @@ const tools = [
   {
     type: 'function',
     function: {
+      name: 'apply_patch',
+      description: 'Propose, test, and apply a patch to a file using an automated loop with mandatory verification.',
+      parameters: {
+        type: 'object',
+        properties: {
+          path: { type: 'string', description: 'Relative path to the file to patch' },
+          content: { type: 'string', description: 'The complete new content of the file' },
+          justification: {
+            type: 'string',
+            description: 'A short explanation of why this patch is being applied.',
+          },
+        },
+        required: ['path', 'content', 'justification'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'web_search',
       description: 'Search the web for information',
       parameters: {
@@ -756,6 +775,27 @@ const availableTools = {
       return JSON.stringify(advice, null, 2);
     } catch (e) {
       return `Error calling advisory council: ${e.message}`;
+    }
+  },
+  apply_patch: async ({ path: filePath, content, justification: _justification }, permissions) => {
+    try {
+      if (!permissions?._overrideProtected && !isPathAllowed(filePath, 'write', permissions))
+        return `Error: Access to ${filePath} is restricted by system policy or manifest.`;
+      
+      const PatchService = require('./PatchService');
+      const root = path.resolve(config.workspaceDir);
+      const service = new PatchService(root);
+
+      process.stdout.write(`\n[Patch] Applying automated patch to ${filePath}...\n`);
+      const result = await service.applyAutomatedPatch(filePath, content);
+
+      if (result.success) {
+        return `Success: ${result.message}`;
+      } else {
+        return `Failure: ${result.error}\nCheck Personality/Memory/patch_failures.log for details.`;
+      }
+    } catch (e) {
+      return `Error in apply_patch: ${e.message}`;
     }
   },
   web_search: async ({ query }, _permissions) => {
