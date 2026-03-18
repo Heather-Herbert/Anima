@@ -37,13 +37,29 @@ class ToolDispatcher {
     try {
       const toolFn = availableTools[name];
       if (!toolFn) {
-        return `Error: Tool '${name}' is defined but its implementation is missing.`;
+        const missingError = `Error: Tool '${name}' is defined but its implementation is missing.`;
+        if (this.auditService) {
+          this.auditService.logFailure(`Tool Dispatch: ${name}`, missingError, { args });
+        }
+        return missingError;
       }
       const toolPermissions = {
         ...permissions,
         auditService: this.auditService,
       };
-      return await toolFn(args, toolPermissions);
+      const result = await toolFn(args, toolPermissions);
+
+      // Log "soft" failures (returned error strings)
+      if (
+        typeof result === 'string' &&
+        (result.startsWith('Error:') || result.startsWith('Failure:'))
+      ) {
+        if (this.auditService) {
+          this.auditService.logFailure(`Tool Logic Failure: ${name}`, result, { args });
+        }
+      }
+
+      return result;
     } catch (error) {
       if (this.auditService) {
         this.auditService.logFailure(`Tool Execution: ${name}`, error, { args });

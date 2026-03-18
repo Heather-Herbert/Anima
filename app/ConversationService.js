@@ -77,6 +77,25 @@ class ConversationService {
     const wrappedInput = `<user_input>\n${input}\n</user_input>`;
     conversationHistory.push({ role: 'user', content: wrappedInput });
 
+    // Heuristic: Track "let's try this" failures from user feedback
+    const negativeFeedback = [
+      "didn't work",
+      "did not work",
+      "still broken",
+      "still getting",
+      "error persists",
+      "that's not right",
+      "try again",
+      "failed to",
+    ];
+    if (negativeFeedback.some((phrase) => input.toLowerCase().includes(phrase))) {
+      if (this.auditService) {
+        this.auditService.logFailure('External Feedback (User)', 'User reported a failed attempt', {
+          userInput: input,
+        });
+      }
+    }
+
     let processing = true;
     let lastReply = '';
     let isTainted = false; // Reset taint per user input turn

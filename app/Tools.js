@@ -323,6 +323,32 @@ const tools = [
   {
     type: 'function',
     function: {
+      name: 'report_mistake',
+      description:
+        'Explicitly report a mistake or strategic failure in the previous approach. This information will be used during the daily self-reflection cycle to prevent similar errors in the future.',
+      parameters: {
+        type: 'object',
+        properties: {
+          mistake: {
+            type: 'string',
+            description: 'A clear description of the mistake made.',
+          },
+          correction: {
+            type: 'string',
+            description: 'What should have been done differently.',
+          },
+          justification: {
+            type: 'string',
+            description: 'Why you believe this was a mistake.',
+          },
+        },
+        required: ['mistake', 'correction', 'justification'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'web_search',
       description: 'Search the web for information',
       parameters: {
@@ -799,6 +825,19 @@ const availableTools = {
       }
     } catch (e) {
       return `Error in apply_patch: ${e.message}`;
+    }
+  },
+  report_mistake: async ({ mistake, correction, justification }, permissions) => {
+    try {
+      if (permissions?.auditService) {
+        permissions.auditService.logFailure('Strategy Mistake (Self-Reported)', mistake, {
+          intendedCorrection: correction,
+          justification,
+        });
+      }
+      return 'Mistake reported. This will be analyzed during the next self-reflection cycle.';
+    } catch (e) {
+      return `Error reporting mistake: ${e.message}`;
     }
   },
   web_search: async ({ query }, _permissions) => {

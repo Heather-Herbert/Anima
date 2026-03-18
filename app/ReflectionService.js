@@ -52,24 +52,24 @@ class ReflectionService {
     const reflectionPrompt = {
       role: 'system',
       content: `You are the Self-Reflection Module for Anima.
-Your goal is to analyze recent failures and code debt to identify how you can improve.
+Your goal is to analyze recent failures, code debt, and strategic mistakes to identify how you can improve.
 
 # INPUT DATA
 - Health Report (Linting/Complexity): ${JSON.stringify(latestHealthReport, null, 2)}
-- Recent Logs (Failures/Errors):
+- Recent Logs (Failures/Errors/Strategy Mistakes):
 ${logs.join('\n\n')}
 
 # TASK
 Ask yourself:
-1. "How could I have done better in these failed scenarios?"
-2. "What specific code patterns or architectural weaknesses led to these issues?"
+1. "How could I have done better in these failed scenarios? Was it a 'let's try this' approach that failed first time?"
+2. "What specific code patterns, architectural weaknesses, or logical assumptions led to these issues?"
 3. "What should I change in my Identity or Skills to prevent these in the future?"
 
 # OUTPUT
 Propose a 'Reflection Proposal' that includes:
-1. 'newMilestones': Any lessons learned (type: "learning").
+1. 'newMilestones': Any lessons learned (type: "learning"). Focus on 'First-Time Resolution' improvements.
 2. 'proposedIdentityUpdate': Refinements to your Identity.md to incorporate these lessons.
-3. 'evolutionSummary': A summary of your self-reflection.
+3. 'evolutionSummary': A summary of your self-reflection, focusing on why certain attempts failed and how you will improve.
 
 Output strictly as a JSON object:
 {
