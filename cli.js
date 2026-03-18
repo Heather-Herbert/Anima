@@ -8,6 +8,7 @@ const ParturitionService = require('./app/ParturitionService');
 const ConversationService = require('./app/ConversationService');
 const AuditService = require('./app/AuditService');
 const EvolutionService = require('./app/EvolutionService');
+const AdvisoryService = require('./app/AdvisoryService');
 const { callAI, getProviderManifest, redact, encrypt, decrypt } = require('./app/Utils');
 
 // Check for model override via command line argument
@@ -178,7 +179,8 @@ const updateMemory = async (auditService) => {
 
     // --- AGENT EVOLUTION ---
     console.log('\n\x1b[36mChecking for agent evolution opportunities...\x1b[0m');
-    const evolutionService = new EvolutionService(__dirname, auditService);
+    const advisoryService = new AdvisoryService(auditService);
+    const evolutionService = new EvolutionService(__dirname, auditService, advisoryService);
     const evolutionProposal = await evolutionService.proposeEvolution(conversationHistory);
 
     if (evolutionProposal) {
@@ -189,23 +191,40 @@ const updateMemory = async (auditService) => {
         }
       }
 
-      if (evolutionProposal.proposedIdentityUpdate) {
-        console.log(`\n\x1b[33m--- PROPOSED IDENTITY EVOLUTION ---\x1b[0m`);
+      const hasIdentityUpdate = !!evolutionProposal.proposedIdentityUpdate;
+      const hasFileChanges = evolutionProposal.proposedFileChanges && evolutionProposal.proposedFileChanges.length > 0;
+
+      if (hasIdentityUpdate || hasFileChanges) {
+        console.log(`\n\x1b[33m--- PROPOSED EVOLUTION ---\x1b[0m`);
         console.log(`\x1b[90mSummary:\x1b[0m ${evolutionProposal.evolutionSummary}`);
-        const oldIdentityPath = path.join(__dirname, 'Personality', 'Identity.md');
-        const oldIdentity = fs.existsSync(oldIdentityPath)
-          ? fs.readFileSync(oldIdentityPath, 'utf8')
-          : '';
-        console.log(`\n\x1b[36mPREVIEW OF IDENTITY CHANGE:\x1b[0m`);
-        console.log(
-          generateDiff(oldIdentity, evolutionProposal.proposedIdentityUpdate, 'Identity.md'),
-        );
+
+        if (hasIdentityUpdate) {
+          const oldIdentityPath = path.join(__dirname, 'Personality', 'Identity.md');
+          const oldIdentity = fs.existsSync(oldIdentityPath)
+            ? fs.readFileSync(oldIdentityPath, 'utf8')
+            : '';
+          console.log(`\n\x1b[36mPREVIEW OF IDENTITY CHANGE:\x1b[0m`);
+          console.log(
+            generateDiff(oldIdentity, evolutionProposal.proposedIdentityUpdate, 'Identity.md'),
+          );
+        }
+
+        if (hasFileChanges) {
+          console.log(`\n\x1b[36mPROPOSED FILE CHANGES:\x1b[0m`);
+          for (const change of evolutionProposal.proposedFileChanges) {
+            console.log(`- ${change.path} (${change.content.length} bytes)`);
+          }
+        }
 
         const answer = await question(`Accept this evolution? (y/N): `);
         if (answer.toLowerCase() === 'y') {
-          await evolutionService.applyEvolution(evolutionProposal);
-          console.log(`\x1b[32mEvolution applied. I have grown.\x1b[0m`);
-          loadPersona(); // Reload system prompt with new identity
+          try {
+            await evolutionService.applyEvolution(evolutionProposal);
+            console.log(`\x1b[32mEvolution applied. I have grown.\x1b[0m`);
+            if (hasIdentityUpdate) loadPersona(); // Reload system prompt with new identity
+          } catch (err) {
+            console.error(`\x1b[31mEvolution failed: ${err.message}\x1b[0m`);
+          }
         }
       } else if (evolutionProposal.newMilestones && evolutionProposal.newMilestones.length > 0) {
         const answer = await question(`Save these milestones? (y/N): `);

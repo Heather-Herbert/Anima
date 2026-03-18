@@ -5,11 +5,12 @@ const { spawn } = require('node:child_process');
 const { callAI } = require('./Utils');
 
 class EvolutionService {
-  constructor(baseDir, auditService = null) {
+  constructor(baseDir, auditService = null, advisoryService = null) {
     this.baseDir = baseDir;
     this.personalityDir = path.join(baseDir, 'Personality');
     this.memoryDir = path.join(baseDir, 'Memory');
     this.auditService = auditService;
+    this.advisoryService = advisoryService;
   }
 
   /**
@@ -37,51 +38,112 @@ class EvolutionService {
 
   /**
    * Validates a proposal in shadow mode.
+   * Supports both Identity.md updates and generic file changes.
    */
   async validateEvolution(proposal) {
-    const identityFile = path.join(this.personalityDir, 'Identity.md');
-    const backupFile = identityFile + '.bak';
+    const fileChanges = [];
+
+    // 1. Collect all intended changes
+    if (proposal.proposedIdentityUpdate) {
+      fileChanges.push({
+        path: path.join(this.personalityDir, 'Identity.md'),
+        content: proposal.proposedIdentityUpdate,
+      });
+    }
+
+    if (proposal.proposedFileChanges && Array.isArray(proposal.proposedFileChanges)) {
+      for (const change of proposal.proposedFileChanges) {
+        fileChanges.push({
+          path: path.isAbsolute(change.path) ? change.path : path.join(this.baseDir, change.path),
+          content: change.content,
+        });
+      }
+    }
+
+    if (fileChanges.length === 0) return { success: true };
+
+    const backups = [];
+    const newFiles = [];
 
     try {
-      // 1. Shadow Mode: Create backup
-      if (existsSync(identityFile)) {
-        const current = await fs.readFile(identityFile, 'utf-8');
-        await fs.writeFile(backupFile, current);
+      // 2. Create backups or mark as new
+      for (const change of fileChanges) {
+        if (existsSync(change.path)) {
+          const current = await fs.readFile(change.path, 'utf-8');
+          const backupPath = change.path + '.bak';
+          await fs.writeFile(backupPath, current);
+          backups.push({ originalPath: change.path, backupPath, originalContent: current });
+        } else {
+          newFiles.push(change.path);
+        }
       }
 
-      // 2. Apply proposed update temporarily
-      if (proposal.proposedIdentityUpdate) {
-        await fs.writeFile(identityFile, proposal.proposedIdentityUpdate);
+      // 3. Apply proposed updates temporarily
+      for (const change of fileChanges) {
+        const dir = path.dirname(change.path);
+        if (!existsSync(dir)) {
+          await fs.mkdir(dir, { recursive: true });
+        }
+        await fs.writeFile(change.path, change.content);
       }
 
-      // 3. Run regression tests
+      // 4. Run regression tests (100% pass rate required)
       process.stdout.write('[Evolution] Running regression tests in Shadow Mode...\n');
       const testResult = await this.runTests();
 
       if (!testResult.success) {
         process.stdout.write(`[Evolution] Tests FAILED post-evolution. Rolling back.\n`);
-        if (existsSync(backupFile)) {
-          const original = await fs.readFile(backupFile, 'utf-8');
-          await fs.writeFile(identityFile, original);
-          await fs.unlink(backupFile);
+        await this.performRollback(backups, newFiles);
+
+        // 5. Alert User/Council
+        if (this.advisoryService) {
+          await this.advisoryService.getAdvice({
+            userMessage: 'CRITICAL: Evolution regression tests failed. System has performed an instant rollback.',
+            mainDraft: `The following evolution proposal caused a regression:\n\n${JSON.stringify(proposal, null, 2)}\n\nTest Output:\n${testResult.output}`,
+            managedHistorySummary: 'Evolution failure alert.',
+            focus: ['security', 'quality'],
+          });
         }
+
         return { success: false, error: 'Regression tests failed', output: testResult.output };
       }
 
-      // 4. Success: Cleanup backup
-      if (existsSync(backupFile)) {
-        await fs.unlink(backupFile);
+      // 6. Success: Cleanup backups
+      for (const backup of backups) {
+        if (existsSync(backup.backupPath)) {
+          await fs.unlink(backup.backupPath);
+        }
       }
-      process.stdout.write('[Evolution] Tests PASSED. Evolution validated.\n');
+      process.stdout.write('[Evolution] Tests PASSED (100%). Evolution validated.\n');
       return { success: true };
     } catch (e) {
       // Rollback on unexpected error
-      if (existsSync(backupFile)) {
-        const original = await fs.readFile(backupFile, 'utf-8');
-        await fs.writeFile(identityFile, original);
-        await fs.unlink(backupFile);
-      }
+      await this.performRollback(backups, newFiles);
       return { success: false, error: e.message };
+    }
+  }
+
+  async performRollback(backups, newFiles) {
+    // Restore existing files
+    for (const backup of backups) {
+      try {
+        await fs.writeFile(backup.originalPath, backup.originalContent);
+        if (existsSync(backup.backupPath)) {
+          await fs.unlink(backup.backupPath);
+        }
+      } catch (err) {
+        process.stderr.write(`Critical error during rollback of ${backup.originalPath}: ${err.message}\n`);
+      }
+    }
+    // Delete newly created files
+    for (const file of newFiles) {
+      try {
+        if (existsSync(file)) {
+          await fs.unlink(file);
+        }
+      } catch (err) {
+        process.stderr.write(`Error deleting new file during rollback: ${file}\n`);
+      }
     }
   }
 
@@ -195,8 +257,8 @@ If no evolution is needed, set proposedIdentityUpdate to null and newMilestones 
       await fs.writeFile(milestonesFile, JSON.stringify(updated, null, 2));
     }
 
-    // 2. Identity Update with Shadow Testing
-    if (proposal.proposedIdentityUpdate) {
+    // 2. Identity and File Updates with Shadow Testing
+    if (proposal.proposedIdentityUpdate || (proposal.proposedFileChanges && proposal.proposedFileChanges.length > 0)) {
       const validation = await this.validateEvolution(proposal);
       if (!validation.success) {
         throw new Error(

@@ -672,6 +672,9 @@ const availableTools = {
   },
   add_plugin: async ({ name, code, manifest, provenance, isOverwrite }, _permissions) => {
     try {
+      const EvolutionService = require('./EvolutionService');
+      const AdvisoryService = require('./AdvisoryService');
+
       let parsedManifest;
       try {
         parsedManifest = typeof manifest === 'string' ? JSON.parse(manifest) : manifest;
@@ -681,7 +684,8 @@ const availableTools = {
 
       const type = parsedManifest.type || 'provider';
       const targetDir = type === 'skill' ? 'Skills' : 'Plugins';
-      const pluginDir = path.join(__dirname, '..', targetDir);
+      const rootDir = path.resolve(config.workspaceDir || path.join(__dirname, '..'));
+      const pluginDir = path.join(rootDir, targetDir);
 
       if (!fs.existsSync(pluginDir)) {
         fs.mkdirSync(pluginDir, { recursive: true });
@@ -690,22 +694,43 @@ const availableTools = {
       const safeName = path.basename(name).replace(/[^a-zA-Z0-9_-]/g, '');
       if (!safeName) return 'Error: Invalid plugin name.';
 
-      const jsPath = path.join(pluginDir, `${safeName}.js`);
-      const manifestPath = path.join(pluginDir, `${safeName}.manifest.json`);
-      const provenancePath = path.join(pluginDir, `${safeName}.provenance.json`);
+      const jsPath = path.join(targetDir, `${safeName}.js`);
+      const manifestPath = path.join(targetDir, `${safeName}.manifest.json`);
+      const provenancePath = path.join(targetDir, `${safeName}.provenance.json`);
 
-      if (fs.existsSync(jsPath) && !isOverwrite) {
+      const fullJsPath = path.join(rootDir, jsPath);
+
+      if (fs.existsSync(fullJsPath) && !isOverwrite) {
         return `Error: ${type} '${safeName}' is already installed. Use an explicit overwrite command or remove it first.`;
       }
 
-      fs.writeFileSync(jsPath, code);
-      fs.writeFileSync(manifestPath, JSON.stringify(parsedManifest, null, 2));
+      // Prepare Evolution Proposal for Shadow Testing
+      const proposal = {
+        evolutionSummary: `Installation of new ${type}: ${safeName}`,
+        proposedFileChanges: [
+          { path: jsPath, content: code },
+          { path: manifestPath, content: JSON.stringify(parsedManifest, null, 2) },
+        ],
+      };
 
       if (provenance) {
-        fs.writeFileSync(provenancePath, JSON.stringify(provenance, null, 2));
+        proposal.proposedFileChanges.push({
+          path: provenancePath,
+          content: JSON.stringify(provenance, null, 2),
+        });
       }
 
-      return `${type.charAt(0).toUpperCase() + type.slice(1)} '${safeName}' installed successfully.`;
+      const advisoryService = new AdvisoryService();
+      const evolutionService = new EvolutionService(rootDir, null, advisoryService);
+
+      process.stdout.write(`\n[Tools] Validating new ${type} '${safeName}' via Shadow Testing...\n`);
+      const validation = await evolutionService.validateEvolution(proposal);
+
+      if (!validation.success) {
+        return `Error: ${type} installation failed shadow testing (regression detected).\nDetails: ${validation.error}\nTest Output: ${validation.output}`;
+      }
+
+      return `${type.charAt(0).toUpperCase() + type.slice(1)} '${safeName}' installed successfully after passing shadow tests.`;
     } catch (e) {
       return `Error installing plugin: ${e.message}`;
     }

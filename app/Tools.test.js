@@ -5,11 +5,14 @@ const child_process = require('node:child_process');
 // Mock fs and child_process
 jest.mock('node:fs');
 jest.mock('node:child_process');
+jest.mock('./EvolutionService');
+jest.mock('./AdvisoryService');
 jest.mock('./Config', () => ({
   workspaceDir: '.',
 }));
 
 const { availableTools } = require('./Tools');
+const EvolutionService = require('./EvolutionService');
 
 describe('Tools', () => {
   const fullPermissions = { filesystem: { read: ['*'], write: ['*'] } };
@@ -17,6 +20,15 @@ describe('Tools', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     global.fetch = jest.fn();
+
+    // Default mock for EvolutionService validation
+    EvolutionService.prototype.validateEvolution = jest.fn().mockResolvedValue({ success: true });
+
+    // Reset fs implementations
+    fs.mkdirSync.mockImplementation(() => {});
+    fs.writeFileSync.mockImplementation(() => {});
+    fs.readFileSync.mockReturnValue('');
+    fs.existsSync.mockReturnValue(false);
   });
 
   afterEach(() => {
@@ -406,12 +418,7 @@ describe('Tools', () => {
 
   describe('add_plugin', () => {
     it('installs plugin successfully', async () => {
-      // We need to mock the internal fs calls in add_plugin
-      // It uses __dirname, so path.join works relative to that.
-      // It writes to '../Plugins' dir.
-      fs.existsSync.mockReturnValue(false); // Plugin dir doesn't exist initially
-      fs.mkdirSync.mockImplementation(() => {});
-      fs.writeFileSync.mockImplementation(() => {});
+      fs.existsSync.mockReturnValue(false); // Plugin doesn't exist initially
 
       const result = await availableTools.add_plugin(
         {
@@ -423,13 +430,19 @@ describe('Tools', () => {
         fullPermissions,
       );
 
-      expect(result).toContain('installed successfully');
-      expect(fs.writeFileSync).toHaveBeenCalledTimes(2); // Code and manifest
+      expect(result).toContain('installed successfully after passing shadow tests');
+      expect(EvolutionService.prototype.validateEvolution).toHaveBeenCalledWith(
+        expect.objectContaining({
+          proposedFileChanges: expect.arrayContaining([
+            expect.objectContaining({ path: expect.stringContaining('test-plugin.js') }),
+            expect.objectContaining({ path: expect.stringContaining('test-plugin.manifest.json') }),
+          ]),
+        }),
+      );
     });
 
     it('saves provenance information if provided', async () => {
-      fs.existsSync.mockReturnValue(false); // Make sure plugin doesn't exist
-      fs.writeFileSync.mockImplementation(() => {});
+      fs.existsSync.mockReturnValue(false);
 
       const provenance = { source: 'http://example.com', hash: '123' };
       await availableTools.add_plugin(
@@ -443,10 +456,12 @@ describe('Tools', () => {
         fullPermissions,
       );
 
-      expect(fs.writeFileSync).toHaveBeenCalledTimes(3); // Code, manifest, AND provenance
-      expect(fs.writeFileSync).toHaveBeenCalledWith(
-        expect.stringContaining('prov-test.provenance.json'),
-        JSON.stringify(provenance, null, 2),
+      expect(EvolutionService.prototype.validateEvolution).toHaveBeenCalledWith(
+        expect.objectContaining({
+          proposedFileChanges: expect.arrayContaining([
+            expect.objectContaining({ path: expect.stringContaining('prov-test.provenance.json') }),
+          ]),
+        }),
       );
     });
 
@@ -462,12 +477,11 @@ describe('Tools', () => {
         fullPermissions,
       );
       expect(result).toContain('is already installed');
-      expect(fs.writeFileSync).not.toHaveBeenCalled();
+      expect(EvolutionService.prototype.validateEvolution).not.toHaveBeenCalled();
     });
 
     it('allows overwrite if isOverwrite flag is set', async () => {
       fs.existsSync.mockReturnValue(true);
-      fs.writeFileSync.mockImplementation(() => {});
       const result = await availableTools.add_plugin(
         {
           name: 'exists',
@@ -478,14 +492,12 @@ describe('Tools', () => {
         },
         fullPermissions,
       );
-      expect(result).toContain('installed successfully');
-      expect(fs.writeFileSync).toHaveBeenCalled();
+      expect(result).toContain('installed successfully after passing shadow tests');
+      expect(EvolutionService.prototype.validateEvolution).toHaveBeenCalled();
     });
 
     it('installs a skill-type plugin into the Skills directory', async () => {
       fs.existsSync.mockReturnValue(false);
-      fs.mkdirSync.mockImplementation(() => {});
-      fs.writeFileSync.mockImplementation(() => {});
 
       const result = await availableTools.add_plugin(
         {
@@ -497,10 +509,13 @@ describe('Tools', () => {
         fullPermissions,
       );
 
-      expect(result).toContain("Skill 'test-skill' installed successfully");
-      expect(fs.writeFileSync).toHaveBeenCalledWith(
-        expect.stringContaining('Skills'),
-        expect.anything(),
+      expect(result).toContain("Skill 'test-skill' installed successfully after passing shadow tests");
+      expect(EvolutionService.prototype.validateEvolution).toHaveBeenCalledWith(
+        expect.objectContaining({
+          proposedFileChanges: expect.arrayContaining([
+            expect.objectContaining({ path: expect.stringContaining('Skills') }),
+          ]),
+        }),
       );
     });
 

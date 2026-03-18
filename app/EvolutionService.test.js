@@ -6,12 +6,16 @@ const { existsSync } = require('node:fs');
 const { spawn } = require('node:child_process');
 const EventEmitter = require('node:events');
 
+const AdvisoryService = require('./AdvisoryService');
+
 jest.mock('./Utils');
+jest.mock('./AdvisoryService');
 jest.mock('node:fs', () => ({
   promises: {
     readFile: jest.fn(),
     writeFile: jest.fn(),
     unlink: jest.fn(),
+    mkdir: jest.fn(),
   },
   existsSync: jest.fn(),
 }));
@@ -19,11 +23,13 @@ jest.mock('node:child_process');
 
 describe('EvolutionService', () => {
   let service;
+  let mockAdvisoryService;
   const baseDir = '/mock/dir';
 
   beforeEach(() => {
     jest.clearAllMocks();
-    service = new EvolutionService(baseDir);
+    mockAdvisoryService = new AdvisoryService();
+    service = new EvolutionService(baseDir, null, mockAdvisoryService);
   });
 
   it('proposes evolution based on conversation history', async () => {
@@ -94,20 +100,27 @@ describe('EvolutionService', () => {
       expect(fs.unlink).toHaveBeenCalledWith(expect.stringContaining('Identity.md.bak'));
     });
 
-    it('rolls back automatically if tests fail', async () => {
-      const proposal = { proposedIdentityUpdate: '# broken' };
+    it('rolls back automatically if tests fail and alerts council', async () => {
+      const proposal = { 
+        proposedIdentityUpdate: '# broken',
+        proposedFileChanges: [{ path: 'Plugins/New.js', content: '...' }]
+      };
 
-      // Mock flow:
-      // 1. exists(Identity.md) -> true
-      // 2. readFile(Identity.md) -> 'original'
-      // 3. exists(Identity.md.bak) -> true (during rollback cleanup)
-      existsSync.mockReturnValue(true);
+      const existingFiles = new Set(['/mock/dir/Personality/Identity.md']);
+      existsSync.mockImplementation((p) => existingFiles.has(p));
       fs.readFile.mockResolvedValue('original');
+      fs.writeFile.mockImplementation((p) => {
+        existingFiles.add(p);
+        return Promise.resolve();
+      });
 
       const validationPromise = service.validateEvolution(proposal);
 
       // Simulate tests failing
-      process.nextTick(() => mockChild.emit('close', 1));
+      process.nextTick(() => {
+        mockChild.stdout.emit('data', 'Syntax Error');
+        mockChild.emit('close', 1);
+      });
 
       const result = await validationPromise;
       expect(result.success).toBe(false);
@@ -115,9 +128,14 @@ describe('EvolutionService', () => {
 
       // Verify rollback occurred: original written back to Identity.md
       expect(fs.writeFile).toHaveBeenCalledWith(expect.stringContaining('Identity.md'), 'original');
+      // Verify new file was deleted
+      expect(fs.unlink).toHaveBeenCalledWith(expect.stringContaining('Plugins/New.js'));
+
+      // Verify alert
+      expect(mockAdvisoryService.getAdvice).toHaveBeenCalled();
     });
 
-    it('manual rollback restores from backup', async () => {
+    it('manual rollback restores Identity.md from backup', async () => {
       existsSync.mockReturnValue(true);
       fs.readFile.mockResolvedValueOnce('stable content');
 
@@ -131,7 +149,7 @@ describe('EvolutionService', () => {
       expect(fs.unlink).toHaveBeenCalledWith(expect.stringContaining('Identity.md.bak'));
     });
 
-    it('returns false if no backup exists for rollback', async () => {
+    it('returns false if no backup exists for manual rollback', async () => {
       existsSync.mockReturnValue(false);
       const result = await service.rollback();
       expect(result).toBe(false);
