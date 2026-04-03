@@ -1,0 +1,33 @@
+{
+  "name": "WorkspaceSummary",
+  "type": "skill",
+  "description": "Provides a high-level overview of the workspace: directory tree, entry points, core service descriptions, and recent file modifications.",
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "workspace_summary",
+        "description": "Generate a high-level overview of the codebase including directory tree, key entry points, core service responsibilities, and recent changes. Use this to gain context quickly at the start of a task.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "depth": {
+              "type": "integer",
+              "description": "Maximum depth of the directory tree (default: 3)."
+            },
+            "recent_limit": {
+              "type": "integer",
+              "description": "Number of recently modified files to show (default: 10)."
+            }
+          },
+          "required": []
+        }
+      }
+    }
+  ],
+  "permissions": {
+    "filesystem": {
+      "read": ["*"]
+    }
+  }
+}
