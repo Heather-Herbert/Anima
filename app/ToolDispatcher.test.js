@@ -43,7 +43,7 @@ describe('ToolDispatcher', () => {
     };
     const result = await toolDispatcher.dispatch(toolCall, {});
     expect(result).toBe('success');
-    expect(availableTools.test_tool).toHaveBeenCalledWith({ param1: 'value1' }, {});
+    expect(availableTools.test_tool).toHaveBeenCalledWith({ param1: 'value1' }, { auditService: null });
   });
 
   it('returns error for unknown tool', async () => {
