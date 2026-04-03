@@ -1,0 +1,39 @@
+{
+  "name": "UserPreferences",
+  "type": "skill",
+  "description": "Maintains Personality/UserPreferences.md — the agent's record of the user's coding style, libraries, naming conventions, and architectural preferences.",
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "update_user_preferences",
+        "description": "Update a specific section of the user preferences profile. Read the current preferences first with read_file, then call this tool with the full updated content for the section. Changes take effect in the next session when personality files are reloaded.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "section": {
+              "type": "string",
+              "enum": ["coding_style", "libraries", "naming_conventions", "architecture", "communication"],
+              "description": "The section to update."
+            },
+            "content": {
+              "type": "string",
+              "description": "The full new content for the section, formatted as markdown bullet points."
+            },
+            "justification": {
+              "type": "string",
+              "description": "Why this preference is being recorded or updated."
+            }
+          },
+          "required": ["section", "content", "justification"]
+        }
+      }
+    }
+  ],
+  "permissions": {
+    "filesystem": {
+      "read": ["Personality/UserPreferences.md"],
+      "write": ["Personality/UserPreferences.md"]
+    }
+  }
+}
