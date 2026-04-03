@@ -1,0 +1,40 @@
+{
+  "name": "SemanticSearch",
+  "type": "skill",
+  "description": "Semantic code search: indexes workspace files and enables meaning-based search via embeddings (OpenAI/Ollama) with a TF-IDF fallback.",
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "semantic_search",
+        "description": "Search the workspace for code and files by meaning rather than exact keywords. Automatically builds the index on first use.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": { "type": "string", "description": "Natural language description of what you are looking for." },
+            "max_results": { "type": "integer", "description": "Maximum number of results to return (default: 5)." }
+          },
+          "required": ["query"]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "reindex_workspace",
+        "description": "Force a full re-index of workspace files for semantic search. Run this after significant code changes.",
+        "parameters": {
+          "type": "object",
+          "properties": {},
+          "required": []
+        }
+      }
+    }
+  ],
+  "permissions": {
+    "filesystem": {
+      "read": ["*"],
+      "write": ["Memory/semantic_index.json"]
+    }
+  }
+}
