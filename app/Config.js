@@ -37,6 +37,12 @@ const configSchema = z.object({
       key: z.string().optional(),
     })
     .default({}),
+  compaction: z
+    .object({
+      enabled: z.boolean().default(true),
+      threshold: z.number().default(20),
+    })
+    .default({}),
 });
 
 let loadedConfig = null;
@@ -48,7 +54,10 @@ function loadConfig() {
   try {
     // Try to require the configuration file from the project root
     // This supports Anima.config.js or Anima.config.json
-    configData = require('../Settings/Anima.config');
+    const configPath = process.env.ANIMA_CONFIG_PATH
+      ? path.resolve(process.env.ANIMA_CONFIG_PATH)
+      : path.join(__dirname, '../Settings/Anima.config');
+    configData = require(configPath);
   } catch (error) {
     // Return null instead of exiting to allow for setup wizard
     return null;

@@ -37,6 +37,7 @@ jest.mock('node:fs');
 jest.mock('./Config', () => ({
   memoryMode: 'session',
   workspaceDir: '.',
+  compaction: { enabled: false, threshold: 20 },
 }));
 
 describe('ConversationService', () => {
@@ -389,7 +390,7 @@ describe('ConversationService', () => {
     expect(callAI).toHaveBeenCalledTimes(10);
   });
 
-  it('getManagedHistory implements sliding window correctly', () => {
+  it('getManagedHistory implements sliding window correctly', async () => {
     const history = [
       { role: 'system', content: 'SYS' },
       { role: 'user', content: 'Old User' },
@@ -409,12 +410,176 @@ describe('ConversationService', () => {
       { role: 'tool', content: 'O6' }, // Should be kept
     ];
 
-    const managed = service.getManagedHistory(history);
+    const managed = await service.getManagedHistory(history);
 
     expect(managed[0]).toEqual({ role: 'system', content: 'SYS' });
-    expect(managed[1]).toEqual({ role: 'user', content: 'Current User' });
-    expect(managed).toHaveLength(12); // System + Current User + 10 intermediary
+    // compaction disabled in this test suite — prior history included as-is
+    expect(managed).toContainEqual({ role: 'user', content: 'Current User' });
     expect(managed[managed.length - 1]).toEqual({ role: 'tool', content: 'O6' });
+    // last 10 intermediary + current user + prior messages + system prompt
+    const currentUserIdx = managed.findIndex((m) => m.content === 'Current User');
+    expect(managed.slice(currentUserIdx + 1)).toHaveLength(10);
+  });
+
+  describe('compaction', () => {
+    beforeEach(() => {
+      const config = require('./Config');
+      config.compaction = { enabled: true, threshold: 3 };
+      service._compactionSummary = null;
+      service._lastCompactedLength = 0;
+    });
+
+    afterEach(() => {
+      const config = require('./Config');
+      config.compaction = { enabled: false, threshold: 20 };
+      // Reset unconsumed mock implementations to prevent leakage
+      callAI.mockReset();
+    });
+
+    it('summarises prior history when it exceeds the threshold', async () => {
+      callAI.mockResolvedValueOnce({
+        choices: [{ message: { role: 'assistant', content: 'Summary of old context.' } }],
+        usage: { completion_tokens: 15 },
+      });
+
+      // Build a history with more prior messages than threshold (4)
+      const history = [
+        { role: 'system', content: 'SYS' },
+        { role: 'user', content: 'Original task: build a rocket.' },
+        { role: 'assistant', content: 'Turn 1 reply' },
+        { role: 'user', content: 'Follow-up 1' },
+        { role: 'assistant', content: 'Turn 2 reply' },
+        { role: 'user', content: 'Follow-up 2' },
+        { role: 'assistant', content: 'Turn 3 reply' },
+        { role: 'user', content: 'Current question' },
+      ];
+
+      const managed = await service.getManagedHistory(history);
+
+      // System prompt preserved
+      expect(managed[0]).toEqual({ role: 'system', content: 'SYS' });
+      // Original task preserved
+      expect(managed).toContainEqual({
+        role: 'user',
+        content: 'Original task: build a rocket.',
+      });
+      // Summary injected
+      const summaryMsg = managed.find(
+        (m) => m.role === 'system' && m.content?.includes('[Compacted Context Summary]'),
+      );
+      expect(summaryMsg).toBeDefined();
+      expect(summaryMsg.content).toContain('Summary of old context.');
+      // Current user input preserved
+      expect(managed).toContainEqual({ role: 'user', content: 'Current question' });
+    });
+
+    it('preserves original task through multiple rounds of compaction', async () => {
+      // Each call to getManagedHistory that triggers compaction calls callAI once for summary
+      callAI
+        .mockResolvedValueOnce({
+          choices: [{ message: { role: 'assistant', content: 'Round 1 summary.' } }],
+          usage: { completion_tokens: 10 },
+        })
+        .mockResolvedValueOnce({
+          choices: [{ message: { role: 'assistant', content: 'Round 2 summary.' } }],
+          usage: { completion_tokens: 12 },
+        });
+
+      const buildHistory = (currentContent) => [
+        { role: 'system', content: 'SYS' },
+        { role: 'user', content: 'Original task: build a rocket.' },
+        { role: 'assistant', content: 'Step 1' },
+        { role: 'user', content: 'Follow-up A' },
+        { role: 'assistant', content: 'Step 2' },
+        { role: 'user', content: currentContent },
+      ];
+
+      const managed1 = await service.getManagedHistory(buildHistory('Question 1'));
+      const originalTask1 = managed1.find(
+        (m) => m.role === 'user' && m.content === 'Original task: build a rocket.',
+      );
+      expect(originalTask1).toBeDefined();
+
+      // Reset compaction state to simulate second round with more history
+      service._lastCompactedLength = 0;
+      const managed2 = await service.getManagedHistory(buildHistory('Question 2'));
+      const originalTask2 = managed2.find(
+        (m) => m.role === 'user' && m.content === 'Original task: build a rocket.',
+      );
+      expect(originalTask2).toBeDefined();
+    });
+
+    it('logs compaction event to AuditService', async () => {
+      const auditMock = { secrets: [], log: jest.fn() };
+      service.auditService = auditMock;
+
+      callAI.mockResolvedValueOnce({
+        choices: [{ message: { role: 'assistant', content: 'Context summary.' } }],
+        usage: { completion_tokens: 20 },
+      });
+
+      const history = [
+        { role: 'system', content: 'SYS' },
+        { role: 'user', content: 'Original task' },
+        { role: 'assistant', content: 'A1' },
+        { role: 'user', content: 'Follow-up 1' },
+        { role: 'assistant', content: 'A2' },
+        { role: 'user', content: 'Current input' },
+      ];
+
+      await service.getManagedHistory(history);
+
+      const compactionLog = auditMock.log.mock.calls.find(
+        ([entry]) => entry.event === 'compaction',
+      );
+      expect(compactionLog).toBeDefined();
+      const entry = compactionLog[0];
+      expect(entry.at).toBeDefined();
+      expect(entry.turnsTruncated).toBeGreaterThan(0);
+      expect(entry.summaryTokens).toBe(20);
+      expect(entry.summaryInjected).toBe(true);
+    });
+
+    it('never truncates the system prompt', async () => {
+      // Compaction summary call
+      callAI.mockResolvedValueOnce({
+        choices: [{ message: { role: 'assistant', content: 'Summary.' } }],
+        usage: { completion_tokens: 5 },
+      });
+
+      const history = [
+        { role: 'system', content: 'SYSTEM INSTRUCTIONS' },
+        { role: 'user', content: 'Task start' },
+        { role: 'assistant', content: 'R1' },
+        { role: 'user', content: 'Follow-up' },
+        { role: 'assistant', content: 'R2' },
+        { role: 'user', content: 'Current' },
+      ];
+
+      const managed = await service.getManagedHistory(history);
+
+      expect(managed[0]).toEqual({ role: 'system', content: 'SYSTEM INSTRUCTIONS' });
+    });
+
+    it('falls back gracefully when summarisation LLM call fails', async () => {
+      callAI.mockRejectedValueOnce(new Error('LLM timeout'));
+
+      const history = [
+        { role: 'system', content: 'SYS' },
+        { role: 'user', content: 'Task' },
+        { role: 'assistant', content: 'R1' },
+        { role: 'user', content: 'Follow-up' },
+        { role: 'assistant', content: 'R2' },
+        { role: 'user', content: 'Current' },
+      ];
+
+      const managed = await service.getManagedHistory(history);
+
+      // Should still contain current user input — no crash
+      expect(managed).toContainEqual({ role: 'user', content: 'Current' });
+      // Prior history included as fallback
+      expect(managed).toContainEqual({ role: 'user', content: 'Task' });
+    });
   });
 
   it('safely handles prompt injection attempts', async () => {

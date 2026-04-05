@@ -87,5 +87,9 @@
     "timeoutMs": 30000,
     "maxTokens": 1000,
     "parallel": true
+  },
+  "compaction": {
+    "enabled": true,
+    "threshold": 20
   }
 }

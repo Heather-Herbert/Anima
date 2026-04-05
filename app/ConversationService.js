@@ -22,6 +22,8 @@ class ConversationService {
     );
     this.turnCounter = 0;
     this.lastHealthReport = null;
+    this._compactionSummary = null;
+    this._lastCompactedLength = 0;
     this.dangerousTools = [
       'run_command',
       'execute_code',
@@ -80,13 +82,13 @@ class ConversationService {
     // Heuristic: Track "let's try this" failures from user feedback
     const negativeFeedback = [
       "didn't work",
-      "did not work",
-      "still broken",
-      "still getting",
-      "error persists",
+      'did not work',
+      'still broken',
+      'still getting',
+      'error persists',
       "that's not right",
-      "try again",
-      "failed to",
+      'try again',
+      'failed to',
     ];
     if (negativeFeedback.some((phrase) => input.toLowerCase().includes(phrase))) {
       if (this.auditService) {
@@ -111,7 +113,7 @@ class ConversationService {
     // --- PHASE 1 & 2: DRAFT & REVIEW (Always Mode) ---
     if (councilConfig?.enabled && councilConfig.mode === 'always') {
       try {
-        const managedHistory = this.getManagedHistory(conversationHistory);
+        const managedHistory = await this.getManagedHistory(conversationHistory);
         // Generate Draft (tools disabled)
         const draftData = await callAI(managedHistory, null);
         const draft = draftData.choices?.[0]?.message?.content || '';
@@ -160,7 +162,7 @@ class ConversationService {
       let attempts = 0;
       const maxAttempts = 3;
 
-      const managedHistory = this.getManagedHistory(conversationHistory);
+      const managedHistory = await this.getManagedHistory(conversationHistory);
 
       while (attempts < maxAttempts) {
         try {
@@ -359,7 +361,7 @@ class ConversationService {
     };
   }
 
-  getManagedHistory(history) {
+  async getManagedHistory(history) {
     // 1. Always keep the System Prompt
     const systemPrompt = history.find((m) => m.role === 'system' && !m.internal);
 
@@ -372,16 +374,85 @@ class ConversationService {
     const inputIdx = history.indexOf(currentUserInput);
 
     // 3. Intermediary: everything AFTER the current user input
-    // We include internal messages here so they are visible to the agent in the next call.
     const intermediary = history.slice(inputIdx + 1);
 
     // 4. Sliding Window: Keep only the last 10 messages of intermediary (5 turns)
     const recentIntermediary = intermediary.slice(-10);
 
+    // 5. Prior history: everything between the system prompt and the current user input
+    const sysIdx = systemPrompt ? history.indexOf(systemPrompt) : -1;
+    const priorHistory = history.slice(sysIdx + 1, inputIdx);
+
+    // 6. Original task: first user message (always preserved)
+    const originalTask = history.find((m) => m.role === 'user');
+
+    const compactionConfig = config.compaction || {};
+    const compactionEnabled = compactionConfig.enabled !== false;
+    const threshold = compactionConfig.threshold ?? 20;
+
     const managed = [];
-    if (systemPrompt && history.indexOf(systemPrompt) < inputIdx) {
+    if (systemPrompt && sysIdx < inputIdx) {
       managed.push(systemPrompt);
     }
+
+    if (compactionEnabled && priorHistory.length > threshold) {
+      // Always preserve the original task message
+      if (originalTask && originalTask !== currentUserInput) {
+        managed.push(originalTask);
+      }
+
+      // Messages to summarise = prior history minus the original task
+      const toSummarise = priorHistory.filter((m) => m !== originalTask);
+
+      // Regenerate summary only when the pool of messages to summarise has grown
+      if (toSummarise.length > this._lastCompactedLength) {
+        try {
+          const summaryMessages = [
+            {
+              role: 'system',
+              content:
+                'Summarise the following conversation context concisely. Preserve key decisions, constraints, facts, and any still-relevant tool results. Output only the summary text.',
+            },
+            ...toSummarise,
+            {
+              role: 'user',
+              content: 'Provide a concise summary of the above conversation context.',
+            },
+          ];
+          const summaryData = await callAI(summaryMessages, null);
+          this._compactionSummary = summaryData?.choices?.[0]?.message?.content || '';
+          this._lastCompactedLength = toSummarise.length;
+
+          if (this.auditService) {
+            this.auditService.log({
+              event: 'compaction',
+              at: new Date().toISOString(),
+              turnsTruncated: toSummarise.length,
+              summaryTokens: summaryData?.usage?.completion_tokens ?? null,
+              summaryInjected: true,
+            });
+          }
+        } catch (e) {
+          process.stderr.write(`[Compaction] Summarisation failed: ${e.message}\n`);
+          // Fall back to including prior history without compaction
+          managed.push(...priorHistory);
+          managed.push(currentUserInput);
+          managed.push(...recentIntermediary);
+          return managed;
+        }
+      }
+
+      if (this._compactionSummary) {
+        managed.push({
+          role: 'system',
+          content: `[Compacted Context Summary]: ${this._compactionSummary}`,
+          internal: true,
+        });
+      }
+    } else {
+      managed.push(...priorHistory);
+    }
+
     managed.push(currentUserInput);
     managed.push(...recentIntermediary);
 
