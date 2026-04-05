@@ -11,11 +11,24 @@
         "parameters": {
           "type": "object",
           "properties": {
-            "profile": { "type": "string", "description": "Connection profile name (e.g., 'production', 'local')" },
+            "profile": {
+              "type": "string",
+              "description": "Connection profile name (e.g., 'production', 'local')"
+            },
             "sql": { "type": "string", "description": "The SQL query to execute." },
-            "params": { "type": "array", "items": { "type": "any" }, "description": "Optional parameterized query values." },
-            "justification": { "type": "string", "description": "A short explanation of why this query is necessary." },
-            "risk_assessment": { "type": "string", "description": "An assessment of the risks associated with this query (e.g., impact on performance, data integrity)." }
+            "params": {
+              "type": "array",
+              "items": { "type": "any" },
+              "description": "Optional parameterized query values."
+            },
+            "justification": {
+              "type": "string",
+              "description": "A short explanation of why this query is necessary."
+            },
+            "risk_assessment": {
+              "type": "string",
+              "description": "An assessment of the risks associated with this query (e.g., impact on performance, data integrity)."
+            }
           },
           "required": ["profile", "sql", "justification", "risk_assessment"]
         }

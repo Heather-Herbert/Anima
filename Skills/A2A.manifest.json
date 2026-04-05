@@ -11,7 +11,10 @@
         "parameters": {
           "type": "object",
           "properties": {
-            "endpoint": { "type": "string", "description": "The OpenAI-compatible chat completion URL (e.g. http://localhost:18701/v1/chat/completions)" },
+            "endpoint": {
+              "type": "string",
+              "description": "The OpenAI-compatible chat completion URL (e.g. http://localhost:18701/v1/chat/completions)"
+            },
             "apiKey": { "type": "string", "description": "Optional API Key or Bearer Token" },
             "agentId": { "type": "string", "description": "Optional agent identifier" }
           },
@@ -27,8 +30,14 @@
         "parameters": {
           "type": "object",
           "properties": {
-            "endpoint": { "type": "string", "description": "The OpenAI-compatible chat completion URL of the target agent" },
-            "task": { "type": "string", "description": "The specific task or question to delegate" },
+            "endpoint": {
+              "type": "string",
+              "description": "The OpenAI-compatible chat completion URL of the target agent"
+            },
+            "task": {
+              "type": "string",
+              "description": "The specific task or question to delegate"
+            },
             "apiKey": { "type": "string", "description": "Optional API Key or Bearer Token" },
             "agentId": { "type": "string", "description": "Optional agent identifier" }
           },
@@ -44,10 +53,22 @@
         "parameters": {
           "type": "object",
           "properties": {
-            "useUdp": { "type": "boolean", "description": "Use UDP broadcast for fast discovery. Defaults to true." },
-            "startPort": { "type": "integer", "description": "Fallback port to start scanning from (default 18700)" },
-            "endPort": { "type": "integer", "description": "Fallback port to end scanning at (default 18790)" },
-            "scanSubnetOnly": { "type": "boolean", "description": "If true, only scan the local /24 subnet. If false, scan all private IP ranges (slow). Defaults to true." }
+            "useUdp": {
+              "type": "boolean",
+              "description": "Use UDP broadcast for fast discovery. Defaults to true."
+            },
+            "startPort": {
+              "type": "integer",
+              "description": "Fallback port to start scanning from (default 18700)"
+            },
+            "endPort": {
+              "type": "integer",
+              "description": "Fallback port to end scanning at (default 18790)"
+            },
+            "scanSubnetOnly": {
+              "type": "boolean",
+              "description": "If true, only scan the local /24 subnet. If false, scan all private IP ranges (slow). Defaults to true."
+            }
           }
         }
       }
@@ -60,9 +81,20 @@
         "parameters": {
           "type": "object",
           "properties": {
-            "action": { "type": "string", "enum": ["list", "approve", "set_disclosure", "deny", "remove"], "description": "Action to perform." },
-            "id": { "type": "string", "description": "Agent identifier for approve/deny/remove/set_disclosure actions." },
-            "disclosure": { "type": "string", "enum": ["public", "full"], "description": "Disclosure level for approve or set_disclosure. Defaults to 'public'." }
+            "action": {
+              "type": "string",
+              "enum": ["list", "approve", "set_disclosure", "deny", "remove"],
+              "description": "Action to perform."
+            },
+            "id": {
+              "type": "string",
+              "description": "Agent identifier for approve/deny/remove/set_disclosure actions."
+            },
+            "disclosure": {
+              "type": "string",
+              "enum": ["public", "full"],
+              "description": "Disclosure level for approve or set_disclosure. Defaults to 'public'."
+            }
           },
           "required": ["action"]
         }

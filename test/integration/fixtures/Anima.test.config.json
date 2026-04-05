@@ -1,0 +1,8 @@
+{
+  "LLMProvider": "Stub",
+  "heartbeatInterval": 0,
+  "memoryMode": "off",
+  "advisoryCouncil": {
+    "enabled": false
+  }
+}

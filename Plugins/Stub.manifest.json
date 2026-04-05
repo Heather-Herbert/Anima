@@ -1,0 +1,13 @@
+{
+  "name": "Stub",
+  "description": "Stub LLM provider for integration testing. Returns deterministic canned responses without making any network calls.",
+  "capabilities": {
+    "tools": ["*"]
+  },
+  "permissions": {
+    "filesystem": {
+      "read": ["*"],
+      "write": ["*"]
+    }
+  }
+}

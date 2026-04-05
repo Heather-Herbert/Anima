@@ -5,7 +5,8 @@
   "main": "cli.js",
   "scripts": {
     "start": "node cli.js",
-    "test": "jest",
+    "test": "jest --testPathIgnorePatterns=test/integration",
+    "test:integration": "jest --testPathPattern=test/integration --forceExit",
     "lint": "eslint .",
     "format": "prettier --write .",
     "reset": "node reset.js"

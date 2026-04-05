@@ -11,8 +11,14 @@
         "parameters": {
           "type": "object",
           "properties": {
-            "query": { "type": "string", "description": "Natural language description of what you are looking for." },
-            "max_results": { "type": "integer", "description": "Maximum number of results to return (default: 5)." }
+            "query": {
+              "type": "string",
+              "description": "Natural language description of what you are looking for."
+            },
+            "max_results": {
+              "type": "integer",
+              "description": "Maximum number of results to return (default: 5)."
+            }
           },
           "required": ["query"]
         }

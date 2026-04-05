@@ -13,7 +13,13 @@
           "properties": {
             "section": {
               "type": "string",
-              "enum": ["coding_style", "libraries", "naming_conventions", "architecture", "communication"],
+              "enum": [
+                "coding_style",
+                "libraries",
+                "naming_conventions",
+                "architecture",
+                "communication"
+              ],
               "description": "The section to update."
             },
             "content": {
