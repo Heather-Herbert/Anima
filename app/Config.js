@@ -51,6 +51,12 @@ const configSchema = z.object({
       maxTurns: z.number().nullable().default(null),
     })
     .default({}),
+  selfVerification: z
+    .object({
+      mode: z.enum(['off', 'on_destructive', 'always']).default('off'),
+      maxConsecutiveFailures: z.number().default(3),
+    })
+    .default({}),
 });
 
 let loadedConfig = null;

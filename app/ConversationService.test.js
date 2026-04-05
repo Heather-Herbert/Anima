@@ -907,6 +907,232 @@ describe('ConversationService', () => {
     config.advisoryCouncil = { enabled: false };
   });
 
+  describe('self-verification', () => {
+    beforeEach(() => {
+      const config = require('./Config');
+      config.selfVerification = { mode: 'off', maxConsecutiveFailures: 3 };
+    });
+
+    afterEach(() => {
+      const config = require('./Config');
+      config.selfVerification = { mode: 'off', maxConsecutiveFailures: 3 };
+    });
+
+    it('in on_destructive mode, runs verification after write_file and passes', async () => {
+      const config = require('./Config');
+      config.selfVerification = { mode: 'on_destructive', maxConsecutiveFailures: 3 };
+
+      // Tool call: write_file
+      callAI.mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              role: 'assistant',
+              tool_calls: [
+                {
+                  id: 'w1',
+                  function: {
+                    name: 'write_file',
+                    arguments: '{"path":"out.txt","content":"hello","justification":"write hello"}',
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      });
+      // Verification call
+      callAI.mockResolvedValueOnce({
+        choices: [{ message: { content: '{"passed": true, "reason": "File written correctly"}' } }],
+      });
+      // Final reply
+      callAI.mockResolvedValueOnce({
+        choices: [{ message: { role: 'assistant', content: 'Done.' } }],
+      });
+
+      toolDispatcher.dispatch.mockResolvedValue('File written successfully.');
+      const confirmMock = jest.fn().mockResolvedValue('y');
+
+      const history = [];
+      const result = await service.processInput('write hello', history, confirmMock);
+
+      expect(result.reply).toBe('Done.');
+      expect(result.stopReason).toBeNull();
+      // Verification call was made
+      expect(callAI).toHaveBeenCalledTimes(3);
+    });
+
+    it('failed self-verification is visible in the audit log', async () => {
+      const config = require('./Config');
+      config.selfVerification = { mode: 'on_destructive', maxConsecutiveFailures: 3 };
+
+      const auditMock = { secrets: [], log: jest.fn() };
+      service.auditService = auditMock;
+
+      callAI.mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              role: 'assistant',
+              tool_calls: [
+                {
+                  id: 'w1',
+                  function: {
+                    name: 'write_file',
+                    arguments: '{"path":"out.txt","content":"hello","justification":"write hello"}',
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      });
+      // Verification: failed
+      callAI.mockResolvedValueOnce({
+        choices: [{ message: { content: '{"passed": false, "reason": "File not written"}' } }],
+      });
+      // Final reply after failed-but-not-halted verification
+      callAI.mockResolvedValueOnce({
+        choices: [{ message: { role: 'assistant', content: 'Done.' } }],
+      });
+
+      toolDispatcher.dispatch.mockResolvedValue('Error: disk full');
+      const confirmMock = jest.fn().mockResolvedValue('y');
+
+      await service.processInput('write hello', [], confirmMock);
+
+      const verificationLog = auditMock.log.mock.calls.find(
+        ([e]) => e.event === 'self_verification',
+      );
+      expect(verificationLog).toBeDefined();
+      const entry = verificationLog[0];
+      expect(entry.toolName).toBe('write_file');
+      expect(entry.passed).toBe(false);
+      expect(entry.details).toBe('File not written');
+    });
+
+    it('halts after N consecutive verification failures', async () => {
+      const config = require('./Config');
+      config.selfVerification = { mode: 'on_destructive', maxConsecutiveFailures: 2 };
+
+      // Two tool calls in one turn, both failing verification
+      callAI.mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              role: 'assistant',
+              tool_calls: [
+                {
+                  id: 'w1',
+                  function: {
+                    name: 'write_file',
+                    arguments: '{"path":"a.txt","content":"x","justification":"write a"}',
+                  },
+                },
+                {
+                  id: 'w2',
+                  function: {
+                    name: 'write_file',
+                    arguments: '{"path":"b.txt","content":"y","justification":"write b"}',
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      });
+      // Verification 1: fail
+      callAI.mockResolvedValueOnce({
+        choices: [{ message: { content: '{"passed": false, "reason": "bad write"}' } }],
+      });
+      // Verification 2: fail — triggers halt
+      callAI.mockResolvedValueOnce({
+        choices: [{ message: { content: '{"passed": false, "reason": "bad write again"}' } }],
+      });
+
+      toolDispatcher.dispatch.mockResolvedValue('Error: something wrong');
+      const confirmMock = jest.fn().mockResolvedValue('y');
+
+      const result = await service.processInput('write files', [], confirmMock);
+
+      expect(result.stopReason).toEqual(
+        expect.objectContaining({ reason: 'self_verification_halt', consecutiveFailures: 2 }),
+      );
+      expect(result.reply).toContain('Self-verification failed 2 consecutive time(s). Halting.');
+    });
+
+    it('does not run verification for non-destructive tools in on_destructive mode', async () => {
+      const config = require('./Config');
+      config.selfVerification = { mode: 'on_destructive', maxConsecutiveFailures: 3 };
+
+      callAI.mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              role: 'assistant',
+              tool_calls: [
+                {
+                  id: 'r1',
+                  function: {
+                    name: 'read_file',
+                    arguments: '{"path":"x.txt","justification":"read it"}',
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      });
+      // Final reply — only one more callAI, no verification call
+      callAI.mockResolvedValueOnce({
+        choices: [{ message: { role: 'assistant', content: 'Read done.' } }],
+      });
+
+      toolDispatcher.dispatch.mockResolvedValue('file contents');
+
+      const result = await service.processInput('read file', [], jest.fn());
+
+      expect(result.reply).toBe('Read done.');
+      // Only 2 calls: tool turn + final reply (no verification call)
+      expect(callAI).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not run verification for denied tool calls', async () => {
+      const config = require('./Config');
+      config.selfVerification = { mode: 'always', maxConsecutiveFailures: 3 };
+
+      callAI.mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              role: 'assistant',
+              tool_calls: [
+                {
+                  id: 'w1',
+                  function: {
+                    name: 'write_file',
+                    arguments: '{"path":"x.txt","content":"y","justification":"write"}',
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      });
+      callAI.mockResolvedValueOnce({
+        choices: [{ message: { role: 'assistant', content: 'Denied.' } }],
+      });
+
+      const confirmMock = jest.fn().mockResolvedValue('n'); // denied
+
+      const result = await service.processInput('write', [], confirmMock);
+
+      expect(result.reply).toBe('Denied.');
+      // No verification call — only 2 callAI calls (tool turn + final)
+      expect(callAI).toHaveBeenCalledTimes(2);
+    });
+  });
+
   describe('token budget', () => {
     beforeEach(() => {
       const config = require('./Config');

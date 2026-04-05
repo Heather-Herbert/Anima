@@ -97,5 +97,9 @@
     "maxInputTokens": null,
     "maxOutputTokens": null,
     "maxTurns": null
+  },
+  "selfVerification": {
+    "mode": "off",
+    "maxConsecutiveFailures": 3
   }
 }

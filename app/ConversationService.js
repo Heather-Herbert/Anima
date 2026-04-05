@@ -24,6 +24,7 @@ class ConversationService {
     this.lastHealthReport = null;
     this._compactionSummary = null;
     this._lastCompactedLength = 0;
+    this._consecutiveVerificationFailures = 0;
     this.dangerousTools = [
       'run_command',
       'execute_code',
@@ -33,6 +34,13 @@ class ConversationService {
       'replace_in_file',
       'query',
       'decontaminate',
+    ];
+    this.destructiveVerificationTools = [
+      'write_file',
+      'delete_file',
+      'replace_in_file',
+      'run_command',
+      'execute_code',
     ];
   }
 
@@ -317,6 +325,46 @@ class ConversationService {
               name: functionName,
               content: toolResult,
             });
+
+            // Self-verification
+            const svConfig = config.selfVerification || {};
+            const svMode = svConfig.mode || 'off';
+            const isDestructiveTool = this.destructiveVerificationTools.includes(functionName);
+            const shouldVerify =
+              auditResult !== 'denied' &&
+              auditResult !== 'dry-run' &&
+              (svMode === 'always' || (svMode === 'on_destructive' && isDestructiveTool));
+
+            if (shouldVerify) {
+              const verification = await this._runSelfVerification(
+                functionName,
+                functionArgs,
+                toolResult,
+              );
+              if (this.auditService) {
+                this.auditService.log({
+                  event: 'self_verification',
+                  toolName: functionName,
+                  passed: verification.passed,
+                  details: verification.reason,
+                });
+              }
+              if (!verification.passed) {
+                this._consecutiveVerificationFailures++;
+                const maxFailures = svConfig.maxConsecutiveFailures ?? 3;
+                if (this._consecutiveVerificationFailures >= maxFailures) {
+                  lastReply = `Self-verification failed ${this._consecutiveVerificationFailures} consecutive time(s). Halting. Last failure: ${verification.reason}`;
+                  stopReason = {
+                    reason: 'self_verification_halt',
+                    consecutiveFailures: this._consecutiveVerificationFailures,
+                  };
+                  processing = false;
+                  break;
+                }
+              } else {
+                this._consecutiveVerificationFailures = 0;
+              }
+            }
           } catch (error) {
             const errorMsg = `Error: ${error.message}`;
             if (this.auditService) {
@@ -334,6 +382,11 @@ class ConversationService {
               content: errorMsg,
             });
           }
+        }
+        if (stopReason?.reason === 'self_verification_halt') {
+          conversationHistory.push({ role: 'assistant', content: lastReply });
+          this.saveHistory(conversationHistory);
+          break;
         }
       } else {
         const reply = message.content || JSON.stringify(data, null, 2);
@@ -408,6 +461,30 @@ class ConversationService {
       reflectionProposal,
       stopReason,
     };
+  }
+
+  async _runSelfVerification(toolName, functionArgs, toolResult) {
+    const intent = functionArgs.justification || JSON.stringify(functionArgs);
+    const verificationMessages = [
+      {
+        role: 'system',
+        content:
+          'You are a verification agent. Assess whether a tool execution achieved its stated intent. Reply with JSON only: {"passed": boolean, "reason": "brief explanation"}',
+      },
+      {
+        role: 'user',
+        content: `Tool: ${toolName}\nIntent: ${intent}\nResult: ${String(toolResult).slice(0, 500)}\n\nDid the tool achieve its intent?`,
+      },
+    ];
+
+    try {
+      const data = await callAI(verificationMessages, null);
+      const content = data?.choices?.[0]?.message?.content || '{}';
+      const parsed = JSON.parse(content.replace(/```json|```/g, '').trim());
+      return { passed: Boolean(parsed.passed), reason: parsed.reason || '' };
+    } catch (e) {
+      return { passed: true, reason: 'Verification unavailable' };
+    }
   }
 
   async getManagedHistory(history) {
