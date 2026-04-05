@@ -906,4 +906,177 @@ describe('ConversationService', () => {
 
     config.advisoryCouncil = { enabled: false };
   });
+
+  describe('token budget', () => {
+    beforeEach(() => {
+      const config = require('./Config');
+      config.tokenBudget = {
+        maxTotalTokens: null,
+        maxInputTokens: null,
+        maxOutputTokens: null,
+        maxTurns: null,
+      };
+    });
+
+    afterEach(() => {
+      const config = require('./Config');
+      config.tokenBudget = {
+        maxTotalTokens: null,
+        maxInputTokens: null,
+        maxOutputTokens: null,
+        maxTurns: null,
+      };
+    });
+
+    it('stops cleanly when maxTotalTokens is exceeded (no exception)', async () => {
+      // First call consumes 100 tokens — enough to exceed a budget of 50
+      callAI.mockResolvedValueOnce({
+        choices: [{ message: { role: 'assistant', content: 'First reply' } }],
+        usage: { prompt_tokens: 60, completion_tokens: 40, total_tokens: 100 },
+      });
+      // Second call should never be made because budget check fires first
+      callAI.mockResolvedValueOnce({
+        choices: [{ message: { role: 'assistant', content: 'Should not reach here' } }],
+        usage: { prompt_tokens: 60, completion_tokens: 40, total_tokens: 100 },
+      });
+
+      const config = require('./Config');
+      config.tokenBudget = {
+        maxTotalTokens: 50,
+        maxInputTokens: null,
+        maxOutputTokens: null,
+        maxTurns: null,
+      };
+
+      // Tool call so we force a second iteration
+      callAI.mockReset();
+      callAI.mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              role: 'assistant',
+              tool_calls: [
+                {
+                  id: 't1',
+                  function: { name: 'read_file', arguments: '{"path":".","justification":"j"}' },
+                },
+              ],
+            },
+          },
+        ],
+        usage: { prompt_tokens: 60, completion_tokens: 40, total_tokens: 100 },
+      });
+      toolDispatcher.dispatch.mockResolvedValue('file content');
+
+      const history = [];
+      const result = await service.processInput('do something', history, jest.fn());
+
+      // Should have stopped cleanly — no exception thrown
+      expect(result.stopReason).toEqual(
+        expect.objectContaining({ reason: 'token_budget_exceeded' }),
+      );
+      expect(result.reply).toContain('Token budget reached');
+      // Second LLM call was never made
+      expect(callAI).toHaveBeenCalledTimes(1);
+    });
+
+    it('logs budget enforcement event to AuditService', async () => {
+      const auditMock = { secrets: [], log: jest.fn() };
+      service.auditService = auditMock;
+
+      const config = require('./Config');
+      config.tokenBudget = {
+        maxTotalTokens: 50,
+        maxInputTokens: null,
+        maxOutputTokens: null,
+        maxTurns: null,
+      };
+
+      // Tool call to force a second iteration where budget is already spent
+      callAI.mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              role: 'assistant',
+              tool_calls: [
+                {
+                  id: 't1',
+                  function: { name: 'read_file', arguments: '{"path":".","justification":"j"}' },
+                },
+              ],
+            },
+          },
+        ],
+        usage: { prompt_tokens: 60, completion_tokens: 40, total_tokens: 100 },
+      });
+      toolDispatcher.dispatch.mockResolvedValue('ok');
+
+      const history = [];
+      await service.processInput('do something', history, jest.fn());
+
+      const budgetLog = auditMock.log.mock.calls.find(([e]) => e.event === 'budget_enforcement');
+      expect(budgetLog).toBeDefined();
+      const entry = budgetLog[0];
+      expect(entry.stopReason.reason).toBe('token_budget_exceeded');
+      expect(entry.stopReason.budget).toBe(50);
+    });
+
+    it('enforces maxTurns budget', async () => {
+      const config = require('./Config');
+      config.tokenBudget = {
+        maxTotalTokens: null,
+        maxInputTokens: null,
+        maxOutputTokens: null,
+        maxTurns: 1,
+      };
+
+      // Iter 1: tool call (consumes turn 1)
+      callAI.mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              role: 'assistant',
+              tool_calls: [
+                {
+                  id: 't1',
+                  function: { name: 'read_file', arguments: '{"path":".","justification":"j"}' },
+                },
+              ],
+            },
+          },
+        ],
+        usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+      });
+      toolDispatcher.dispatch.mockResolvedValue('ok');
+
+      const history = [];
+      const result = await service.processInput('do something', history, jest.fn());
+
+      expect(result.stopReason).toEqual(
+        expect.objectContaining({ reason: 'token_budget_exceeded' }),
+      );
+      // Only the initial call was made; the second iteration was blocked
+      expect(callAI).toHaveBeenCalledTimes(1);
+    });
+
+    it('surfaces remainingBudget in the usage return value', async () => {
+      const config = require('./Config');
+      config.tokenBudget = {
+        maxTotalTokens: 1000,
+        maxInputTokens: null,
+        maxOutputTokens: null,
+        maxTurns: null,
+      };
+
+      callAI.mockResolvedValueOnce({
+        choices: [{ message: { role: 'assistant', content: 'Reply' } }],
+        usage: { prompt_tokens: 200, completion_tokens: 100, total_tokens: 300 },
+      });
+
+      const history = [];
+      const { usage } = await service.processInput('hello', history, jest.fn());
+
+      expect(usage.remainingBudget).toBe(700); // 1000 - 300
+    });
+  });
 });

@@ -43,6 +43,14 @@ const configSchema = z.object({
       threshold: z.number().default(20),
     })
     .default({}),
+  tokenBudget: z
+    .object({
+      maxTotalTokens: z.number().nullable().default(null),
+      maxInputTokens: z.number().nullable().default(null),
+      maxOutputTokens: z.number().nullable().default(null),
+      maxTurns: z.number().nullable().default(null),
+    })
+    .default({}),
 });
 
 let loadedConfig = null;

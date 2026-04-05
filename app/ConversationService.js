@@ -106,6 +106,7 @@ class ConversationService {
     let totalUsage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
     let resetRequested = null;
     let turnAdvice = [];
+    let stopReason = null;
 
     const councilConfig = config.advisoryCouncil;
     let turnRiskScore = 0;
@@ -163,6 +164,46 @@ class ConversationService {
       const maxAttempts = 3;
 
       const managedHistory = await this.getManagedHistory(conversationHistory);
+
+      // --- PRE-CALL BUDGET CHECK ---
+      const budget = config.tokenBudget || {};
+      const budgetBreached =
+        (budget.maxTotalTokens != null && totalUsage.total_tokens >= budget.maxTotalTokens) ||
+        (budget.maxInputTokens != null && totalUsage.prompt_tokens >= budget.maxInputTokens) ||
+        (budget.maxOutputTokens != null &&
+          totalUsage.completion_tokens >= budget.maxOutputTokens) ||
+        (budget.maxTurns != null && iterations > budget.maxTurns);
+
+      if (budgetBreached) {
+        const usedTokens = totalUsage.total_tokens;
+        const budgetLimit =
+          budget.maxTotalTokens ??
+          budget.maxInputTokens ??
+          budget.maxOutputTokens ??
+          budget.maxTurns;
+        stopReason = { reason: 'token_budget_exceeded', used: usedTokens, budget: budgetLimit };
+
+        if (this.auditService) {
+          this.auditService.log({
+            event: 'budget_enforcement',
+            stopReason,
+            totalUsage,
+          });
+        }
+
+        const budgetMessage = `Token budget reached (used: ${usedTokens}, limit: ${budgetLimit}). Stopping to stay within budget.`;
+        conversationHistory.push({ role: 'assistant', content: budgetMessage });
+        this.saveHistory(conversationHistory);
+        return {
+          reply: budgetMessage,
+          usage: totalUsage,
+          iterations,
+          resetRequested,
+          advice: turnAdvice,
+          reflectionProposal,
+          stopReason,
+        };
+      }
 
       while (attempts < maxAttempts) {
         try {
@@ -337,27 +378,35 @@ class ConversationService {
       }
     }
 
+    const budget = config.tokenBudget || {};
+    const remainingBudget =
+      budget.maxTotalTokens != null
+        ? Math.max(0, budget.maxTotalTokens - totalUsage.total_tokens)
+        : null;
+
     if (iterations >= MAX_ITERATIONS && processing) {
       const limitMessage = 'Max iterations reached. Stopping to prevent infinite loop.';
       conversationHistory.push({ role: 'assistant', content: limitMessage });
       this.saveHistory(conversationHistory);
       return {
         reply: limitMessage,
-        usage: totalUsage,
+        usage: { ...totalUsage, remainingBudget },
         iterations,
         resetRequested,
         advice: [],
         reflectionProposal,
+        stopReason,
       };
     }
 
     return {
       reply: lastReply,
-      usage: totalUsage,
+      usage: { ...totalUsage, remainingBudget },
       iterations,
       resetRequested,
       advice: turnAdvice,
       reflectionProposal,
+      stopReason,
     };
   }
 

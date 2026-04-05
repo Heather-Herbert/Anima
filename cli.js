@@ -30,6 +30,7 @@ Options:
   --council <mode> Set council mode (off, always, on_demand, risk_based)
   --council-advisers <list> Comma-separated list of adviser names to use
   --no-council     Completely disable the advisory council for this session
+  --token-budget <n> Set a per-session total token budget (overrides config)
   --help, -h       Display this help message
 `);
   process.exit(0);
@@ -39,6 +40,15 @@ const modelArgIndex = args.indexOf('--model');
 if (modelArgIndex !== -1 && args[modelArgIndex + 1]) {
   config.model = args[modelArgIndex + 1];
   console.log(`\x1b[33mModel overridden via CLI: ${config.model}\x1b[0m`);
+}
+
+const tokenBudgetIndex = args.indexOf('--token-budget');
+if (tokenBudgetIndex !== -1 && args[tokenBudgetIndex + 1]) {
+  const budgetN = parseInt(args[tokenBudgetIndex + 1], 10);
+  if (!isNaN(budgetN) && budgetN > 0) {
+    config.tokenBudget = { ...(config.tokenBudget || {}), maxTotalTokens: budgetN };
+    console.log(`\x1b[33mToken budget set via CLI: ${budgetN} tokens\x1b[0m`);
+  }
 }
 
 const startSpinner = (text) => {
@@ -438,6 +448,9 @@ const startHeartbeat = (agentName, activeTools, manifest, auditService, parturit
 };
 
 const runSetup = async () => {
+  // Skip wizard when an explicit config path is provided (e.g. integration tests)
+  if (process.env.ANIMA_CONFIG_PATH) return;
+
   const settingsDir = path.join(__dirname, 'Settings');
   const configPath = path.join(settingsDir, 'Anima.config.json');
   const configPathJs = path.join(settingsDir, 'Anima.config.js');
@@ -552,8 +565,13 @@ const showStatusLine = () => {
   const tokens = lastUsage.total_tokens || 0;
   const iters = lastUsage.iterations || 0;
   const contextSize = conversationHistory.length;
+  const budgetMax = config.tokenBudget?.maxTotalTokens;
+  const budgetPart =
+    budgetMax != null
+      ? ` | Budget: ${lastUsage.remainingBudget ?? budgetMax - tokens} remaining of ${budgetMax}`
+      : '';
   process.stdout.write(
-    `\x1b[90m[Model: ${model} | Tokens: ${tokens} | Iters: ${iters} | Context: ${contextSize} msgs]\x1b[0m\n`,
+    `\x1b[90m[Model: ${model} | Tokens: ${tokens} | Iters: ${iters} | Context: ${contextSize} msgs${budgetPart}]\x1b[0m\n`,
   );
 };
 

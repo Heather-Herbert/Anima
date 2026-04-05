@@ -91,5 +91,11 @@
   "compaction": {
     "enabled": true,
     "threshold": 20
+  },
+  "tokenBudget": {
+    "maxTotalTokens": null,
+    "maxInputTokens": null,
+    "maxOutputTokens": null,
+    "maxTurns": null
   }
 }
