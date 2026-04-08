@@ -269,7 +269,7 @@ describe('ConversationService', () => {
     const history = [];
     await service.processInput('show secret', history, jest.fn());
 
-    const historyWrite = fs.writeFileSync.mock.calls.find((call) =>
+    const historyWrite = fs.writeFileSync.mock.calls.findLast((call) =>
       call[0].endsWith(historyPath),
     );
     expect(historyWrite).toBeDefined();
