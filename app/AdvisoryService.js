@@ -28,20 +28,28 @@ class AdvisoryService {
     this.promptCache = new Map();
   }
 
-  async getAdvice({
-    userMessage,
-    mainDraft,
-    managedHistorySummary,
-    taintStatus,
-    availableToolsSummary,
-    healthReport,
-  }) {
+  async getAdvice(
+    {
+      userMessage,
+      mainDraft,
+      managedHistorySummary,
+      taintStatus,
+      availableToolsSummary,
+      healthReport,
+    },
+    overrideAdvisers = null,
+  ) {
     const councilConfig = config.advisoryCouncil;
-    if (!councilConfig?.enabled || !councilConfig.advisers || councilConfig.advisers.length === 0) {
-      return [];
+    if (!councilConfig?.enabled) return [];
+
+    let advisers;
+    if (overrideAdvisers?.length) {
+      advisers = overrideAdvisers;
+    } else {
+      if (!councilConfig.advisers?.length) return [];
+      advisers = councilConfig.advisers.slice(0, councilConfig.maxAdvisersPerCall);
     }
 
-    const advisers = councilConfig.advisers.slice(0, councilConfig.maxAdvisersPerCall);
     const context = {
       userMessage,
       mainDraft,

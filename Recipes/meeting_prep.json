@@ -1,0 +1,61 @@
+{
+  "id": "meeting_prep",
+  "version": "1.0.0",
+  "name": "Meeting Preparation Workflow",
+  "description": "Gather context, brief attendees, and produce a structured agenda for an upcoming meeting",
+  "intents": [
+    "prepare for meeting",
+    "meeting prep",
+    "get ready for meeting",
+    "meeting agenda",
+    "prepare agenda",
+    "brief for meeting",
+    "pre-meeting",
+    "meeting notes",
+    "stakeholder briefing"
+  ],
+  "inputs": [
+    {
+      "name": "meeting_topic",
+      "description": "The subject or purpose of the meeting",
+      "required": true
+    },
+    { "name": "attendees", "description": "List of attendees and their roles", "required": true },
+    { "name": "meeting_datetime", "description": "Date and time of the meeting", "required": true },
+    {
+      "name": "background_docs",
+      "description": "Relevant documents, prior meeting notes, or URLs to include",
+      "required": false
+    }
+  ],
+  "outputs": [
+    { "name": "agenda", "description": "Structured agenda with timed slots for each topic" },
+    {
+      "name": "briefing_doc",
+      "description": "One-page attendee briefing covering context, goals, and pre-read material"
+    },
+    {
+      "name": "action_items",
+      "description": "List of outstanding action items from prior meetings relevant to this one"
+    }
+  ],
+  "adviser_profile": ["LegalCounsel", "Ethicist"],
+  "steps": [
+    "Confirm the meeting topic, attendees, and datetime with the user",
+    "Search memory and recent conversation history for relevant context on the topic",
+    {
+      "if": "background documents or URLs were provided",
+      "then": ["Read or fetch the provided documents and extract key facts"],
+      "else": ["Summarise any available context from memory relevant to the topic"]
+    },
+    "Draft a structured agenda: opening, agenda items with time allocations, and AOB slot",
+    "Draft a one-page attendee briefing: meeting goal, background context, discussion questions, and pre-read links",
+    "Compile any open action items from prior meetings that are relevant to this session",
+    "Present the agenda and briefing doc to the user for review and approval",
+    {
+      "if": "user requests changes",
+      "then": ["Incorporate the requested changes and re-present the revised documents"]
+    }
+  ],
+  "tags": ["meeting", "productivity", "planning", "enterprise"]
+}

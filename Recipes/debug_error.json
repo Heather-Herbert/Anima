@@ -1,0 +1,29 @@
+{
+  "id": "debug_error",
+  "name": "Debug an Error or Exception",
+  "description": "Systematically investigate and fix a runtime error or unexpected exception",
+  "intents": [
+    "debug",
+    "error",
+    "exception",
+    "crash",
+    "fix error",
+    "stack trace",
+    "undefined",
+    "not a function",
+    "cannot read",
+    "null pointer",
+    "traceback",
+    "something is broken",
+    "not working"
+  ],
+  "steps": [
+    "Read the full error message and stack trace — note the file and line number",
+    "Open the file at the indicated line and read the surrounding context",
+    "Identify what value was unexpected (undefined, null, wrong type, etc.)",
+    "Trace where that value originates — check callers and data sources",
+    "Add a targeted fix; avoid changing unrelated code",
+    "Run the relevant tests to confirm the fix and check for regressions"
+  ],
+  "tags": ["debugging", "errors", "workflow"]
+}

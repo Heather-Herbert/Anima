@@ -1,0 +1,92 @@
+{
+  "id": "document_draft",
+  "version": "1.0.0",
+  "name": "Document Drafting Workflow",
+  "description": "Structure, draft, and refine a professional document such as a policy, proposal, report, or specification",
+  "intents": [
+    "draft document",
+    "write document",
+    "create document",
+    "document drafting",
+    "write proposal",
+    "draft policy",
+    "write specification",
+    "draft report",
+    "create report",
+    "write memo",
+    "draft memo",
+    "write brief",
+    "business writing"
+  ],
+  "inputs": [
+    {
+      "name": "document_type",
+      "description": "Type of document: policy, proposal, specification, report, memo, or brief",
+      "required": true
+    },
+    {
+      "name": "subject",
+      "description": "The topic or purpose the document addresses",
+      "required": true
+    },
+    {
+      "name": "audience",
+      "description": "Intended readers: executives, technical team, regulators, customers, or general staff",
+      "required": true
+    },
+    {
+      "name": "key_points",
+      "description": "Main points, requirements, or arguments the document must cover",
+      "required": false
+    },
+    {
+      "name": "reference_docs",
+      "description": "Existing documents, templates, or standards to base the draft on",
+      "required": false
+    },
+    {
+      "name": "length",
+      "description": "Approximate target length: brief (1 page), standard (2-5 pages), or detailed (5+ pages)",
+      "required": false
+    }
+  ],
+  "outputs": [
+    {
+      "name": "document_draft",
+      "description": "Full draft of the requested document with appropriate structure and formatting"
+    },
+    {
+      "name": "revision_notes",
+      "description": "Notes on assumptions made and areas that may need subject-matter-expert review"
+    }
+  ],
+  "adviser_profile": ["LegalCounsel", "TechnicalWriter"],
+  "steps": [
+    "Confirm the document type, subject, audience, and key points with the user",
+    {
+      "if": "reference documents or templates were provided",
+      "then": [
+        "Read the reference materials and extract relevant structure, tone, and content requirements"
+      ]
+    },
+    "Propose a document outline (sections and subsections) and confirm it with the user before drafting",
+    {
+      "if": "user approves the outline",
+      "then": [
+        "Draft each section in sequence, maintaining consistent tone and formatting",
+        "Add an executive summary or abstract at the top if the document is longer than two pages",
+        "Include a revision notes section flagging assumptions and areas needing SME input"
+      ],
+      "else": ["Revise the outline based on user feedback and re-confirm before drafting"]
+    },
+    "Present the complete draft to the user for review",
+    {
+      "if": "user requests changes",
+      "then": [
+        "Apply the requested revisions section by section",
+        "Re-present the updated draft and ask if further changes are needed"
+      ]
+    }
+  ],
+  "tags": ["writing", "documents", "productivity", "enterprise"]
+}

@@ -1,0 +1,95 @@
+{
+  "id": "sales_enablement",
+  "version": "1.0.0",
+  "name": "Sales Enablement Workflow",
+  "description": "Research a prospect, build a tailored pitch, and prepare supporting collateral for a sales engagement",
+  "intents": [
+    "sales enablement",
+    "sales pitch",
+    "prospect research",
+    "prepare for sales call",
+    "sales deck",
+    "account research",
+    "competitive brief",
+    "sales collateral",
+    "customer pitch",
+    "deal preparation",
+    "sales preparation"
+  ],
+  "inputs": [
+    {
+      "name": "prospect_name",
+      "description": "Name of the target company or individual",
+      "required": true
+    },
+    {
+      "name": "product_or_solution",
+      "description": "The product or solution being pitched",
+      "required": true
+    },
+    {
+      "name": "engagement_type",
+      "description": "Type of engagement: discovery call, demo, proposal, or QBR",
+      "required": true
+    },
+    {
+      "name": "known_pain_points",
+      "description": "Any known challenges or goals of the prospect",
+      "required": false
+    },
+    {
+      "name": "competitor_context",
+      "description": "Competing solutions the prospect is considering",
+      "required": false
+    }
+  ],
+  "outputs": [
+    {
+      "name": "prospect_brief",
+      "description": "One-page summary of the prospect: company background, key contacts, strategic priorities"
+    },
+    {
+      "name": "tailored_pitch",
+      "description": "Customised pitch narrative aligned to the prospect's pain points and goals"
+    },
+    {
+      "name": "competitive_brief",
+      "description": "Comparison of our solution against known competitors relevant to this prospect"
+    },
+    {
+      "name": "discovery_questions",
+      "description": "List of open-ended questions to uncover the prospect's needs during the call"
+    }
+  ],
+  "adviser_profile": ["LegalCounsel", "Ethicist"],
+  "steps": [
+    "Confirm the prospect name, product being pitched, and engagement type with the user",
+    "Research the prospect: company overview, recent news, strategic priorities, key decision-makers",
+    {
+      "if": "known pain points were provided",
+      "then": [
+        "Map each pain point to specific product capabilities that address it",
+        "Build the pitch narrative around those value propositions"
+      ],
+      "else": [
+        "Infer likely pain points from the prospect's industry and size",
+        "Build a general-purpose pitch narrative with the most common value propositions"
+      ]
+    },
+    {
+      "if": "competitor context was provided",
+      "then": [
+        "Prepare a competitive brief: where our solution wins, loses, and differentiates",
+        "Identify two or three proof points or case studies that reinforce our differentiation"
+      ]
+    },
+    "Draft 10 open-ended discovery questions tailored to the prospect's context",
+    "Assemble the full prospect brief, pitch narrative, and (if applicable) competitive brief",
+    "Present all materials to the user for review",
+    {
+      "if": "user requests changes",
+      "then": ["Revise the requested sections and re-present the updated materials"]
+    }
+  ],
+  "tags": ["sales", "crm", "enterprise", "enablement"]
+}

@@ -1,0 +1,91 @@
+{
+  "id": "financial_report",
+  "version": "1.0.0",
+  "name": "Financial Report Generation Workflow",
+  "description": "Gather financial data, perform analysis, and produce a structured financial report with commentary",
+  "intents": [
+    "financial report",
+    "generate financial report",
+    "finance report",
+    "financial summary",
+    "quarterly report",
+    "monthly report",
+    "revenue report",
+    "P&L report",
+    "profit and loss",
+    "budget report",
+    "financial analysis",
+    "financial review"
+  ],
+  "inputs": [
+    {
+      "name": "report_period",
+      "description": "Time period the report covers (e.g. Q1 2026, March 2026)",
+      "required": true
+    },
+    {
+      "name": "data_source",
+      "description": "Path or location of the financial data files (CSV, JSON, or spreadsheet)",
+      "required": true
+    },
+    {
+      "name": "report_type",
+      "description": "Type of report: P&L, balance sheet, cash flow, or budget vs actuals",
+      "required": true
+    },
+    {
+      "name": "audience",
+      "description": "Intended audience: executive, board, finance team, or external",
+      "required": false
+    },
+    {
+      "name": "comparison_period",
+      "description": "Prior period for variance analysis (e.g. Q4 2025)",
+      "required": false
+    }
+  ],
+  "outputs": [
+    {
+      "name": "financial_report",
+      "description": "Structured report document with summary, tables, and narrative commentary"
+    },
+    {
+      "name": "variance_analysis",
+      "description": "Period-over-period variance table with explanations for significant movements"
+    },
+    {
+      "name": "executive_summary",
+      "description": "One-paragraph headline summary suitable for senior stakeholders"
+    }
+  ],
+  "adviser_profile": ["LegalCounsel", "PrivacyExpert"],
+  "steps": [
+    "Confirm the report period, data source, report type, and audience with the user",
+    "Read and validate the financial data files; flag any missing or anomalous values",
+    {
+      "if": "a comparison period was provided",
+      "then": [
+        "Load the prior period data",
+        "Compute period-over-period variances for all key line items",
+        "Identify the top three positive and negative variance drivers"
+      ],
+      "else": ["Compute totals and key ratios for the current period only"]
+    },
+    "Structure the report body: header, executive summary, detailed tables, and narrative commentary",
+    {
+      "if": "audience is executive or board",
+      "then": [
+        "Lead with the executive summary and key headlines before the detailed tables",
+        "Use plain language and avoid internal jargon"
+      ],
+      "else": ["Include full line-item detail and methodology notes for the finance team"]
+    },
+    "Draft narrative commentary explaining performance drivers, risks, and outlook",
+    "Present the draft report to the user for review",
+    {
+      "if": "user requests revisions",
+      "then": ["Apply the requested changes and re-present the updated report"]
+    }
+  ],
+  "tags": ["finance", "reporting", "analysis", "enterprise"]
+}

@@ -1,0 +1,24 @@
+{
+  "id": "git_workflow",
+  "name": "Git Commit and Push Workflow",
+  "description": "Stage, commit, and push code changes to a git repository",
+  "intents": [
+    "commit",
+    "push",
+    "git commit",
+    "git push",
+    "save changes",
+    "stage files",
+    "commit changes",
+    "push code",
+    "create commit",
+    "version control"
+  ],
+  "steps": [
+    "Run `git status` to review staged and unstaged changes",
+    "Run `git add <files>` to stage specific files, or `git add .` for all changes",
+    "Run `git commit -m '<message>'` with a clear, descriptive commit message",
+    "Run `git push origin <branch>` to push to the remote repository"
+  ],
+  "tags": ["git", "version-control", "workflow"]
+}

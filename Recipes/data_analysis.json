@@ -1,0 +1,93 @@
+{
+  "id": "data_analysis",
+  "version": "1.0.0",
+  "name": "Data Analysis Workflow",
+  "description": "Load, validate, analyse, and summarise a dataset, producing insights and visualisation recommendations",
+  "intents": [
+    "analyse data",
+    "data analysis",
+    "analyze data",
+    "explore dataset",
+    "data exploration",
+    "statistical analysis",
+    "summarise data",
+    "summarize data",
+    "data insights",
+    "data summary",
+    "run analysis",
+    "inspect data",
+    "data report"
+  ],
+  "inputs": [
+    {
+      "name": "data_source",
+      "description": "Path or description of the dataset (CSV, JSON, database query, or API endpoint)",
+      "required": true
+    },
+    {
+      "name": "analysis_goal",
+      "description": "What question or business problem the analysis should answer",
+      "required": true
+    },
+    {
+      "name": "key_dimensions",
+      "description": "Columns or variables of primary interest for segmentation or grouping",
+      "required": false
+    },
+    {
+      "name": "output_format",
+      "description": "Desired output: summary table, narrative report, or both",
+      "required": false
+    }
+  ],
+  "outputs": [
+    {
+      "name": "data_quality_report",
+      "description": "Summary of missing values, outliers, and data quality issues found"
+    },
+    {
+      "name": "insights_summary",
+      "description": "Key findings and patterns discovered in the data, written in plain language"
+    },
+    {
+      "name": "statistical_summary",
+      "description": "Descriptive statistics for key variables (count, mean, median, std, min, max)"
+    },
+    {
+      "name": "visualisation_recommendations",
+      "description": "Suggested chart types and axes for visualising the most important findings"
+    }
+  ],
+  "adviser_profile": ["PrivacyExpert", "Ethicist"],
+  "steps": [
+    "Confirm the data source, analysis goal, and key dimensions with the user",
+    "Load and inspect the dataset: record count, column names, data types, and a sample of rows",
+    "Assess data quality: missing values, duplicates, outliers, and inconsistent formatting",
+    {
+      "if": "data quality issues are found",
+      "then": [
+        "Report the issues to the user and propose cleaning steps",
+        {
+          "if": "user approves the cleaning steps",
+          "then": ["Apply the approved cleaning steps and confirm the cleaned record count"],
+          "else": [
+            "Proceed with analysis on the raw data and note the quality caveats in the output"
+          ]
+        }
+      ]
+    },
+    "Compute descriptive statistics for all numeric columns and value distributions for categorical columns",
+    {
+      "if": "key dimensions were specified",
+      "then": [
+        "Segment the data by each dimension and compute group-level statistics",
+        "Identify the top three highest and lowest performing segments"
+      ]
+    },
+    "Identify the most significant patterns, trends, or anomalies relevant to the analysis goal",
+    "Draft the insights summary in plain language, connecting findings back to the stated business question",
+    "Recommend suitable visualisation types for the top findings (e.g. bar chart for category comparison, line chart for trends)",
+    "Present the full analysis output to the user for review"
+  ],
+  "tags": ["data", "analysis", "statistics", "enterprise"]
+}

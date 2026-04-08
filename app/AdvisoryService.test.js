@@ -107,6 +107,38 @@ describe('AdvisoryService', () => {
     config.advisoryCouncil.enabled = true; // reset
   });
 
+  it('uses overrideAdvisers instead of config advisers when provided', async () => {
+    fs.existsSync.mockReturnValue(true);
+    fs.readFileSync.mockReturnValue('Override Adviser Prompt');
+
+    callAI.mockResolvedValue({
+      choices: [{ message: { content: JSON.stringify(validAdvice) } }],
+    });
+
+    const override = [{ name: 'LegalCounsel', role: 'Legal reviewer', promptFile: 'legal.md' }];
+    const results = await service.getAdvice(
+      {
+        userMessage: 'hi',
+        mainDraft: 'hello',
+        managedHistorySummary: 'none',
+        taintStatus: false,
+        availableToolsSummary: 'none',
+      },
+      override,
+    );
+
+    expect(results).toHaveLength(1);
+    expect(results[0].adviserName).toBe('LegalCounsel');
+  });
+
+  it('returns empty array when council is disabled even with overrideAdvisers', async () => {
+    config.advisoryCouncil.enabled = false;
+    const override = [{ name: 'X', role: 'Y', promptFile: 'z.md' }];
+    const results = await service.getAdvice({}, override);
+    expect(results).toEqual([]);
+    config.advisoryCouncil.enabled = true; // reset
+  });
+
   it('throws error if prompt file is missing', () => {
     fs.existsSync.mockReturnValue(false);
     expect(() => service.loadPrompt('missing.md')).toThrow('Prompt file not found');

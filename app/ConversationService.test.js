@@ -40,6 +40,12 @@ jest.mock('./Config', () => ({
   compaction: { enabled: false, threshold: 20 },
 }));
 
+// Default: no matching recipes. Individual tests can override with mockReturnValueOnce.
+jest.mock('../Skills/IntentRecipe', () => ({
+  matchIntents: jest.fn().mockReturnValue([]),
+  formatSteps: jest.fn().mockReturnValue([]),
+}));
+
 describe('ConversationService', () => {
   let service;
   const historyPath = 'history.json';
@@ -1303,6 +1309,58 @@ describe('ConversationService', () => {
       const { usage } = await service.processInput('hello', history, jest.fn());
 
       expect(usage.remainingBudget).toBe(700); // 1000 - 300
+    });
+  });
+
+  describe('recipe adviser_profile integration', () => {
+    const IntentRecipe = require('../Skills/IntentRecipe');
+
+    beforeEach(() => {
+      IntentRecipe.matchIntents.mockReturnValue([]);
+      IntentRecipe.formatSteps.mockReturnValue([]);
+    });
+
+    it('includes adviser note in recipe hint when recipe has adviser_profile', async () => {
+      IntentRecipe.matchIntents.mockReturnValueOnce([
+        {
+          recipe: {
+            name: 'Legal Workflow',
+            steps: ['Step one'],
+            adviser_profile: ['LegalCounsel', 'Ethicist'],
+          },
+          score: 1.5,
+        },
+      ]);
+      IntentRecipe.formatSteps.mockReturnValueOnce(['  1. Step one']);
+
+      callAI.mockResolvedValue({
+        choices: [{ message: { role: 'assistant', content: 'Reply' } }],
+      });
+
+      const history = [];
+      await service.processInput('draft my legal document', history, jest.fn());
+
+      const userMsg = history[0].content;
+      expect(userMsg).toContain('<recipe_hint>');
+      expect(userMsg).toContain('Advisory review: LegalCounsel, Ethicist');
+    });
+
+    it('omits adviser note when recipe has no adviser_profile', async () => {
+      IntentRecipe.matchIntents.mockReturnValueOnce([
+        { recipe: { name: 'Simple Workflow', steps: ['Step one'] }, score: 1.0 },
+      ]);
+      IntentRecipe.formatSteps.mockReturnValueOnce(['  1. Step one']);
+
+      callAI.mockResolvedValue({
+        choices: [{ message: { role: 'assistant', content: 'Reply' } }],
+      });
+
+      const history = [];
+      await service.processInput('run simple workflow', history, jest.fn());
+
+      const userMsg = history[0].content;
+      expect(userMsg).toContain('<recipe_hint>');
+      expect(userMsg).not.toContain('Advisory review:');
     });
   });
 });

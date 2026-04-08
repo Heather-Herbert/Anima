@@ -1,0 +1,37 @@
+{
+  "id": "deploy_workflow",
+  "name": "Deploy to Environment",
+  "description": "Build, test, and deploy the application to a target environment with environment-specific guards",
+  "intents": [
+    "deploy",
+    "deploy to staging",
+    "deploy to production",
+    "release",
+    "push to prod",
+    "push to staging",
+    "ship it",
+    "go live",
+    "publish release"
+  ],
+  "steps": [
+    "Run npm test to confirm all tests pass",
+    {
+      "if": "all tests pass",
+      "then": [
+        "Run npm run build to create a production artifact",
+        {
+          "if": "target environment is production",
+          "then": [
+            "Request peer review approval before continuing",
+            "Tag the release commit with the version number",
+            "Deploy artifact to production using the deploy script"
+          ],
+          "else": ["Deploy artifact to staging using the deploy script"]
+        },
+        "Verify the deployment by checking the health endpoint"
+      ],
+      "else": ["Report failing tests to the user and stop — do not deploy until tests are green"]
+    }
+  ],
+  "tags": ["deploy", "release", "workflow"]
+}

@@ -84,7 +84,32 @@ class ConversationService {
       }
     }
 
-    const wrappedInput = `<user_input>\n${input}\n</user_input>`;
+    let recipeHint = '';
+    let recipeAdviserProfile = null;
+    try {
+      const intentRecipe = require('../Skills/IntentRecipe');
+      if (intentRecipe && typeof intentRecipe.matchIntents === 'function') {
+        const matches = intentRecipe.matchIntents(input, 1);
+        if (matches.length > 0) {
+          const { recipe } = matches[0];
+          recipeAdviserProfile = recipe.adviser_profile?.length ? recipe.adviser_profile : null;
+          const steps = intentRecipe.formatSteps(recipe.steps).join('\n');
+          const adviserNote = recipeAdviserProfile
+            ? `Advisory review: ${recipeAdviserProfile.join(', ')}\n`
+            : '';
+          recipeHint =
+            `\n<recipe_hint>\n` +
+            `Matched workflow recipe: "${recipe.name}"\n` +
+            adviserNote +
+            `Steps:\n${steps}\n` +
+            `</recipe_hint>`;
+        }
+      }
+    } catch {
+      /* IntentRecipe skill not available — proceed without hint */
+    }
+
+    const wrappedInput = `<user_input>\n${input}\n</user_input>${recipeHint}`;
     conversationHistory.push({ role: 'user', content: wrappedInput });
 
     // Heuristic: Track "let's try this" failures from user feedback
@@ -119,8 +144,13 @@ class ConversationService {
     const councilConfig = config.advisoryCouncil;
     let turnRiskScore = 0;
 
-    // --- PHASE 1 & 2: DRAFT & REVIEW (Always Mode) ---
-    if (councilConfig?.enabled && councilConfig.mode === 'always') {
+    // --- PHASE 1 & 2: DRAFT & REVIEW ---
+    // Runs in 'always' mode, or on-demand when the matched recipe specifies an adviser_profile.
+    const shouldRunAdvisory =
+      councilConfig?.enabled &&
+      (councilConfig.mode === 'always' || (recipeAdviserProfile?.length ?? 0) > 0);
+
+    if (shouldRunAdvisory) {
       try {
         const managedHistory = await this.getManagedHistory(conversationHistory);
         // Generate Draft (tools disabled)
@@ -135,15 +165,28 @@ class ConversationService {
         }
 
         if (draft) {
+          // Resolve override advisers from the recipe's adviser_profile names.
+          let overrideAdvisers = null;
+          if (recipeAdviserProfile?.length) {
+            const configuredAdvisers = councilConfig?.advisers || [];
+            const resolved = recipeAdviserProfile
+              .map((name) => configuredAdvisers.find((a) => a.name === name))
+              .filter(Boolean);
+            if (resolved.length > 0) overrideAdvisers = resolved;
+          }
+
           // Run Advisers on Draft
-          const advice = await this.advisoryService.getAdvice({
-            userMessage: input,
-            mainDraft: draft,
-            managedHistorySummary: `Draft phase. Context window contains ${managedHistory.length} messages.`,
-            taintStatus: isTainted,
-            availableToolsSummary: this.activeTools.map((t) => t.function.name).join(', '),
-            healthReport: this.lastHealthReport,
-          });
+          const advice = await this.advisoryService.getAdvice(
+            {
+              userMessage: input,
+              mainDraft: draft,
+              managedHistorySummary: `Draft phase. Context window contains ${managedHistory.length} messages.`,
+              taintStatus: isTainted,
+              availableToolsSummary: this.activeTools.map((t) => t.function.name).join(', '),
+              healthReport: this.lastHealthReport,
+            },
+            overrideAdvisers,
+          );
 
           if (advice && advice.length > 0) {
             turnAdvice = advice;

@@ -1,0 +1,160 @@
+{
+  "name": "IntentRecipe",
+  "type": "skill",
+  "description": "Maps user intent to workflow recipes stored as JSON files in Recipes/. Provides tools to match, list, retrieve, and create recipes.",
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "match_intent",
+        "description": "Match the user's request against available workflow recipes and return the best matching recipe with its steps. Call this at the start of a turn when the user describes a task they want to accomplish — if a recipe matches, follow its steps.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "type": "string",
+              "description": "The user's request or description of what they want to do."
+            },
+            "max_results": {
+              "type": "integer",
+              "description": "Maximum number of matching recipes to return (default: 3)."
+            }
+          },
+          "required": ["input"]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "list_recipes",
+        "description": "List all available workflow recipes with their id, name, description, and tags.",
+        "parameters": {
+          "type": "object",
+          "properties": {}
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "get_recipe",
+        "description": "Load a specific recipe by its id and return its full details including all steps.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "The unique recipe id (e.g. 'git_workflow')."
+            }
+          },
+          "required": ["id"]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "add_recipe",
+        "description": "Create a new workflow recipe and save it to the Recipes/ directory so it is available in future sessions.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "A unique snake_case identifier for the recipe (e.g. 'deploy_to_prod')."
+            },
+            "name": {
+              "type": "string",
+              "description": "A short human-readable name for the recipe."
+            },
+            "description": {
+              "type": "string",
+              "description": "One-sentence description of what the recipe accomplishes."
+            },
+            "intents": {
+              "type": "array",
+              "description": "List of keywords and phrases that signal this recipe should be matched.",
+              "items": { "type": "string" }
+            },
+            "steps": {
+              "type": "array",
+              "description": "Ordered list of steps the agent should follow. Each step is either a plain string instruction, or a conditional branch object: {\"if\": \"condition\", \"then\": [steps], \"else\": [steps]} where 'else' is optional. Branches may be nested.",
+              "items": {
+                "anyOf": [
+                  { "type": "string" },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "if": {
+                        "type": "string",
+                        "description": "Natural-language condition to evaluate."
+                      },
+                      "then": {
+                        "type": "array",
+                        "items": { "type": "string" },
+                        "description": "Steps to follow when the condition is true."
+                      },
+                      "else": {
+                        "type": "array",
+                        "items": { "type": "string" },
+                        "description": "Steps to follow when the condition is false (optional)."
+                      }
+                    },
+                    "required": ["if", "then"]
+                  }
+                ]
+              }
+            },
+            "tags": {
+              "type": "array",
+              "description": "Optional categorisation tags (e.g. ['git', 'workflow']).",
+              "items": { "type": "string" }
+            },
+            "version": {
+              "type": "string",
+              "description": "Semantic version string for the recipe (e.g. '1.0.0')."
+            },
+            "inputs": {
+              "type": "array",
+              "description": "Declared inputs the recipe expects before starting. Each item has 'name', 'description', and optional 'required' (boolean, defaults true).",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "description": { "type": "string" },
+                  "required": { "type": "boolean" }
+                },
+                "required": ["name", "description"]
+              }
+            },
+            "outputs": {
+              "type": "array",
+              "description": "Declared output artefacts the recipe produces. Each item has 'name' and 'description'.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "description": { "type": "string" }
+                },
+                "required": ["name", "description"]
+              }
+            },
+            "adviser_profile": {
+              "type": "array",
+              "description": "Names of advisory council members to consult when this recipe runs (e.g. ['LegalCounsel', 'Ethicist']). Overrides the default council configuration for this workflow.",
+              "items": { "type": "string" }
+            }
+          },
+          "required": ["id", "name", "description", "intents", "steps"]
+        }
+      }
+    }
+  ],
+  "permissions": {
+    "filesystem": {
+      "read": ["Recipes/"],
+      "write": ["Recipes/"]
+    }
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "id": "run_tests",
+  "name": "Run Tests Workflow",
+  "description": "Run the project test suite, check coverage, and fix failures",
+  "intents": [
+    "run tests",
+    "test",
+    "npm test",
+    "check tests",
+    "fix tests",
+    "failing test",
+    "test coverage",
+    "unit tests",
+    "test suite",
+    "run unit tests",
+    "jest"
+  ],
+  "steps": [
+    "Run `npm test` to execute the full test suite",
+    "Review any failing tests — read the error messages carefully",
+    "Open the failing test file and the source file it covers",
+    "Fix the underlying code or update the test if requirements changed",
+    "Run `npm test -- --testPathPattern=<file>` to re-run just the affected test",
+    "Run `npm test -- --coverage` to check coverage once all tests pass"
+  ],
+  "tags": ["testing", "jest", "workflow"]
+}
