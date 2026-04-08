@@ -1327,6 +1327,37 @@ describe('ConversationService', () => {
       expect(transitionSpy).toHaveBeenCalledWith('complete');
     });
 
+    it('transitions to waiting_on_external during delegate_task', async () => {
+      callAI.mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              role: 'assistant',
+              tool_calls: [
+                {
+                  id: 'd1',
+                  function: {
+                    name: 'delegate_task',
+                    arguments: '{"endpoint":"http://agent","task":"do work"}',
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      });
+      callAI.mockResolvedValueOnce({
+        choices: [{ message: { role: 'assistant', content: 'Done' } }],
+      });
+      toolDispatcher.dispatch.mockResolvedValue('task result');
+
+      const transitionSpy = jest.spyOn(service.workflowStateService, 'transition');
+
+      await service.processInput('delegate something', [], jest.fn());
+
+      expect(transitionSpy).toHaveBeenCalledWith('waiting_on_external', { tool: 'delegate_task' });
+    });
+
     it('records tool checkpoints in WorkflowStateService', async () => {
       callAI.mockResolvedValueOnce({
         choices: [

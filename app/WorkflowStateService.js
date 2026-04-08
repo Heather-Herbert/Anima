@@ -73,8 +73,11 @@ class WorkflowStateService {
       state: newState,
       updatedAt: now,
       ...(metadata.task !== undefined ? { task: metadata.task } : {}),
-      // Clear checkpoint when leaving executing without entering it again
-      ...(from === 'executing' && newState !== 'executing' ? { checkpoint: null } : {}),
+      // Clear checkpoint when leaving executing, unless moving to waiting_on_external
+      // (preserve it so recovery context shows what tool was in-flight)
+      ...(from === 'executing' && newState !== 'executing' && newState !== 'waiting_on_external'
+        ? { checkpoint: null }
+        : {}),
     };
 
     const entry = {
@@ -160,12 +163,29 @@ class WorkflowStateService {
 
     const lines = ['<workflow_recovery>', `Previous session was interrupted in state: ${s.state}`];
 
-    if (s.task) lines.push(`Current task: ${s.task}`);
-
-    if (s.checkpoint) {
+    if (s.state === 'waiting_on_external') {
       lines.push(
-        `Last checkpoint: ${s.checkpoint.toolName} started at ${s.checkpoint.startedAt} — this tool may not have completed`,
+        'The agent was waiting for an external system to respond (e.g. a delegated task or async callback).',
       );
+      if (s.checkpoint) {
+        lines.push(
+          `The in-flight operation was: ${s.checkpoint.toolName} (started ${s.checkpoint.startedAt}).`,
+        );
+        lines.push(
+          'That operation may or may not have completed. Check whether its result has arrived before re-triggering it.',
+        );
+      }
+      lines.push(
+        'If the external result has arrived (e.g. via webhook), it will appear in the conversation history.',
+      );
+    } else {
+      if (s.task) lines.push(`Current task: ${s.task}`);
+
+      if (s.checkpoint) {
+        lines.push(
+          `Last checkpoint: ${s.checkpoint.toolName} started at ${s.checkpoint.startedAt} — this tool may not have completed`,
+        );
+      }
     }
 
     if (s.completedSteps.length > 0) {

@@ -109,6 +109,39 @@ class WebGateway {
     this._cullerInterval.unref();
   }
 
+  _registerWebhookCallback(session) {
+    try {
+      const a2aSkill = require('../Skills/A2A');
+      if (!a2aSkill?.registerCallbackHandler) return;
+      a2aSkill.registerCallbackHandler(async (taskId, result) => {
+        const message = `[A2A Webhook] External task "${taskId}" completed:\n${result}`;
+        session.sseClients.forEach((client) =>
+          sendSse(client, {
+            type: 'status',
+            content: `External task "${taskId}" completed. Resuming…`,
+          }),
+        );
+        try {
+          const confirmCallback = this._buildConfirmCallback(session);
+          const callbackResult = await session.conversationService.processInput(
+            message,
+            session.history,
+            confirmCallback,
+          );
+          session.sseClients.forEach((client) =>
+            sendSse(client, { type: 'response', content: callbackResult.reply }),
+          );
+        } catch (err) {
+          session.sseClients.forEach((client) =>
+            sendSse(client, { type: 'error', content: err.message }),
+          );
+        }
+      });
+    } catch (_) {
+      /* A2A skill not available */
+    }
+  }
+
   _buildConfirmCallback(session) {
     return (functionName, functionArgs, justification, isTainted) => {
       return new Promise((resolve) => {
@@ -205,6 +238,9 @@ class WebGateway {
       this._touchSession(session);
       session.isProcessing = true;
       sendJson(res, 202, { ok: true });
+
+      // Register this session as the active A2A webhook receiver (last active wins)
+      this._registerWebhookCallback(session);
 
       try {
         const confirmCallback = this._buildConfirmCallback(session);

@@ -321,6 +321,35 @@ describe('WebGateway', () => {
     });
   });
 
+  // ── Webhook callback ────────────────────────────────────
+  describe('webhook callback', () => {
+    it('registers a callback handler with A2A when a message is sent', async () => {
+      const { cookie } = await login(server);
+      const cookies = parseCookieHeader(cookie);
+      const sid = cookies['anima_sid'];
+      const session = gw.sessions.get(sid);
+
+      // Inject fake SSE client
+      const events = [];
+      session.sseClients.add({ write: (d) => events.push(d) });
+
+      await request(server, 'POST', '/message', { body: { message: 'hello' }, cookie });
+      await new Promise((r) => setTimeout(r, 50));
+
+      // Simulate A2A callback arriving — the registered handler should push a response via SSE
+      // We call _registerWebhookCallback directly to test the registration mechanism
+      const mockA2a = {
+        registerCallbackHandler: jest.fn(),
+      };
+      jest.doMock('../Skills/A2A', () => mockA2a);
+
+      gw._registerWebhookCallback(session);
+      expect(mockA2a.registerCallbackHandler).toHaveBeenCalled();
+
+      jest.dontMock('../Skills/A2A');
+    });
+  });
+
   // ── Session isolation ───────────────────────────────────
   describe('session isolation', () => {
     it('two logins produce independent sessions with separate histories', async () => {

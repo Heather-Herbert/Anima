@@ -96,6 +96,34 @@ describe('WorkflowStateService', () => {
     expect(service.getRecoveryContext()).toBeNull();
   });
 
+  it('preserves checkpoint when transitioning executing → waiting_on_external', () => {
+    service.beforeTool('delegate_task', { endpoint: 'http://other-agent' });
+    service.transition('waiting_on_external', { tool: 'delegate_task' });
+    const state = service.getWorkflowState();
+    expect(state.state).toBe('waiting_on_external');
+    expect(state.checkpoint).not.toBeNull();
+    expect(state.checkpoint.toolName).toBe('delegate_task');
+  });
+
+  it('generates specific recovery context for waiting_on_external with checkpoint', () => {
+    service.beforeTool('delegate_task', { endpoint: 'http://other-agent' });
+    service.transition('waiting_on_external', { tool: 'delegate_task' });
+    const context = service.getRecoveryContext();
+    expect(context).toContain('waiting_on_external');
+    expect(context).toContain('external system');
+    expect(context).toContain('delegate_task');
+    expect(context).toContain('webhook');
+  });
+
+  it('generates waiting_on_external recovery context without checkpoint', () => {
+    service.transition('planning', { task: 'some task' });
+    service.transition('waiting_on_external', { tool: 'delegate_task' });
+    const context = service.getRecoveryContext();
+    expect(context).toContain('waiting_on_external');
+    expect(context).toContain('external system');
+    expect(context).not.toContain('The in-flight operation');
+  });
+
   it('resets session', () => {
     service.transition('planning', { task: 'task' });
     service.reset();

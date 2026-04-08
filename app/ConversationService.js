@@ -42,6 +42,8 @@ class ConversationService {
       'query',
       'decontaminate',
     ];
+    // Tools that block on an external system — transition to waiting_on_external during dispatch
+    this.externalWaitTools = ['delegate_task'];
     this.destructiveVerificationTools = [
       'write_file',
       'delete_file',
@@ -373,6 +375,9 @@ class ConversationService {
                 _isTainted: isTainted,
               };
               this.workflowStateService.beforeTool(functionName, functionArgs);
+              if (this.externalWaitTools.includes(functionName)) {
+                this.workflowStateService.transition('waiting_on_external', { tool: functionName });
+              }
               toolResult = await toolDispatcher.dispatch(toolCall, callPermissions);
               this.workflowStateService.afterTool(functionName, toolResult);
             }

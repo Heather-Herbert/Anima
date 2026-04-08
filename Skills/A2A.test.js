@@ -376,6 +376,107 @@ describe('A2A Skill', () => {
       expect(mockRes.writeHead).toHaveBeenCalledWith(404);
     });
 
+    describe('webhook endpoint', () => {
+      beforeEach(() => {
+        process.env.ANIMA_A2A_ROOT_KEY = 'root-key';
+        fs.existsSync.mockReturnValue(true);
+        fs.readFileSync.mockImplementation((p) => {
+          if (p.endsWith('peers.json')) return JSON.stringify({ trusted: {}, pending: {} });
+          return '';
+        });
+      });
+
+      afterEach(() => {
+        delete process.env.ANIMA_A2A_ROOT_KEY;
+      });
+
+      it('rejects webhook without auth', () => {
+        A2A.startServer('/test/base');
+        mockReq.method = 'POST';
+        mockReq.url = '/v1/webhook';
+        mockReq.headers = {};
+
+        serverHandler(mockReq, mockRes);
+        expect(mockRes.writeHead).toHaveBeenCalledWith(401, expect.any(Object));
+      });
+
+      it('rejects webhook with wrong token', () => {
+        A2A.startServer('/test/base');
+        mockReq.method = 'POST';
+        mockReq.url = '/v1/webhook';
+        mockReq.headers = { authorization: 'Bearer wrong-key' };
+
+        serverHandler(mockReq, mockRes);
+        expect(mockRes.writeHead).toHaveBeenCalledWith(401, expect.any(Object));
+      });
+
+      it('accepts webhook with root key and invokes callback handler', async () => {
+        A2A.startServer('/test/base');
+        mockReq.method = 'POST';
+        mockReq.url = '/v1/webhook';
+        mockReq.headers = { authorization: 'Bearer root-key' };
+
+        const handler = jest.fn().mockResolvedValue(undefined);
+        A2A.registerCallbackHandler(handler);
+
+        serverHandler(mockReq, mockRes);
+        mockReq.emit('data', Buffer.from(JSON.stringify({ taskId: 'task-1', result: 'done' })));
+        mockReq.emit('end');
+
+        await new Promise((r) => setTimeout(r, 10));
+
+        expect(mockRes.writeHead).toHaveBeenCalledWith(200);
+        expect(handler).toHaveBeenCalledWith('task-1', 'done');
+      });
+
+      it('accepts webhook with trusted peer token', async () => {
+        fs.readFileSync.mockImplementation((p) => {
+          if (p.endsWith('peers.json')) {
+            return JSON.stringify({
+              trusted: { peer1: { token: 'peer-token' } },
+              pending: {},
+            });
+          }
+          return '';
+        });
+
+        A2A.startServer('/test/base');
+        mockReq.method = 'POST';
+        mockReq.url = '/v1/webhook';
+        mockReq.headers = { authorization: 'Bearer peer-token' };
+
+        const handler = jest.fn().mockResolvedValue(undefined);
+        A2A.registerCallbackHandler(handler);
+
+        serverHandler(mockReq, mockRes);
+        mockReq.emit('data', Buffer.from(JSON.stringify({ taskId: 'task-2', result: 'ok' })));
+        mockReq.emit('end');
+
+        await new Promise((r) => setTimeout(r, 10));
+
+        expect(mockRes.writeHead).toHaveBeenCalledWith(200);
+        expect(handler).toHaveBeenCalledWith('task-2', 'ok');
+      });
+
+      it('does not throw if no callback handler is registered', async () => {
+        A2A.registerCallbackHandler(null);
+        A2A.startServer('/test/base');
+        mockReq.method = 'POST';
+        mockReq.url = '/v1/webhook';
+        mockReq.headers = { authorization: 'Bearer root-key' };
+
+        serverHandler(mockReq, mockRes);
+        mockReq.emit('data', Buffer.from(JSON.stringify({ taskId: 'x', result: 'y' })));
+
+        await expect(
+          new Promise((resolve) => {
+            mockReq.on('end', resolve);
+            mockReq.emit('end');
+          }),
+        ).resolves.not.toThrow();
+      });
+    });
+
     it('serves Public identity for peers with public disclosure', async () => {
       A2A.startServer('/test/base');
       mockReq.method = 'POST';

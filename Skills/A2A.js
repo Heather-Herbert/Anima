@@ -35,6 +35,19 @@ let server = null;
 let udpSocket = null;
 const DISCOVERY_PORT = 18789;
 
+let _callbackHandler = null;
+
+/**
+ * Register a handler invoked when the webhook receives an external result.
+ * The handler receives (taskId, result) and should call processInput on the
+ * active ConversationService session.
+ * Overwrites any previously registered handler (last active session wins).
+ * @param {function} fn - async (taskId: string, result: string) => void
+ */
+const registerCallbackHandler = (fn) => {
+  _callbackHandler = fn;
+};
+
 const startServer = (baseDir) => {
   if (server) return;
 
@@ -81,8 +94,17 @@ const startServer = (baseDir) => {
       return;
     }
 
-    // 2. Webhook Endpoint (for async tasks)
+    // 2. Webhook Endpoint (for async external callbacks)
     if (req.method === 'POST' && req.url === '/v1/webhook') {
+      const auth = req.headers['authorization'];
+      const token = auth?.startsWith('Bearer ') ? auth.substring(7) : null;
+      const peers = getPeers();
+      const isTrustedPeer = Object.values(peers.trusted).some((p) => p.token === token);
+      if (!isTrustedPeer && token !== process.env.ANIMA_A2A_ROOT_KEY) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'Unauthorized' }));
+      }
+
       let body = '';
       req.on('data', (chunk) => {
         body += chunk;
@@ -90,12 +112,21 @@ const startServer = (baseDir) => {
       req.on('end', () => {
         try {
           const data = JSON.parse(body);
+          const taskId = data.taskId || 'unknown';
+          const result = data.result || 'No result provided.';
+
           process.stdout.write(
-            `\n\x1b[35m[OPENCLAW NOTIFICATION]\x1b[0m Task "${data.taskId || 'unknown'}" completed.\n` +
-              `Result: ${data.result || 'No result provided.'}\n`,
+            `\n\x1b[35m[A2A Webhook]\x1b[0m External callback received for task "${taskId}".\n`,
           );
+
           res.writeHead(200);
           res.end('OK');
+
+          if (_callbackHandler) {
+            Promise.resolve(_callbackHandler(taskId, result)).catch((e) => {
+              process.stderr.write(`[A2A Webhook] Callback handler error: ${e.message}\n`);
+            });
+          }
         } catch (e) {
           res.writeHead(400);
           res.end();
@@ -248,6 +279,7 @@ Your Identity: ${fs.existsSync(path.join(baseDir, 'Personality', 'Identity.md'))
 // Skill export
 module.exports = {
   startServer,
+  registerCallbackHandler,
   implementations: {
     delegate_task: async ({ endpoint, task, apiKey, agentId, agent_type }, _permissions) => {
       try {

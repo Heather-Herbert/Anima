@@ -889,6 +889,37 @@ async function main() {
     gateway.start(gatewayPort, gatewayTtl);
   }
 
+  // Register A2A webhook callback — routes external results into the active CLI session
+  try {
+    const a2aSkill = require('./Skills/A2A');
+    if (a2aSkill?.registerCallbackHandler) {
+      a2aSkill.registerCallbackHandler(async (taskId, result) => {
+        process.stdout.write(
+          `\n\x1b[35m[A2A]\x1b[0m External callback received for task "${taskId}". Resuming...\n`,
+        );
+        const webhookConfirmCallback = async (functionName, _args, justification) => {
+          console.log(`\n\x1b[33mPermission required for ${functionName}:\x1b[0m ${justification}`);
+          const answer = await new Promise((resolve) => {
+            rl.question('\x1b[33mApprove? (y/N): \x1b[0m', resolve);
+          });
+          return answer.trim().toLowerCase();
+        };
+        const { reply } = await conversationService.processInput(
+          `[A2A Webhook] External task "${taskId}" completed:\n${result}`,
+          conversationHistory,
+          webhookConfirmCallback,
+        );
+        process.stdout.write(`\n\x1b[36m${agentName}:\x1b[0m ${reply}\n`);
+        if (!isProcessing) {
+          showStatusLine();
+          rl.prompt();
+        }
+      });
+    }
+  } catch (_) {
+    /* A2A skill not available */
+  }
+
   console.log(`${agentName} CLI - Press Ctrl+C twice to quit.`);
   process.stdout.write('\n');
 
