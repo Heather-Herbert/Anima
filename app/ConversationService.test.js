@@ -269,8 +269,9 @@ describe('ConversationService', () => {
     const history = [];
     await service.processInput('show secret', history, jest.fn());
 
-    expect(fs.writeFileSync).toHaveBeenCalled();
-    const saveCall = fs.writeFileSync.mock.calls[fs.writeFileSync.mock.calls.length - 1][1];
+    const historyWrite = fs.writeFileSync.mock.calls.find((call) => call[0] === historyPath);
+    expect(historyWrite).toBeDefined();
+    const saveCall = historyWrite[1];
     expect(saveCall).not.toContain('my-secret-key');
     expect(saveCall).toContain('[REDACTED]');
   });
@@ -1305,14 +1306,50 @@ describe('ConversationService', () => {
         usage: { prompt_tokens: 200, completion_tokens: 100, total_tokens: 300 },
       });
 
-      const history = [];
-      const { usage } = await service.processInput('hello', history, jest.fn());
+    const history = [];
+    const { usage } = await service.processInput('hello', history, jest.fn());
 
-      expect(usage.remainingBudget).toBe(700); // 1000 - 300
-    });
+    expect(usage.remainingBudget).toBe(700); // 1000 - 300
   });
 
-  describe('recipe adviser_profile integration', () => {
+  it('transitions workflow state during processInput', async () => {
+    callAI.mockResolvedValue({
+      choices: [{ message: { role: 'assistant', content: 'Hello!' } }],
+    });
+
+    const transitionSpy = jest.spyOn(service.workflowStateService, 'transition');
+
+    await service.processInput('Hi', [], jest.fn());
+
+    expect(transitionSpy).toHaveBeenCalledWith('planning', expect.any(Object));
+    expect(transitionSpy).toHaveBeenCalledWith('complete');
+  });
+
+  it('records tool checkpoints in WorkflowStateService', async () => {
+    callAI.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            role: 'assistant',
+            tool_calls: [{ id: 'c1', function: { name: 'read_file', arguments: '{"path":"a"}' } }],
+          },
+        },
+      ],
+    });
+    callAI.mockResolvedValueOnce({
+      choices: [{ message: { role: 'assistant', content: 'Done' } }],
+    });
+    toolDispatcher.dispatch.mockResolvedValue('content');
+
+    const beforeSpy = jest.spyOn(service.workflowStateService, 'beforeTool');
+    const afterSpy = jest.spyOn(service.workflowStateService, 'afterTool');
+
+    await service.processInput('read a', [], jest.fn());
+
+    expect(beforeSpy).toHaveBeenCalledWith('read_file', { path: 'a' });
+    expect(afterSpy).toHaveBeenCalledWith('read_file', 'content');
+  });
+});
     const IntentRecipe = require('../Skills/IntentRecipe');
 
     beforeEach(() => {

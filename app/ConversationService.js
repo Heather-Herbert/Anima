@@ -6,6 +6,7 @@ const config = require('./Config');
 const AdvisoryService = require('./AdvisoryService');
 const AnalysisService = require('./AnalysisService');
 const ReflectionService = require('./ReflectionService');
+const WorkflowStateService = require('./WorkflowStateService');
 
 class ConversationService {
   constructor(agentName, activeTools, manifest, historyPath, auditService = null) {
@@ -25,6 +26,12 @@ class ConversationService {
     this._compactionSummary = null;
     this._lastCompactedLength = 0;
     this._consecutiveVerificationFailures = 0;
+    this._recoveryContextInjected = false;
+    const workspaceDir = config.workspaceDir || path.join(__dirname, '..');
+    this.workflowStateService = new WorkflowStateService(
+      path.join(workspaceDir, 'Memory', 'workflow_state.json'),
+      auditService,
+    );
     this.dangerousTools = [
       'run_command',
       'execute_code',
@@ -83,6 +90,17 @@ class ConversationService {
         process.stderr.write(`[Maintenance] Periodic task failed: ${e.message}\n`);
       }
     }
+
+    // --- WORKFLOW STATE: load persisted state, inject recovery context, transition to planning ---
+    this.workflowStateService.load();
+    if (!this._recoveryContextInjected) {
+      this._recoveryContextInjected = true;
+      const recovery = this.workflowStateService.getRecoveryContext();
+      if (recovery) {
+        conversationHistory.push({ role: 'system', content: recovery, internal: true });
+      }
+    }
+    this.workflowStateService.transition('planning', { task: input.slice(0, 200) });
 
     let recipeHint = '';
     let recipeAdviserProfile = null;
@@ -242,6 +260,7 @@ class ConversationService {
           });
         }
 
+        this.workflowStateService.transition('failed', { reason: 'token_budget_exceeded' });
         const budgetMessage = `Token budget reached (used: ${usedTokens}, limit: ${budgetLimit}). Stopping to stay within budget.`;
         conversationHistory.push({ role: 'assistant', content: budgetMessage });
         this.saveHistory(conversationHistory);
@@ -319,6 +338,7 @@ class ConversationService {
 
             if (this.dangerousTools.includes(functionName) || isWritingToProtected) {
               const justification = functionArgs.justification || 'No justification provided.';
+              this.workflowStateService.transition('awaiting_approval', { tool: functionName });
               const confirmed = await confirmCallback(
                 functionName,
                 functionArgs,
@@ -330,12 +350,15 @@ class ConversationService {
                 if (functionName === 'decontaminate') {
                   isTainted = false;
                 }
+                this.workflowStateService.transition('executing', { tool: functionName });
                 const callPermissions = {
                   ...this.manifest.permissions,
                   _overrideProtected: isWritingToProtected,
                   _isTainted: isTainted,
                 };
+                this.workflowStateService.beforeTool(functionName, functionArgs);
                 toolResult = await toolDispatcher.dispatch(toolCall, callPermissions);
+                this.workflowStateService.afterTool(functionName, toolResult);
                 auditResult = 'confirmed';
               } else if (confirmed === 'd') {
                 toolResult = 'Dry run: Tool execution simulated successfully. No changes made.';
@@ -349,7 +372,9 @@ class ConversationService {
                 ...this.manifest.permissions,
                 _isTainted: isTainted,
               };
+              this.workflowStateService.beforeTool(functionName, functionArgs);
               toolResult = await toolDispatcher.dispatch(toolCall, callPermissions);
+              this.workflowStateService.afterTool(functionName, toolResult);
             }
 
             if (this.auditService) {
@@ -396,6 +421,10 @@ class ConversationService {
                 this._consecutiveVerificationFailures++;
                 const maxFailures = svConfig.maxConsecutiveFailures ?? 3;
                 if (this._consecutiveVerificationFailures >= maxFailures) {
+                  this.workflowStateService.transition('failed', {
+                    reason: 'self_verification_halt',
+                    consecutiveFailures: this._consecutiveVerificationFailures,
+                  });
                   lastReply = `Self-verification failed ${this._consecutiveVerificationFailures} consecutive time(s). Halting. Last failure: ${verification.reason}`;
                   stopReason = {
                     reason: 'self_verification_halt',
@@ -471,6 +500,7 @@ class ConversationService {
         this.saveHistory(conversationHistory);
         lastReply = reply;
         processing = false;
+        this.workflowStateService.transition('complete');
       }
     }
 
@@ -481,6 +511,7 @@ class ConversationService {
         : null;
 
     if (iterations >= MAX_ITERATIONS && processing) {
+      this.workflowStateService.transition('failed', { reason: 'max_iterations_reached' });
       const limitMessage = 'Max iterations reached. Stopping to prevent infinite loop.';
       conversationHistory.push({ role: 'assistant', content: limitMessage });
       this.saveHistory(conversationHistory);

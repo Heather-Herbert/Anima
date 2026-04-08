@@ -895,6 +895,7 @@ async function main() {
       loadPersona();
       historyPath = generateHistoryPath();
       conversationService.historyPath = historyPath;
+      conversationService.workflowStateService.reset();
       fs.writeFileSync(historyPath, JSON.stringify(conversationHistory, null, 2));
       lastUsage = { total_tokens: 0, iterations: 0 };
       console.log('Session reset.');
