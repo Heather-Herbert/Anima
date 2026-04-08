@@ -101,5 +101,9 @@
   "selfVerification": {
     "mode": "off",
     "maxConsecutiveFailures": 3
+  },
+  "webGateway": {
+    "port": 8080,
+    "sessionTtlMs": 900000
   }
 }

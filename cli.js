@@ -874,6 +874,21 @@ async function main() {
     auditService,
   );
 
+  // Start web gateway if enabled
+  if (process.env.GATEWAY_ENABLED === 'true') {
+    const WebGateway = require('./app/WebGateway');
+    const gateway = new WebGateway({
+      agentName,
+      tools: activeTools,
+      manifest,
+      auditService,
+      parturition,
+    });
+    const gatewayPort = config.webGateway?.port || parseInt(process.env.GATEWAY_PORT, 10) || 8080;
+    const gatewayTtl = config.webGateway?.sessionTtlMs;
+    gateway.start(gatewayPort, gatewayTtl);
+  }
+
   console.log(`${agentName} CLI - Press Ctrl+C twice to quit.`);
   process.stdout.write('\n');
 

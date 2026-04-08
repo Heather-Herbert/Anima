@@ -57,6 +57,12 @@ const configSchema = z.object({
       maxConsecutiveFailures: z.number().default(3),
     })
     .default({}),
+  webGateway: z
+    .object({
+      port: z.number().default(8080),
+      sessionTtlMs: z.number().default(900000),
+    })
+    .default({}),
 });
 
 let loadedConfig = null;
