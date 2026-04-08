@@ -31,13 +31,7 @@
   },
   "verify": {
     "description": "Verification agent. Can run test commands and read files but cannot modify source code or delete anything.",
-    "allowedTools": [
-      "read_file",
-      "list_files",
-      "search_files",
-      "file_info",
-      "run_command"
-    ]
+    "allowedTools": ["read_file", "list_files", "search_files", "file_info", "run_command"]
   },
   "guide": {
     "description": "Conversational guide agent. Responds in natural language only; no tools are available.",

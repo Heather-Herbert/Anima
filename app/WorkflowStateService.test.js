@@ -1,7 +1,6 @@
-const { describe, it, expect, beforeEach, afterEach } = require('@jest/globals');
+const { describe, it, expect, beforeEach } = require('@jest/globals');
 const WorkflowStateService = require('./WorkflowStateService');
 const fs = require('node:fs');
-const path = require('node:path');
 
 jest.mock('node:fs');
 

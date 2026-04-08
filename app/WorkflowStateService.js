@@ -83,10 +83,9 @@ class WorkflowStateService {
       at: now,
       ...(Object.keys(metadata).length ? { metadata } : {}),
     };
-    this._state.transitionHistory = [
-      ...this._state.transitionHistory,
-      entry,
-    ].slice(-MAX_TRANSITION_HISTORY);
+    this._state.transitionHistory = [...this._state.transitionHistory, entry].slice(
+      -MAX_TRANSITION_HISTORY,
+    );
 
     this._persist();
 
@@ -159,10 +158,7 @@ class WorkflowStateService {
     const s = this._state;
     if (s.state === 'idle' || s.state === 'complete') return null;
 
-    const lines = [
-      '<workflow_recovery>',
-      `Previous session was interrupted in state: ${s.state}`,
-    ];
+    const lines = ['<workflow_recovery>', `Previous session was interrupted in state: ${s.state}`];
 
     if (s.task) lines.push(`Current task: ${s.task}`);
 
