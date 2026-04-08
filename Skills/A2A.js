@@ -249,7 +249,7 @@ Your Identity: ${fs.existsSync(path.join(baseDir, 'Personality', 'Identity.md'))
 module.exports = {
   startServer,
   implementations: {
-    delegate_task: async ({ endpoint, task, apiKey, agentId }, _permissions) => {
+    delegate_task: async ({ endpoint, task, apiKey, agentId, agent_type }, _permissions) => {
       try {
         let token = apiKey;
         if (!token) {
@@ -266,6 +266,7 @@ module.exports = {
               content: `TASK DELEGATION: ${task}\n\nPlease perform this task and return ONLY the result. Avoid all conversational filler.`,
             },
           ],
+          ...(agent_type ? { agent_type } : {}),
         };
 
         const headers = { 'Content-Type': 'application/json' };

@@ -6,6 +6,7 @@ Anima.config.js
 Anima.config.json
 Settings/*.json
 !Settings/*.json.example
+!Settings/agent_types.json
 .env
 
 # Session Data & Audit Logs

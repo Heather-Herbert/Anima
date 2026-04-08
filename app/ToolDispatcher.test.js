@@ -1,4 +1,4 @@
-const { describe, it, expect, beforeEach } = require('@jest/globals');
+const { describe, it, expect, beforeEach, afterEach } = require('@jest/globals');
 const toolDispatcher = require('./ToolDispatcher');
 const { availableTools } = require('./Tools');
 
@@ -102,5 +102,59 @@ describe('ToolDispatcher', () => {
     };
     const result = await toolDispatcher.dispatch(toolCall, {});
     expect(result).toContain("expected type 'array', got 'string'");
+  });
+
+  describe('agent type enforcement', () => {
+    afterEach(() => {
+      // Reset to no type restriction after each test.
+      toolDispatcher.setAgentType(null);
+    });
+
+    it('allows a tool that is in the agent type allowlist', async () => {
+      // 'general' allows everything (*).
+      toolDispatcher.setAgentType('general');
+      const toolCall = {
+        function: { name: 'test_tool', arguments: '{"param1": "hello"}' },
+      };
+      const result = await toolDispatcher.dispatch(toolCall, {});
+      expect(result).toBe('success');
+    });
+
+    it('blocks a tool not in the agent type allowlist', async () => {
+      // 'explore' allows only read-style tools — test_tool is not in its list.
+      toolDispatcher.setAgentType('explore');
+      const toolCall = {
+        function: { name: 'test_tool', arguments: '{"param1": "hello"}' },
+      };
+      const result = await toolDispatcher.dispatch(toolCall, {});
+      expect(result).toContain("not permitted for agent type 'explore'");
+    });
+
+    it('blocks all tools for guide type', async () => {
+      toolDispatcher.setAgentType('guide');
+      const toolCall = {
+        function: { name: 'read_file', arguments: '{"path": "README.md"}' },
+      };
+      const result = await toolDispatcher.dispatch(toolCall, {});
+      expect(result).toContain("not permitted for agent type 'guide'");
+    });
+
+    it('allows all tools for worker type', async () => {
+      toolDispatcher.setAgentType('worker');
+      const toolCall = {
+        function: { name: 'test_tool', arguments: '{"param1": "hello"}' },
+      };
+      const result = await toolDispatcher.dispatch(toolCall, {});
+      expect(result).toBe('success');
+    });
+
+    it('applies no restriction when agentType is null', async () => {
+      toolDispatcher.setAgentType(null);
+      const toolCall = {
+        function: { name: 'test_tool', arguments: '{"param1": "hello"}' },
+      };
+      const result = await toolDispatcher.dispatch(toolCall, {});
+      expect(result).toBe('success');
+    });
   });
 });

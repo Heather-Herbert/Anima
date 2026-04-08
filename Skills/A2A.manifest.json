@@ -39,7 +39,11 @@
               "description": "The specific task or question to delegate"
             },
             "apiKey": { "type": "string", "description": "Optional API Key or Bearer Token" },
-            "agentId": { "type": "string", "description": "Optional agent identifier" }
+            "agentId": { "type": "string", "description": "Optional agent identifier" },
+            "agent_type": {
+              "type": "string",
+              "description": "Optional agent type to request for the delegated task (e.g. 'explore', 'plan', 'verify', 'guide', 'worker', 'general'). The remote agent will apply the corresponding tool constraints when processing the task."
+            }
           },
           "required": ["endpoint", "task"]
         }

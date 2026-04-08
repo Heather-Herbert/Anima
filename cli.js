@@ -11,6 +11,7 @@ const AuditService = require('./app/AuditService');
 const EvolutionService = require('./app/EvolutionService');
 const AdvisoryService = require('./app/AdvisoryService');
 const { callAI, getProviderManifest, redact, encrypt, decrypt } = require('./app/Utils');
+const agentTypeService = require('./app/AgentTypeService');
 
 // Check for model override via command line argument
 const args = process.argv.slice(2);
@@ -25,6 +26,7 @@ Options:
   --model <name>   Override the model defined in config (e.g., gpt-4, gpt-3.5-turbo)
   --add-plugin <source>  Install a plugin from a local JS file or a URL to a .zip file
   --hash <sha256>  Expected SHA-256 hash for URL-based plugin verification
+  --agent-type <type> Set agent role (explore, plan, verify, guide, worker, general)
   --safe           Disable dangerous tools (run_command, execute_code, etc.)
   --read-only      Restrict agent to read-only operations only
   --council <mode> Set council mode (off, always, on_demand, risk_based)
@@ -840,6 +842,24 @@ async function main() {
     console.log('\x1b[33mRunning in SAFE mode. Dangerous tools disabled.\x1b[0m');
     activeTools = activeTools.filter((t) => !dangerousTools.includes(t.function.name));
   }
+
+  // Agent type: constrains the tool set to a role-specific allowlist.
+  const agentTypeIndex = args.indexOf('--agent-type');
+  const agentTypeName = agentTypeIndex !== -1 ? args[agentTypeIndex + 1] : 'general';
+  if (!agentTypeService.isValidType(agentTypeName)) {
+    const validTypes = agentTypeService.list().join(', ');
+    console.error(
+      `\x1b[31mUnknown agent type '${agentTypeName}'. Valid types: ${validTypes}\x1b[0m`,
+    );
+    process.exit(1);
+  }
+  if (agentTypeName !== 'general') {
+    activeTools = agentTypeService.filterTools(activeTools, agentTypeName);
+    console.log(
+      `\x1b[90mAgent type: ${agentTypeName} — ${agentTypeService.getType(agentTypeName).description}\x1b[0m`,
+    );
+  }
+  toolDispatcher.setAgentType(agentTypeName);
 
   const agentName = await parturition.getAgentName();
   if (config.advisoryCouncil?.enabled) {

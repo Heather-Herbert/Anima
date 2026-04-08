@@ -1,8 +1,10 @@
 const { availableTools, tools } = require('./Tools');
+const agentTypeService = require('./AgentTypeService');
 
 class ToolDispatcher {
   constructor() {
     this.auditService = null;
+    this.agentType = null;
     this.toolsRegistry = tools.reduce((acc, t) => {
       acc[t.function.name] = t.function;
       return acc;
@@ -13,8 +15,25 @@ class ToolDispatcher {
     this.auditService = auditService;
   }
 
+  /** Set the active agent type for runtime tool enforcement. */
+  setAgentType(typeName) {
+    this.agentType = typeName;
+  }
+
   async dispatch(toolCall, permissions) {
     const { name, arguments: argsString } = toolCall.function;
+
+    // Agent-type enforcement: block tools not in the type's allowlist.
+    if (this.agentType && !agentTypeService.isToolAllowed(name, this.agentType)) {
+      const msg = `Error: Tool '${name}' is not permitted for agent type '${this.agentType}'.`;
+      if (this.auditService) {
+        this.auditService.logFailure(`AgentType Block: ${name}`, msg, {
+          agentType: this.agentType,
+        });
+      }
+      return msg;
+    }
+
     const toolDef = this.toolsRegistry[name];
 
     if (!toolDef) {
