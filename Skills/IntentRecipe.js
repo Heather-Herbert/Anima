@@ -110,6 +110,11 @@ const isValidRecipe = (data) => {
       !data.adviser_profile.every((s) => typeof s === 'string' && s.trim().length > 0))
   )
     return false;
+  if (
+    data.max_advisers !== undefined &&
+    (!Number.isInteger(data.max_advisers) || data.max_advisers < 1)
+  )
+    return false;
   return true;
 };
 
@@ -161,6 +166,12 @@ const validateNewRecipe = (args) => {
       !args.adviser_profile.every((s) => typeof s === 'string' && s.trim().length > 0))
   ) {
     return "Recipe 'adviser_profile' must be an array of non-empty adviser name strings.";
+  }
+  if (
+    args.max_advisers !== undefined &&
+    (!Number.isInteger(args.max_advisers) || args.max_advisers < 1)
+  ) {
+    return "Recipe 'max_advisers' must be a positive integer.";
   }
   return null;
 };
@@ -354,6 +365,7 @@ const implementations = {
         ...(args.adviser_profile?.length
           ? { adviser_profile: args.adviser_profile.map((s) => s.trim()).filter(Boolean) }
           : {}),
+        ...(args.max_advisers !== undefined ? { max_advisers: args.max_advisers } : {}),
       };
 
       saveRecipe(recipe);

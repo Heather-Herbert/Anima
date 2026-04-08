@@ -40,6 +40,7 @@
     }
   ],
   "adviser_profile": ["LegalCounsel", "Ethicist"],
+  "max_advisers": 2,
   "steps": [
     "Confirm the meeting topic, attendees, and datetime with the user",
     "Search memory and recent conversation history for relevant context on the topic",

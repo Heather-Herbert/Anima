@@ -20,5 +20,7 @@
     "Run `git commit -m '<message>'` with a clear, descriptive commit message",
     "Run `git push origin <branch>` to push to the remote repository"
   ],
+  "adviser_profile": ["SecurityOfficer"],
+  "max_advisers": 1,
   "tags": ["git", "version-control", "workflow"]
 }

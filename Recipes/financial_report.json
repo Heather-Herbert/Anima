@@ -58,7 +58,8 @@
       "description": "One-paragraph headline summary suitable for senior stakeholders"
     }
   ],
-  "adviser_profile": ["LegalCounsel", "PrivacyExpert"],
+  "adviser_profile": ["LegalCounsel", "PrivacyExpert", "CostOptimizer"],
+  "max_advisers": 3,
   "steps": [
     "Confirm the report period, data source, report type, and audience with the user",
     "Read and validate the financial data files; flag any missing or anomalous values",

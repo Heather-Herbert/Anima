@@ -59,6 +59,7 @@
     }
   ],
   "adviser_profile": ["PrivacyExpert", "Ethicist"],
+  "max_advisers": 2,
   "steps": [
     "Confirm the data source, analysis goal, and key dimensions with the user",
     "Load and inspect the dataset: record count, column names, data types, and a sample of rows",

@@ -167,6 +167,18 @@ describe('isValidRecipe', () => {
   it('rejects a recipe with a non-string adviser in adviser_profile', () => {
     expect(isValidRecipe({ ...GIT_RECIPE, adviser_profile: [42] })).toBe(false);
   });
+
+  it('accepts a recipe with a valid max_advisers', () => {
+    expect(isValidRecipe({ ...GIT_RECIPE, max_advisers: 2 })).toBe(true);
+  });
+
+  it('rejects a recipe with max_advisers of zero', () => {
+    expect(isValidRecipe({ ...GIT_RECIPE, max_advisers: 0 })).toBe(false);
+  });
+
+  it('rejects a recipe with a non-integer max_advisers', () => {
+    expect(isValidRecipe({ ...GIT_RECIPE, max_advisers: 1.5 })).toBe(false);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -248,6 +260,23 @@ describe('validateNewRecipe', () => {
 
   it('rejects non-string adviser_profile entry', () => {
     expect(validateNewRecipe({ ...valid, adviser_profile: [123] })).toMatch(/adviser_profile/);
+  });
+
+  it('accepts a valid max_advisers integer', () => {
+    expect(validateNewRecipe({ ...valid, max_advisers: 2 })).toBeNull();
+  });
+
+  it('rejects max_advisers of zero', () => {
+    expect(validateNewRecipe({ ...valid, max_advisers: 0 })).toMatch(/max_advisers/);
+  });
+
+  it('rejects negative max_advisers', () => {
+    expect(validateNewRecipe({ ...valid, max_advisers: -1 })).toMatch(/max_advisers/);
+  });
+
+  it('rejects non-integer max_advisers', () => {
+    expect(validateNewRecipe({ ...valid, max_advisers: 1.5 })).toMatch(/max_advisers/);
+    expect(validateNewRecipe({ ...valid, max_advisers: 'two' })).toMatch(/max_advisers/);
   });
 });
 

@@ -25,5 +25,7 @@
     "Add a targeted fix; avoid changing unrelated code",
     "Run the relevant tests to confirm the fix and check for regressions"
   ],
+  "adviser_profile": ["SecurityOfficer"],
+  "max_advisers": 1,
   "tags": ["debugging", "errors", "workflow"]
 }

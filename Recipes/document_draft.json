@@ -61,6 +61,7 @@
     }
   ],
   "adviser_profile": ["LegalCounsel", "TechnicalWriter"],
+  "max_advisers": 2,
   "steps": [
     "Confirm the document type, subject, audience, and key points with the user",
     {

@@ -106,6 +106,7 @@ class ConversationService {
 
     let recipeHint = '';
     let recipeAdviserProfile = null;
+    let recipeMaxAdvisers = null;
     try {
       const intentRecipe = require('../Skills/IntentRecipe');
       if (intentRecipe && typeof intentRecipe.matchIntents === 'function') {
@@ -113,6 +114,7 @@ class ConversationService {
         if (matches.length > 0) {
           const { recipe } = matches[0];
           recipeAdviserProfile = recipe.adviser_profile?.length ? recipe.adviser_profile : null;
+          recipeMaxAdvisers = recipe.max_advisers ?? null;
           const steps = intentRecipe.formatSteps(recipe.steps).join('\n');
           const adviserNote = recipeAdviserProfile
             ? `Advisory review: ${recipeAdviserProfile.join(', ')}\n`
@@ -192,7 +194,11 @@ class ConversationService {
             const resolved = recipeAdviserProfile
               .map((name) => configuredAdvisers.find((a) => a.name === name))
               .filter(Boolean);
-            if (resolved.length > 0) overrideAdvisers = resolved;
+            if (resolved.length > 0) {
+              const limit =
+                recipeMaxAdvisers ?? councilConfig?.maxAdvisersPerCall ?? resolved.length;
+              overrideAdvisers = resolved.slice(0, limit);
+            }
           }
 
           // Run Advisers on Draft

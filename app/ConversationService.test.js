@@ -1436,5 +1436,57 @@ describe('ConversationService', () => {
       expect(userMsg).toContain('<recipe_hint>');
       expect(userMsg).not.toContain('Advisory review:');
     });
+
+    it('respects max_advisers from recipe when resolving override advisers', async () => {
+      const config = require('./Config');
+      config.advisoryCouncil = {
+        enabled: true,
+        mode: 'on_demand',
+        advisers: [
+          { name: 'SecurityOfficer', role: 'Security', promptFile: 'SecurityOfficer.md' },
+          { name: 'LegalCounsel', role: 'Legal', promptFile: 'LegalCounsel.md' },
+          { name: 'Ethicist', role: 'Ethics', promptFile: 'Ethicist.md' },
+        ],
+        maxAdvisersPerCall: 3,
+        parallel: false,
+        timeoutMs: 5000,
+        maxTokens: 500,
+      };
+
+      // Recipe lists 3 advisers but caps at 1
+      IntentRecipe.matchIntents.mockReturnValueOnce([
+        {
+          recipe: {
+            name: 'Security Workflow',
+            steps: ['Step one'],
+            adviser_profile: ['SecurityOfficer', 'LegalCounsel', 'Ethicist'],
+            max_advisers: 1,
+          },
+          score: 1.5,
+        },
+      ]);
+      IntentRecipe.formatSteps.mockReturnValueOnce(['  1. Step one']);
+
+      // Draft call + final call
+      callAI
+        .mockResolvedValueOnce({
+          choices: [{ message: { role: 'assistant', content: 'Draft reply' } }],
+        })
+        .mockResolvedValueOnce({
+          choices: [{ message: { role: 'assistant', content: 'Final reply' } }],
+        });
+
+      const getAdviceSpy = jest.spyOn(service.advisoryService, 'getAdvice').mockResolvedValue([]);
+
+      await service.processInput('run security workflow', [], jest.fn());
+
+      expect(getAdviceSpy).toHaveBeenCalled();
+      const [, overrideAdvisers] = getAdviceSpy.mock.calls[0];
+      // max_advisers: 1 — only the first adviser should be passed
+      expect(overrideAdvisers).toHaveLength(1);
+      expect(overrideAdvisers[0].name).toBe('SecurityOfficer');
+
+      getAdviceSpy.mockRestore();
+    });
   });
 });

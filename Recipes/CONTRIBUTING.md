@@ -29,6 +29,7 @@ Each recipe is a single JSON file named `{id}.json` (e.g. `meeting_prep.json`).
 | `inputs` | Input[] | Declared inputs the recipe expects before starting |
 | `outputs` | Output[] | Declared output artefacts the recipe produces |
 | `adviser_profile` | string[] | Names of advisory council members to consult before execution |
+| `max_advisers` | integer | Cap on how many advisers run for this recipe (overrides the global `maxAdvisersPerCall`). Must be ≥ 1. |
 
 ### Step Types
 
@@ -77,6 +78,51 @@ Steps may be either a plain string or a conditional branch object.
 Names must exactly match adviser names configured in `Settings/Anima.config.json` under `advisoryCouncil.advisers[].name`. Available advisers are the `.md` files in `Personality/Advisers/` (e.g. `LegalCounsel`, `Ethicist`, `PrivacyExpert`, `SecurityAuditor`).
 
 Use `adviser_profile` for workflows that involve sensitive data, legal exposure, financial decisions, or actions with compliance implications.
+
+### max_advisers
+
+Caps the number of advisers that run for this recipe, regardless of the global `maxAdvisersPerCall` setting. Advisers are selected in the order they appear in `adviser_profile` — put the most critical ones first.
+
+```json
+"adviser_profile": ["SecurityOfficer", "LegalCounsel", "PrivacyExpert"],
+"max_advisers": 2
+```
+
+The above runs only `SecurityOfficer` and `LegalCounsel`, even though three are listed.
+
+---
+
+## Adviser Selection Guidelines
+
+Not every recipe needs council review. Use the following risk tiers as a guide:
+
+| Risk tier | Characteristics | Recommended approach |
+|-----------|----------------|----------------------|
+| **Low** | Read-only, no external calls, no sensitive data, easily reversible | No `adviser_profile` — skip review entirely |
+| **Medium** | Executes code or commands, reads credentials/env vars, interacts with external services | 1–2 advisers — `max_advisers: 1` or `2` |
+| **High** | Financial data, legal exposure, PII/sensitive data, production deployments, compliance requirements | 2–3 advisers — `max_advisers: 2` or `3` |
+
+### Domain → Adviser mapping
+
+| Domain | Recommended advisers |
+|--------|---------------------|
+| Code commits / version control | `SecurityOfficer` — checks for secrets and sensitive data in diffs |
+| Deployments / infrastructure | `SecurityOfficer`, `DevOps` — security posture and operational safety |
+| Debugging / error investigation | `SecurityOfficer` — prevents inadvertent vulnerability exposure |
+| Financial reports / budgets | `LegalCounsel`, `PrivacyExpert`, `CostOptimizer` |
+| Legal / compliance documents | `LegalCounsel`, `Ethicist` |
+| Data analysis | `PrivacyExpert`, `Ethicist` — data handling and ethical use |
+| Sales / marketing collateral | `LegalCounsel`, `Ethicist` — claim accuracy and competitive fairness |
+| General writing / documentation | `LegalCounsel`, `TechnicalWriter` |
+| Meeting / stakeholder prep | `LegalCounsel`, `Ethicist` — when topics involve sensitive matters |
+
+### Efficiency principles
+
+- **Keep `max_advisers` ≤ 3.** Each adviser adds latency and token cost. Three advisers covers the vast majority of risk scenarios.
+- **Order advisers by criticality.** The `max_advisers` cap runs from the start of the list — put the most important adviser first.
+- **Don't pile on redundant advisers.** `SecurityOfficer` and `SecurityAuditor` cover overlapping concerns; pick the one appropriate for your risk level (`SecurityOfficer` for general use, `SecurityAuditor` for advanced threat modelling).
+- **Low-risk recipes should have no adviser_profile.** Adding unnecessary reviews slows the agent and trains users to ignore council output.
+- **All adviser names must exist in `Anima.config.json`.** A name that doesn't resolve silently drops that adviser from the council.
 
 ## Complete Example
 

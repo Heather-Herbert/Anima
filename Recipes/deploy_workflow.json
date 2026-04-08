@@ -33,5 +33,7 @@
       "else": ["Report failing tests to the user and stop — do not deploy until tests are green"]
     }
   ],
+  "adviser_profile": ["SecurityOfficer", "DevOps"],
+  "max_advisers": 2,
   "tags": ["deploy", "release", "workflow"]
 }

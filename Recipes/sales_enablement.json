@@ -62,6 +62,7 @@
     }
   ],
   "adviser_profile": ["LegalCounsel", "Ethicist"],
+  "max_advisers": 2,
   "steps": [
     "Confirm the prospect name, product being pitched, and engagement type with the user",
     "Research the prospect: company overview, recent news, strategic priorities, key decision-makers",
