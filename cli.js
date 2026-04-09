@@ -762,6 +762,16 @@ async function main() {
   const auditService = new AuditService(auditLogPath);
   toolDispatcher.initialize(auditService);
 
+  const auditIntegrity = auditService.validateLog();
+  if (!auditIntegrity.valid) {
+    const lineInfo = auditIntegrity.firstTamperedLine
+      ? ` (first tampered entry at line ${auditIntegrity.firstTamperedLine})`
+      : '';
+    process.stderr.write(
+      `\n⚠️  WARNING: Audit log integrity check FAILED${lineInfo}. The audit log may have been tampered with.\n\n`,
+    );
+  }
+
   rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
