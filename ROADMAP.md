@@ -8,14 +8,13 @@ Ordered by priority: token efficiency first (immediate ROI on every run), then c
 
 | # | Issue | Why now |
 |---|-------|---------|
-| 1 | [#63 Skip/gate the draft-phase LLM call](https://github.com/Heather-Herbert/Anima/issues/63) | Full extra forward pass on every turn when advisory is off. Highest single saving. |
-| 2 | [#65 Truncate userMessage and mainDraft in advisory context](https://github.com/Heather-Herbert/Anima/issues/65) | Multiplied by adviser count — compounds quickly. |
-| 3 | [#64 Compress health reports before sending to LLM](https://github.com/Heather-Herbert/Anima/issues/64) | Pretty-printed JSON sent to every adviser and reflection prompt. |
-| 4 | [#68 Raise compaction threshold and batch self-verification](https://github.com/Heather-Herbert/Anima/issues/68) | Compaction fires too eagerly; verification is one call per tool. |
-| 5 | [#66 Reduce token cost of Evolution LLM call](https://github.com/Heather-Herbert/Anima/issues/66) | Full conversation including tool outputs sent to evolution check. |
-| 6 | [#67 Gate recipe hints on confidence threshold and first-turn only](https://github.com/Heather-Herbert/Anima/issues/67) | Steps injected every turn even mid-recipe. |
-| 7 | [#72 Per-turn token usage logging](https://github.com/Heather-Herbert/Anima/issues/72) | Needed to verify efficiency improvements work and catch regressions. |
-| 8 | [#69 Per-session token budget and cost cap](https://github.com/Heather-Herbert/Anima/issues/69) | Enforces efficiency as a hard constraint, not just a guideline. Feeds statusline. |
+| 1 | [#65 Truncate userMessage and mainDraft in advisory context](https://github.com/Heather-Herbert/Anima/issues/65) | Multiplied by adviser count — compounds quickly. |
+| 2 | [#64 Compress health reports before sending to LLM](https://github.com/Heather-Herbert/Anima/issues/64) | Pretty-printed JSON sent to every adviser and reflection prompt. |
+| 3 | [#68 Raise compaction threshold and batch self-verification](https://github.com/Heather-Herbert/Anima/issues/68) | Compaction fires too eagerly; verification is one call per tool. |
+| 4 | [#66 Reduce token cost of Evolution LLM call](https://github.com/Heather-Herbert/Anima/issues/66) | Full conversation including tool outputs sent to evolution check. |
+| 5 | [#67 Gate recipe hints on confidence threshold and first-turn only](https://github.com/Heather-Herbert/Anima/issues/67) | Steps injected every turn even mid-recipe. |
+| 6 | [#72 Per-turn token usage logging](https://github.com/Heather-Herbert/Anima/issues/72) | Needed to verify efficiency improvements work and catch regressions. |
+| 7 | [#69 Per-session token budget and cost cap](https://github.com/Heather-Herbert/Anima/issues/69) | Enforces efficiency as a hard constraint, not just a guideline. Feeds statusline. |
 
 ---
 
