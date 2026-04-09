@@ -12,6 +12,7 @@ const EvolutionService = require('./app/EvolutionService');
 const AdvisoryService = require('./app/AdvisoryService');
 const { callAI, getProviderManifest, redact, encrypt, decrypt } = require('./app/Utils');
 const agentTypeService = require('./app/AgentTypeService');
+const SessionRecoveryService = require('./app/SessionRecoveryService');
 
 // Check for model override via command line argument
 const args = process.argv.slice(2);
@@ -33,6 +34,7 @@ Options:
   --council-advisers <list> Comma-separated list of adviser names to use
   --no-council     Completely disable the advisory council for this session
   --token-budget <n> Set a per-session total token budget (overrides config)
+  --resume <id>    Resume a previously interrupted session by session ID
   --help, -h       Display this help message
 `);
   process.exit(0);
@@ -52,6 +54,9 @@ if (tokenBudgetIndex !== -1 && args[tokenBudgetIndex + 1]) {
     console.log(`\x1b[33mToken budget set via CLI: ${budgetN} tokens\x1b[0m`);
   }
 }
+
+const resumeArgIndex = args.indexOf('--resume');
+const resumeSessionId = resumeArgIndex !== -1 ? args[resumeArgIndex + 1] : null;
 
 const startSpinner = (text) => {
   const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
@@ -278,6 +283,14 @@ const generateHistoryPath = () => {
   return path.join(memoryDir, `memory-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
 };
 let historyPath = generateHistoryPath();
+
+// Cumulative token usage across all turns in this session (restored on resume)
+let cumulativeTokenUsage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
+
+// Session recovery state
+const _recoveryMemoryDir = path.join(config.workspaceDir || __dirname, 'Memory');
+const recoveryService = new SessionRecoveryService(_recoveryMemoryDir);
+let currentSessionId = SessionRecoveryService.generateSessionId();
 
 const generateDiff = (oldContent, newContent, filename) => {
   const Diff = require('diff');
@@ -757,6 +770,7 @@ async function main() {
   let exitAttempt = false;
   rl.on('SIGINT', async () => {
     if (exitAttempt) {
+      recoveryService.markComplete(currentSessionId);
       await updateMemory(auditService);
       process.exit(0);
     } else {
@@ -770,6 +784,48 @@ async function main() {
   });
 
   loadPersona();
+
+  // --- SESSION RECOVERY ---
+  if (resumeSessionId) {
+    // Explicit --resume <sessionId> flag
+    try {
+      const snapshot = recoveryService.load(resumeSessionId);
+      conversationHistory.length = 0;
+      conversationHistory.push(...snapshot.messages);
+      cumulativeTokenUsage = snapshot.tokenUsage || cumulativeTokenUsage;
+      currentSessionId = resumeSessionId;
+      console.log(
+        `\x1b[36m[Recovery] Resumed session "${resumeSessionId}" (${conversationHistory.length} messages, ${cumulativeTokenUsage.total_tokens} prior tokens)\x1b[0m`,
+      );
+    } catch (err) {
+      console.error(`\x1b[31m[Recovery] Failed to resume session: ${err.message}\x1b[0m`);
+      process.exit(1);
+    }
+  } else {
+    // Auto-detect unclean sessions from a previous crash
+    const unclean = recoveryService.findUnclean();
+    if (unclean.length > 0) {
+      const latest = unclean[0];
+      console.log(
+        `\x1b[33m[Recovery] Unclean session detected from ${latest.savedAt} (session: ${latest.sessionId})\x1b[0m`,
+      );
+      const resumeAnswer = await new Promise((resolve) => {
+        rl.question('\x1b[33mResume previous session? (y/N): \x1b[0m', resolve);
+      });
+      if (resumeAnswer.trim().toLowerCase() === 'y') {
+        conversationHistory.length = 0;
+        conversationHistory.push(...latest.messages);
+        cumulativeTokenUsage = latest.tokenUsage || cumulativeTokenUsage;
+        currentSessionId = latest.sessionId;
+        console.log(
+          `\x1b[36m[Recovery] Session restored (${conversationHistory.length} messages, ${cumulativeTokenUsage.total_tokens} prior tokens)\x1b[0m`,
+        );
+      } else {
+        // User declined — mark old sessions complete so they don't appear again
+        unclean.forEach((s) => recoveryService.markComplete(s.sessionId));
+      }
+    }
+  }
 
   // Load Manifest and filter tools
   const manifest = getProviderManifest();
@@ -937,6 +993,9 @@ async function main() {
 
     isProcessing = true;
     if (input.trim() === '/new') {
+      recoveryService.markComplete(currentSessionId);
+      currentSessionId = SessionRecoveryService.generateSessionId();
+      cumulativeTokenUsage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
       conversationHistory.length = 0;
       loadPersona();
       historyPath = generateHistoryPath();
@@ -1034,6 +1093,20 @@ async function main() {
       const { reply, usage, iterations, resetRequested, advice, reflectionProposal } =
         await conversationService.processInput(input, conversationHistory, confirmCallback);
       lastUsage = { ...usage, iterations };
+
+      // Accumulate token usage and persist snapshot after each completed turn
+      cumulativeTokenUsage = {
+        prompt_tokens: cumulativeTokenUsage.prompt_tokens + (usage.prompt_tokens || 0),
+        completion_tokens: cumulativeTokenUsage.completion_tokens + (usage.completion_tokens || 0),
+        total_tokens: cumulativeTokenUsage.total_tokens + (usage.total_tokens || 0),
+      };
+      recoveryService.save(currentSessionId, {
+        messages: conversationHistory,
+        tokenUsage: cumulativeTokenUsage,
+        taintStatus: false,
+        workflowState: 'idle',
+      });
+
       stopSpinner(spinner);
 
       // --- SELF-REFLECTION HANDLING ---
@@ -1126,6 +1199,9 @@ async function main() {
           console.log(`\x1b[90mCarry over:\x1b[0m ${resetRequested.carry_over}`);
         }
 
+        recoveryService.markComplete(currentSessionId);
+        currentSessionId = SessionRecoveryService.generateSessionId();
+        cumulativeTokenUsage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
         conversationHistory.length = 0;
         loadPersona();
         if (resetRequested.carry_over) {
@@ -1150,6 +1226,10 @@ async function main() {
     isProcessing = false;
     showStatusLine();
     rl.prompt();
+  });
+
+  rl.on('close', () => {
+    recoveryService.markComplete(currentSessionId);
   });
 }
 
