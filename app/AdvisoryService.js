@@ -29,14 +29,7 @@ class AdvisoryService {
   }
 
   async getAdvice(
-    {
-      userMessage,
-      mainDraft,
-      managedHistorySummary,
-      taintStatus,
-      availableToolsSummary,
-      healthReport,
-    },
+    { userMessage, mainDraft, taintStatus, availableToolsSummary, healthReport },
     overrideAdvisers = null,
   ) {
     const councilConfig = config.advisoryCouncil;
@@ -53,7 +46,6 @@ class AdvisoryService {
     const context = {
       userMessage,
       mainDraft,
-      managedHistorySummary,
       taintStatus,
       availableToolsSummary,
       healthReport,
@@ -109,7 +101,6 @@ ${promptTemplate}`;
       const userPrompt = `
 # CURRENT CONTEXT
 - User Message: "${context.userMessage}"
-- Managed History Summary: ${context.managedHistorySummary}
 - Taint Status: ${context.taintStatus ? 'TAINTED (Web search used)' : 'CLEAN'}
 - Available Tools: ${context.availableToolsSummary}
 - Health Report: ${context.healthReport ? JSON.stringify(context.healthReport, null, 2) : 'No recent health report available.'}

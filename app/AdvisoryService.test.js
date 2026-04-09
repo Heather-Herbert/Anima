@@ -52,7 +52,7 @@ describe('AdvisoryService', () => {
     const context = {
       userMessage: 'hi',
       mainDraft: 'hello',
-      managedHistorySummary: 'none',
+
       taintStatus: false,
       availableToolsSummary: 'none',
     };
@@ -120,7 +120,6 @@ describe('AdvisoryService', () => {
       {
         userMessage: 'hi',
         mainDraft: 'hello',
-        managedHistorySummary: 'none',
         taintStatus: false,
         availableToolsSummary: 'none',
       },

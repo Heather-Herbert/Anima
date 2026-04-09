@@ -206,7 +206,6 @@ class ConversationService {
             {
               userMessage: input,
               mainDraft: draft,
-              managedHistorySummary: `Draft phase. Context window contains ${managedHistory.length} messages.`,
               taintStatus: isTainted,
               availableToolsSummary: this.activeTools.map((t) => t.function.name).join(', '),
               healthReport: this.lastHealthReport,
@@ -498,7 +497,6 @@ class ConversationService {
             const advice = await this.advisoryService.getAdvice({
               userMessage: input,
               mainDraft: reply,
-              managedHistorySummary: `Post-execution phase. Context window contains ${managedHistory.length} messages.`,
               taintStatus: isTainted,
               availableToolsSummary: this.activeTools.map((t) => t.function.name).join(', '),
               healthReport: this.lastHealthReport,

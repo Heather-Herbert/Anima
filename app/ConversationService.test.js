@@ -713,6 +713,37 @@ describe('ConversationService', () => {
     config.advisoryCouncil = { enabled: false };
   });
 
+  it('skips the draft-phase LLM call when advisory mode is not "always"', async () => {
+    const config = require('./Config');
+    // risk_based with non-risky input won't trigger post-execution council either,
+    // so exactly 1 callAI call (the agent response) is expected in both cases.
+    for (const [mode, enabled] of [
+      ['risk_based', true],
+      ['off', false],
+    ]) {
+      callAI.mockClear();
+      config.advisoryCouncil = {
+        enabled,
+        mode,
+        advisers: [{ name: 'Auditor', role: 'Security', promptFile: 'Auditor.md' }],
+        maxAdvisersPerCall: 1,
+        parallel: true,
+      };
+
+      callAI.mockResolvedValueOnce({
+        choices: [{ message: { role: 'assistant', content: 'Safe reply.' } }],
+      });
+
+      const history = [];
+      const { reply } = await service.processInput('hello', history, jest.fn());
+      expect(reply).toBe('Safe reply.');
+      // Only 1 callAI call — no draft-phase call should be made
+      expect(callAI).toHaveBeenCalledTimes(1);
+    }
+
+    config.advisoryCouncil = { enabled: false };
+  });
+
   it('triggers council automatically in "risk_based" mode for risky turns', async () => {
     const config = require('./Config');
     config.advisoryCouncil = {
