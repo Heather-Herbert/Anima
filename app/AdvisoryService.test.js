@@ -138,6 +138,33 @@ describe('AdvisoryService', () => {
     config.advisoryCouncil.enabled = true; // reset
   });
 
+  it('truncates long userMessage and mainDraft in adviser prompt', async () => {
+    fs.existsSync.mockReturnValue(true);
+    fs.readFileSync.mockReturnValue('Adviser Prompt');
+
+    callAI.mockResolvedValue({
+      choices: [{ message: { content: JSON.stringify(validAdvice) } }],
+    });
+
+    const longUserMessage = 'A'.repeat(400);
+    const longMainDraft = 'B'.repeat(600);
+
+    await service.getAdvice({
+      userMessage: longUserMessage,
+      mainDraft: longMainDraft,
+      taintStatus: false,
+      availableToolsSummary: 'none',
+    });
+
+    const calledMessages = callAI.mock.calls[0][0];
+    const userPromptContent = calledMessages.find((m) => m.role === 'user').content;
+
+    expect(userPromptContent).toContain('A'.repeat(300) + '…');
+    expect(userPromptContent).not.toContain('A'.repeat(301));
+    expect(userPromptContent).toContain('B'.repeat(500) + '…');
+    expect(userPromptContent).not.toContain('B'.repeat(501));
+  });
+
   it('throws error if prompt file is missing', () => {
     fs.existsSync.mockReturnValue(false);
     expect(() => service.loadPrompt('missing.md')).toThrow('Prompt file not found');

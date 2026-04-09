@@ -4,6 +4,9 @@ const { z } = require('zod');
 const { callAI } = require('./Utils');
 const config = require('./Config');
 
+const truncate = (str, max = 300) =>
+  typeof str === 'string' && str.length > max ? str.slice(0, max) + '…' : str;
+
 const adviceSchema = z.object({
   adviserName: z.string(),
   verdict: z.enum(['approve', 'caution', 'block']),
@@ -100,13 +103,13 @@ ${promptTemplate}`;
 
       const userPrompt = `
 # CURRENT CONTEXT
-- User Message: "${context.userMessage}"
+- User Message: "${truncate(context.userMessage)}"
 - Taint Status: ${context.taintStatus ? 'TAINTED (Web search used)' : 'CLEAN'}
 - Available Tools: ${context.availableToolsSummary}
 - Health Report: ${context.healthReport ? JSON.stringify(context.healthReport, null, 2) : 'No recent health report available.'}
 
 # PROPOSED RESPONSE (Main Draft)
-"${context.mainDraft}"
+"${truncate(context.mainDraft, 500)}"
 
 Provide your structured advice now.`;
 
