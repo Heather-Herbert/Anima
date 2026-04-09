@@ -35,6 +35,7 @@ Options:
   --no-council     Completely disable the advisory council for this session
   --token-budget <n> Set a per-session total token budget (overrides config)
   --resume <id>    Resume a previously interrupted session by session ID
+  --reimport-personality  Re-discover personality files from other AI assistants and update Identity.md
   --help, -h       Display this help message
 `);
   process.exit(0);
@@ -605,17 +606,24 @@ async function main() {
 
   const parturition = new ParturitionService(__dirname);
 
+  const llmGenerator = async (prompt) => {
+    process.stdout.write('\x1b[33mGestating...\x1b[0m\n');
+    try {
+      const data = await callAI([{ role: 'user', content: prompt }]);
+      return data.choices?.[0]?.message?.content || '';
+    } catch (error) {
+      console.error(`\n\x1b[31mError: ${error.message}\x1b[0m`);
+      process.exit(1);
+    }
+  };
+
   if (await parturition.isParturitionRequired()) {
-    await parturition.performParturition(async (prompt) => {
-      process.stdout.write('\x1b[33mGestating...\x1b[0m\n');
-      try {
-        const data = await callAI([{ role: 'user', content: prompt }]);
-        return data.choices?.[0]?.message?.content || '';
-      } catch (error) {
-        console.error(`\n\x1b[31mError: ${error.message}\x1b[0m`);
-        process.exit(1);
-      }
-    });
+    await parturition.performParturition(llmGenerator);
+  }
+
+  if (args.includes('--reimport-personality')) {
+    await parturition.performReimport(llmGenerator);
+    process.exit(0);
   }
 
   // Handle --add-plugin argument (Moved after Setup/Parturition to ensure config is loaded)
