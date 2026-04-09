@@ -20,8 +20,7 @@ Ordered by priority: token efficiency first (immediate ROI on every run), then c
 
 | # | Issue | Why now |
 |---|-------|---------|
-| 9  | [#74 Bootstrap user model from existing AI assistant personality files](https://github.com/Heather-Herbert/Anima/issues/74) | Parturition should learn from Claude/Gemini/etc. memory files so the user doesn't start cold. |
-| 10 | [#71 Skill testing pattern (fixtures/stub mode)](https://github.com/Heather-Herbert/Anima/issues/71) | Establish before building any new skills — retrofitting four skills is painful. |
+| 9 | [#71 Skill testing pattern (fixtures/stub mode)](https://github.com/Heather-Herbert/Anima/issues/71) | Establish before building any new skills — retrofitting four skills is painful. |
 | 10 | [#70 Unified credential management](https://github.com/Heather-Herbert/Anima/issues/70) | Set the pattern before skills multiply. Inconsistent credentials become a security risk. |
 | 11 | [#56 Email skill](https://github.com/Heather-Herbert/Anima/issues/56) | Admin assistant use case is blocked without it. Most fundamental missing primitive. |
 | 12 | [#61 Prefer CLI tool wrappers over MCP](https://github.com/Heather-Herbert/Anima/issues/61) | Architectural principle that should guide all new skill work. Set this before building more skills. |
