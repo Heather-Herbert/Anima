@@ -1,7 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { z } = require('zod');
-const { callAI } = require('./Utils');
+const { callAI, summariseHealth } = require('./Utils');
 const config = require('./Config');
 
 const truncate = (str, max = 300) =>
@@ -106,7 +106,7 @@ ${promptTemplate}`;
 - User Message: "${truncate(context.userMessage)}"
 - Taint Status: ${context.taintStatus ? 'TAINTED (Web search used)' : 'CLEAN'}
 - Available Tools: ${context.availableToolsSummary}
-- Health Report: ${context.healthReport ? JSON.stringify(context.healthReport, null, 2) : 'No recent health report available.'}
+- Health Report: ${context.healthReport ? summariseHealth(context.healthReport) : 'No recent health report available.'}
 
 # PROPOSED RESPONSE (Main Draft)
 "${truncate(context.mainDraft, 500)}"

@@ -1,7 +1,7 @@
 const fs = require('node:fs').promises;
 const existsSync = require('node:fs').existsSync;
 const path = require('node:path');
-const { callAI } = require('./Utils');
+const { callAI, summariseHealth } = require('./Utils');
 
 class ReflectionService {
   constructor(baseDir, auditService) {
@@ -55,7 +55,7 @@ class ReflectionService {
 Your goal is to analyze recent failures, code debt, and strategic mistakes to identify how you can improve.
 
 # INPUT DATA
-- Health Report (Linting/Complexity): ${JSON.stringify(latestHealthReport, null, 2)}
+- Health Report (Linting/Complexity): ${summariseHealth(latestHealthReport)}
 - Recent Logs (Failures/Errors/Strategy Mistakes):
 ${logs.join('\n\n')}
 

@@ -155,4 +155,13 @@ const redact = (text, secrets = []) => {
   return redacted;
 };
 
-module.exports = { callAI, getProviderManifest, redact, encrypt, decrypt };
+const summariseHealth = (report) => {
+  if (!report) return 'No health data.';
+  const topItems = [...(report.complexityIssues || []), ...(report.debtItems || [])]
+    .slice(0, 3)
+    .map((i) => `${i.rule} in ${i.file}:${i.line}`)
+    .join('; ');
+  return `Status: ${report.status} | ${report.summary}${topItems ? ` | Top issues: ${topItems}` : ''}`;
+};
+
+module.exports = { callAI, getProviderManifest, redact, encrypt, decrypt, summariseHealth };

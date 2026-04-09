@@ -186,4 +186,56 @@ describe('Utils', () => {
       expect(redacted).not.toContain('AI-SECRET-999');
     });
   });
+
+  describe('summariseHealth', () => {
+    it('returns "No health data." for null/undefined input', () => {
+      expect(Utils.summariseHealth(null)).toBe('No health data.');
+      expect(Utils.summariseHealth(undefined)).toBe('No health data.');
+    });
+
+    it('produces a compact summary without top issues when none present', () => {
+      const report = {
+        status: 'HEALTHY',
+        summary: 'Found 0 errors and 0 warnings across 5 files.',
+        complexityIssues: [],
+        debtItems: [],
+      };
+      const result = Utils.summariseHealth(report);
+      expect(result).toBe('Status: HEALTHY | Found 0 errors and 0 warnings across 5 files.');
+      expect(result).not.toContain('Top issues');
+    });
+
+    it('includes up to 3 top issues in the summary', () => {
+      const report = {
+        status: 'WARNING',
+        summary: 'Found 0 errors and 4 warnings across 2 files.',
+        complexityIssues: [
+          { rule: 'complexity', file: 'app/Foo.js', line: 10 },
+          { rule: 'max-statements', file: 'app/Bar.js', line: 20 },
+        ],
+        debtItems: [
+          { rule: 'no-unused-vars', file: 'app/Baz.js', line: 5 },
+          { rule: 'no-console', file: 'app/Qux.js', line: 8 },
+        ],
+      };
+      const result = Utils.summariseHealth(report);
+      expect(result).toContain('Status: WARNING');
+      expect(result).toContain('complexity in app/Foo.js:10');
+      expect(result).toContain('max-statements in app/Bar.js:20');
+      expect(result).toContain('no-unused-vars in app/Baz.js:5');
+      expect(result).not.toContain('no-console in app/Qux.js:8');
+    });
+
+    it('does not include raw JSON in the output', () => {
+      const report = {
+        status: 'CRITICAL',
+        summary: 'Found 2 errors and 1 warnings across 3 files.',
+        complexityIssues: [{ rule: 'complexity', file: 'app/A.js', line: 1 }],
+        debtItems: [],
+      };
+      const result = Utils.summariseHealth(report);
+      expect(result).not.toContain('{');
+      expect(result).not.toContain('"severity"');
+    });
+  });
 });

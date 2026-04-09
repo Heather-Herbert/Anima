@@ -4,7 +4,20 @@ const { callAI } = require('./Utils');
 const config = require('./Config');
 const fs = require('node:fs');
 
-jest.mock('./Utils');
+jest.mock('./Utils', () => ({
+  callAI: jest.fn(),
+  summariseHealth: jest.fn((report) =>
+    report
+      ? `Status: ${report.status} | ${report.summary} | Top issues: ${[
+          ...(report.complexityIssues || []),
+          ...(report.debtItems || []),
+        ]
+          .slice(0, 3)
+          .map((i) => `${i.rule} in ${i.file}:${i.line}`)
+          .join('; ')}`
+      : 'No health data.',
+  ),
+}));
 jest.mock('./Config', () => ({
   advisoryCouncil: {
     enabled: true,
@@ -136,6 +149,37 @@ describe('AdvisoryService', () => {
     const results = await service.getAdvice({}, override);
     expect(results).toEqual([]);
     config.advisoryCouncil.enabled = true; // reset
+  });
+
+  it('summarises health report rather than sending raw JSON to adviser prompt', async () => {
+    fs.existsSync.mockReturnValue(true);
+    fs.readFileSync.mockReturnValue('Adviser Prompt');
+
+    callAI.mockResolvedValue({
+      choices: [{ message: { content: JSON.stringify(validAdvice) } }],
+    });
+
+    const healthReport = {
+      status: 'WARNING',
+      summary: 'Found 0 errors and 3 warnings across 2 files.',
+      complexityIssues: [{ rule: 'complexity', file: 'app/Foo.js', line: 42 }],
+      debtItems: [],
+    };
+
+    await service.getAdvice({
+      userMessage: 'hi',
+      mainDraft: 'hello',
+      taintStatus: false,
+      availableToolsSummary: 'none',
+      healthReport,
+    });
+
+    const userPromptContent = callAI.mock.calls[0][0].find((m) => m.role === 'user').content;
+
+    expect(userPromptContent).toContain('Status: WARNING');
+    expect(userPromptContent).toContain('complexity in app/Foo.js:42');
+    expect(userPromptContent).not.toContain('"complexityIssues"');
+    expect(userPromptContent).not.toContain('"severity"');
   });
 
   it('truncates long userMessage and mainDraft in adviser prompt', async () => {
