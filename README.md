@@ -246,3 +246,7 @@ If `Personality/Soul.md` or `Personality/Identity.md` are missing, the system en
 - `Memory/`: Stores session logs and consolidated memory.
 - `Personality/`: Stores system prompts, identity files, and birth configuration.
   - `Advisers/`: Markdown files containing prompts for the Advisory Council.
+
+## Related Projects
+
+- [Corpus](https://github.com/Heather-Herbert/Corpus) — Android-native port of Anima via React Native (Expo). Shares the same memory file format, provider plugin interface, and security model. Memory and Personality files are compatible between desktop and mobile instances, enabling future sync.
